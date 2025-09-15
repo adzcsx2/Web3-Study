@@ -1,0 +1,16 @@
+.todo-list-div {
+   width: 100%;
+   text-align: left;
+   display: flex;
+   margin-right: 10px;
+   margin-left: 10px;
+}
+.todo-list-p {
+   width: 100%;
+}
+button {
+   width: 120px;
+   margin-left: 10px;
+   background-color: #4caf50;
+   color: white;
+}
