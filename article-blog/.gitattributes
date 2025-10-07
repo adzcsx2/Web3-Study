@@ -1,0 +1,28 @@
+# Normalize line endings across the repository
+# Let Git handle text files; enforce LF for common source files
+* text=auto
+
+# Force LF for source files (preferred for cross-platform projects)
+*.js     text eol=lf
+*.jsx    text eol=lf
+*.ts     text eol=lf
+*.tsx    text eol=lf
+*.json   text eol=lf
+*.css    text eol=lf
+*.scss   text eol=lf
+*.less   text eol=lf
+*.html   text eol=lf
+*.md     text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+
+# binaries
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.gz  binary
+# 使用 .gitattributes 文件来明确指定换行符行为：
+* text=auto
