@@ -12,11 +12,8 @@ import type { MenuProps } from "antd";
 import { Layout as AntdLayout, Menu, Dropdown, Space } from "antd";
 import { usePathname, useRouter } from "next/navigation";
 import i18n from "@/i18n";
-import { useUserStore } from "@/stores/userStore";
-import { api } from "@/api/api";
 import { Path } from "@/router/path";
 import { useTranslation } from "@/i18n/hooks";
-import { useHomeTitle } from "@/stores/home-title";
 
 const { Header, Content, Footer, Sider } = AntdLayout;
 
@@ -65,73 +62,6 @@ function HomeLayout({
   const pathname = usePathname(); // 获取当前路径
   const [label, setLabel] = useState("");
 
-  const userStore = useUserStore();
-
-  const menuItem: MenuProps["items"] = [
-    i18n.t("个人中心"),
-    i18n.t("退出登录"),
-  ].map((key) => ({
-    key,
-    label: `${key}`,
-  }));
-
-  useEffect(() => {
-    setLabel("");
-
-    const unsub = useHomeTitle.subscribe((state) => {
-      setLabel(state.title ? state.title : "");
-    });
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    // 获取用户信息,第一次进来没登录,跳转到登录页
-    if (!useUserStore.getState().user?._id) {
-      router.push(Path.LOGIN);
-      return;
-    }
-    // 订阅用户状态变化, 如果用户信息变成空了,说明退出登录了,跳转到登录页
-    const unsub = useUserStore.subscribe((state) => {
-      if (!state.user?._id) {
-        router.push(Path.LOGIN);
-      }
-    });
-
-    return unsub;
-  }, [router]);
-
-  useEffect(() => {
-    // pathname can be null during initial render in Next.js, guard it
-    if (!pathname) return;
-
-    // 初始化路由页面
-    if (pathname === "/home") {
-      const firstChild = ITEM[0]?.children?.[0];
-      if (firstChild) {
-        const key = firstChild.key as string;
-        router.push(key);
-      }
-    }
-    getCurrentLabel(pathname);
-  }, [pathname, router]);
-
-  function getCurrentLabel(key: string) {
-    ITEM.forEach((item) => {
-      if (item.children) {
-        item.children?.forEach((child) => {
-          if (child.key === key) {
-            useHomeTitle.setState({ title: child.label as string });
-            // setLabel(child.label as string);
-          }
-        });
-      } else {
-        if (item.key === key) {
-          useHomeTitle.setState({ title: item.label as string });
-          // setLabel(item.label as string);
-        }
-      }
-    });
-  }
   return (
     <AntdLayout className="w-full min-h-screen flex flex-col ">
       <Header className="!bg-white h-16 flex items-center">
@@ -141,43 +71,6 @@ function HomeLayout({
             {t("三木图书管理系统")}
           </span>
         </div>
-
-        <Dropdown
-          className=" ml-auto"
-          menu={{
-            items: menuItem,
-            onClick: (key) => {
-              switch (key.key) {
-                case i18n.t("退出登录"):
-                  api.logout().then(() => {
-                    userStore.logout();
-                    router.push(Path.LOGIN);
-                  });
-                  return;
-                case i18n.t("个人中心"):
-                  if (userStore.user) {
-                    useHomeTitle.setState({ title: i18n.t("个人中心") });
-                    // setLabel(i18n.t("个人中心"));
-                    router.push(
-                      Path.USER_PERSONAL_CENTER(
-                        userStore.user._id ? userStore.user._id : ""
-                      )
-                    );
-                  }
-                  return;
-                default:
-                  return;
-              }
-            },
-          }}
-        >
-          <a onClick={(e) => e.preventDefault()}>
-            <Space>
-              {userStore.user?.name ? userStore.user.name : t("登录")}
-              <DownOutlined />
-            </Space>
-          </a>
-        </Dropdown>
       </Header>
       <div className=" !flex-1 !w-full mt-0.5  ">
         {/* 侧边栏  */}
