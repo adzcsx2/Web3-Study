@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
 import { ConfigProvider } from "antd";
+import { AntdRegistry } from "@ant-design/nextjs-registry";
 import { getLang, getDefaultLanguage } from "@/i18n/utils";
 import enUS from "antd/locale/en_US";
 import zhCN from "antd/locale/zh_CN";
@@ -47,7 +48,11 @@ const AntdConfigProvider: React.FC<AntdConfigProviderProps> = ({
     return LOCALE_MAP[currentLang as keyof typeof LOCALE_MAP] || zhCN;
   }, [currentLang]);
 
-  return <ConfigProvider locale={locale}>{children}</ConfigProvider>;
+  return (
+    <AntdRegistry>
+      <ConfigProvider locale={locale}>{children}</ConfigProvider>
+    </AntdRegistry>
+  );
 };
 
 export default AntdConfigProvider;

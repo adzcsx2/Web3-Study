@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-// import { Geist, Geist_Mono } from "next/font/google";
-
 import "./globals.css";
 import AntdConfigProvider from "@/components/AntdConfigProvider";
-
+import FOUCPrevention from "@/components/FOUCPrevention";
 import { env } from "@/config/env";
 
 export const metadata: Metadata = {
@@ -15,11 +13,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-
   return (
     <html lang="en" className="h-full">
-      <body className="flex m-0 p-0 min-h-[95vh]">
-        <AntdConfigProvider>{children}</AntdConfigProvider>
+      <body className="m-0 p-0 min-h-screen">
+        <AntdConfigProvider>
+          {children}
+          <FOUCPrevention />
+        </AntdConfigProvider>
       </body>
     </html>
   );

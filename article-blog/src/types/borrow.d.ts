@@ -1,6 +1,6 @@
 import { BORROW_STATUS } from "@/constants";
 
-import { BookType } from "./book";
+import { BookType } from "./article";
 import { LoginReq } from "./user";
 
 export interface BorrowQueryType {

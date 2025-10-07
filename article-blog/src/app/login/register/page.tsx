@@ -1,12 +1,12 @@
 "use client";
+
 import { LoginFormValues } from "@/types/login";
 import React from "react";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
 import { Button, Checkbox, Form, Input, Flex, Typography, Image } from "antd";
 import { Path } from "@/router/path";
-import Link from "next/link";
 
-export default function Login() {
+export default function Register() {
   const onFinish = (values: LoginFormValues) => {
     console.log("Received values of form: ", values);
   };
@@ -21,7 +21,7 @@ export default function Login() {
           alt="Logo"
         />
         <Typography.Title className="!mb-0" level={2}>
-          {"登录"}
+          {"注册"}
         </Typography.Title>
       </div>
 
@@ -59,15 +59,13 @@ export default function Login() {
             <Form.Item name="remember" valuePropName="checked" noStyle>
               <Checkbox>记住我</Checkbox>
             </Form.Item>
-            <a>忘记密码</a>
           </Flex>
         </Form.Item>
 
         <Form.Item>
           <Button block type="primary" htmlType="submit">
-            登录
+            注册
           </Button>
-          或 <Link href={Path.REGISTER}>立即注册!</Link>
         </Form.Item>
       </Form>
     </main>
