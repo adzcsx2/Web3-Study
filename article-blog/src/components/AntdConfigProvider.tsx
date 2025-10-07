@@ -29,6 +29,7 @@ const AntdConfigProvider: React.FC<AntdConfigProviderProps> = ({
   useEffect(() => {
     // 客户端挂载后，读取实际的语言设置
     const actualLang = getLang();
+    console.log("Detected language:", actualLang);
     setCurrentLang(actualLang);
 
     // 监听 i18n 语言变化事件

@@ -5,10 +5,21 @@ import { LockOutlined, UserOutlined } from "@ant-design/icons";
 import { Button, Checkbox, Form, Input, Flex, Typography, Image } from "antd";
 import { Path } from "@/router/path";
 import Link from "next/link";
+import { AuthService } from "@/services/authService";
+import { useRouter } from "next/navigation";
 
 export default function Login() {
+  const router = useRouter();
+
   const onFinish = (values: LoginFormValues) => {
-    console.log("Received values of form: ", values);
+    AuthService.signIn(values.username, values.password)
+      .then((data) => {
+        console.log("登录成功:", data);
+        router.push(Path.HOME);
+      })
+      .catch((error) => {
+        console.error("登录失败:", error);
+      });
   };
 
   return (

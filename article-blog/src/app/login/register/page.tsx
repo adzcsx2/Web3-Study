@@ -5,10 +5,24 @@ import React from "react";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
 import { Button, Checkbox, Form, Input, Flex, Typography, Image } from "antd";
 import { Path } from "@/router/path";
+import { AuthService } from "@/services/authService";
+import { useRouter } from "next/navigation";
 
 export default function Register() {
+  const router = useRouter();
+
   const onFinish = (values: LoginFormValues) => {
     console.log("Received values of form: ", values);
+
+    AuthService.signUp(values.username, values.password)
+      .then((data) => {
+        console.log("注册成功:", data);
+        router.push(Path.LOGIN);
+      })
+      .catch((error) => {
+        console.error("注册失败:", error);
+        alert("注册失败: " + error.message);
+      });
   };
 
   return (
@@ -39,7 +53,11 @@ export default function Register() {
             { min: 5, message: "账号名至少需要5个字符!" },
           ]}
         >
-          <Input prefix={<UserOutlined />} placeholder="Username" />
+          <Input
+            prefix={<UserOutlined />}
+            type="email"
+            placeholder="Username"
+          />
         </Form.Item>
         <Form.Item
           name="password"
