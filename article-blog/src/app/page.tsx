@@ -2,6 +2,8 @@
 import { Layout, Image, Typography } from "antd";
 
 import HomeHeaderLogin from "@/components/HomeHeaderLogin";
+import BlogMain from "@/components/BlogMain";
+import t from "@/i18n/lang/zh/common";
 
 export default function Home() {
   return (
@@ -21,7 +23,7 @@ export default function Home() {
           level={4}
           style={{ margin: 0, height: "64px", lineHeight: "64px" }}
         >
-          文章博客
+          {t["文章博客"]}
         </Typography.Title>
 
         <HomeHeaderLogin className="!ml-auto" />
@@ -37,8 +39,7 @@ export default function Home() {
             minHeight: "400px",
           }}
         >
-          <h1>欢迎来到文章博客</h1>
-          <p>这是一个基于 Next.js 和 Ant Design 的博客系统</p>
+          <BlogMain />
         </div>
       </Layout.Content>
       <Layout.Footer style={{ textAlign: "center", background: "#f0f2f5" }}>

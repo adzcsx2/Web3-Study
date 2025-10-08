@@ -23,7 +23,8 @@
       "mcp__chrome-devtools__evaluate_script",
       "mcp__chrome-devtools__list_pages",
       "mcp__chrome-devtools__new_page",
-      "mcp__chrome-devtools__fill_form"
+      "mcp__chrome-devtools__fill_form",
+      "Bash(del:*)"
     ],
     "deny": [],
     "ask": []

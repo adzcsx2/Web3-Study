@@ -1,7 +1,8 @@
--- 博客系统数据库表结构
--- 在 Supabase SQL Editor 中执行这些脚本
+-- 1. 数据库表结构
+-- 在 Supabase SQL Editor 中按顺序执行这些脚本
+-- 这是第一步：创建所有表结构
 
--- 1. 创建用户资料扩展表（补充 auth.users 表的信息）
+-- 1.1 创建用户资料扩展表（补充 auth.users 表的信息）
 CREATE TABLE IF NOT EXISTS public.user_profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   username TEXT UNIQUE,
@@ -9,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
   avatar_url TEXT,
   bio TEXT,
   website TEXT,
-  role TEXT DEFAULT 'reader' CHECK (role IN ('admin', 'author', 'reader')),
+  role TEXT DEFAULT 'author' CHECK (role IN ('admin', 'author', 'reader')),
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'banned')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -19,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
   following_count INTEGER DEFAULT 0
 );
 
--- 2. 创建分类表
+-- 1.2 创建分类表
 CREATE TABLE IF NOT EXISTS public.categories (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
@@ -29,7 +30,7 @@ CREATE TABLE IF NOT EXISTS public.categories (
   post_count INTEGER DEFAULT 0
 );
 
--- 3. 创建标签表
+-- 1.3 创建标签表
 CREATE TABLE IF NOT EXISTS public.tags (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
@@ -38,7 +39,7 @@ CREATE TABLE IF NOT EXISTS public.tags (
   post_count INTEGER DEFAULT 0
 );
 
--- 4. 创建文章表
+-- 1.4 创建文章表
 CREATE TABLE IF NOT EXISTS public.posts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
@@ -57,7 +58,7 @@ CREATE TABLE IF NOT EXISTS public.posts (
   slug TEXT UNIQUE -- URL友好的标识符
 );
 
--- 5. 创建文章标签关联表
+-- 1.5 创建文章标签关联表
 CREATE TABLE IF NOT EXISTS public.post_tags (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE,
@@ -66,7 +67,7 @@ CREATE TABLE IF NOT EXISTS public.post_tags (
   UNIQUE(post_id, tag_id)
 );
 
--- 6. 创建评论表
+-- 1.6 创建评论表
 CREATE TABLE IF NOT EXISTS public.comments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE,
@@ -82,7 +83,7 @@ CREATE TABLE IF NOT EXISTS public.comments (
   like_count INTEGER DEFAULT 0
 );
 
--- 7. 创建点赞表（文章和评论通用）
+-- 1.7 创建点赞表（文章和评论通用）
 CREATE TABLE IF NOT EXISTS public.likes (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -92,7 +93,7 @@ CREATE TABLE IF NOT EXISTS public.likes (
   UNIQUE(user_id, target_type, target_id)
 );
 
--- 8. 创建关注表
+-- 1.8 创建关注表
 CREATE TABLE IF NOT EXISTS public.follows (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   follower_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -101,7 +102,7 @@ CREATE TABLE IF NOT EXISTS public.follows (
   UNIQUE(follower_id, following_id)
 );
 
--- 创建索引以提高查询性能
+-- 1.9 创建索引以提高查询性能
 CREATE INDEX IF NOT EXISTS idx_posts_author_id ON public.posts(author_id);
 CREATE INDEX IF NOT EXISTS idx_posts_category_id ON public.posts(category_id);
 CREATE INDEX IF NOT EXISTS idx_posts_published ON public.posts(published);
@@ -118,7 +119,10 @@ CREATE INDEX IF NOT EXISTS idx_post_tags_tag_id ON public.post_tags(tag_id);
 CREATE INDEX IF NOT EXISTS idx_likes_user_id ON public.likes(user_id);
 CREATE INDEX IF NOT EXISTS idx_likes_target ON public.likes(target_type, target_id);
 
--- 创建触发器更新 updated_at 字段
+CREATE INDEX IF NOT EXISTS idx_follows_follower_id ON public.follows(follower_id);
+CREATE INDEX IF NOT EXISTS idx_follows_following_id ON public.follows(following_id);
+
+-- 1.10 创建触发器更新 updated_at 字段
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -130,3 +134,6 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_user_profiles_updated_at BEFORE UPDATE ON public.user_profiles FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 CREATE TRIGGER update_posts_updated_at BEFORE UPDATE ON public.posts FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 CREATE TRIGGER update_comments_updated_at BEFORE UPDATE ON public.comments FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+-- 表结构创建完成
+SELECT 'Table schema created successfully' as status;

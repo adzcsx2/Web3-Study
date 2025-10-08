@@ -2,7 +2,7 @@
 import { LoginFormValues } from "@/types/login";
 import React from "react";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
-import { Button, Checkbox, Form, Input, Flex, Typography, Image } from "antd";
+import { Button, Checkbox, Form, Input, Flex, Typography, Image, message } from "antd";
 import { Path } from "@/router/path";
 import Link from "next/link";
 import { AuthService } from "@/services/authService";
@@ -14,6 +14,9 @@ export default function Login() {
   const onFinish = (values: LoginFormValues) => {
     AuthService.signIn(values.username, values.password)
       .then((data) => {
+
+        message.success("登录成功");
+
         console.log("登录成功:", data);
         router.push(Path.HOME);
       })

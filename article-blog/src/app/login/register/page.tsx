@@ -7,6 +7,7 @@ import { Button, Checkbox, Form, Input, Flex, Typography, Image } from "antd";
 import { Path } from "@/router/path";
 import { AuthService } from "@/services/authService";
 import { useRouter } from "next/navigation";
+import t from "@/i18n/lang/zh/common";
 
 export default function Register() {
   const router = useRouter();
@@ -16,12 +17,12 @@ export default function Register() {
 
     AuthService.signUp(values.username, values.password)
       .then((data) => {
-        console.log("注册成功:", data);
+        console.log(t["注册成功"] + ":", data);
         router.push(Path.LOGIN);
       })
       .catch((error) => {
-        console.error("注册失败:", error);
-        alert("注册失败: " + error.message);
+        console.error(t["注册失败"] + ":", error);
+        alert(t["注册失败"] + ": " + error.message);
       });
   };
 
@@ -35,7 +36,7 @@ export default function Register() {
           alt="Logo"
         />
         <Typography.Title className="!mb-0" level={2}>
-          {"注册"}
+          {t["注册"]}
         </Typography.Title>
       </div>
 
@@ -49,8 +50,8 @@ export default function Register() {
         <Form.Item
           name="username"
           rules={[
-            { required: true, message: "请输入账号!" },
-            { min: 5, message: "账号名至少需要5个字符!" },
+            { required: true, message: t["请输入账号!"] },
+            { min: 5, message: t["账号名至少需要5个字符!"] },
           ]}
         >
           <Input
@@ -62,8 +63,8 @@ export default function Register() {
         <Form.Item
           name="password"
           rules={[
-            { required: true, message: "请输入密码!" },
-            { min: 6, message: "密码至少需要6位!" },
+            { required: true, message: t["请输入密码!"] },
+            { min: 6, message: t["密码至少需要6位!"] },
           ]}
         >
           <Input
@@ -75,14 +76,14 @@ export default function Register() {
         <Form.Item>
           <Flex justify="space-between" align="center">
             <Form.Item name="remember" valuePropName="checked" noStyle>
-              <Checkbox>记住我</Checkbox>
+              <Checkbox>{t["记住我"]}</Checkbox>
             </Form.Item>
           </Flex>
         </Form.Item>
 
         <Form.Item>
           <Button block type="primary" htmlType="submit">
-            注册
+            {t["注册"]}
           </Button>
         </Form.Item>
       </Form>

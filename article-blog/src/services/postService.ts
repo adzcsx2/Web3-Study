@@ -1,9 +1,10 @@
 import { supabase } from "@/lib/supabase";
-import { PostType, PostListReq } from "@/types/article";
+import { PostType, PostListReq, PostListData } from "@/types/article";
+import { format } from "date-fns";
 
 export class PostService {
   // 获取文章列表
-  static async getPosts(params: PostListReq) {
+  static async getPosts(params: PostListReq): Promise<PostListData> {
     let query = supabase.from("posts_with_author").select(
       `
         *,
@@ -62,12 +63,10 @@ export class PostService {
 
     return {
       data: processedData,
-      pagination: {
-        current: params.current || 1,
-        pageSize: params.pageSize || 10,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / (params.pageSize || 10)),
-      },
+      current: params.current || 1,
+      pageSize: params.pageSize || 10,
+      total: count || 0,
+      totalPages: Math.ceil((count || 0) / (params.pageSize || 10)),
     };
   }
 
@@ -107,8 +106,16 @@ export class PostService {
   }
 
   // 创建文章
-  static async createPost(postData: Partial<PostType>, authorId: string) {
+  static async createPost(postData: Partial<PostType>) {
     const slug = this.generateSlug(postData.title!);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
 
     const { data, error } = await supabase
       .from("posts")
@@ -116,7 +123,7 @@ export class PostService {
         title: postData.title,
         content: postData.content,
         excerpt: postData.excerpt || this.generateExcerpt(postData.content!),
-        author_id: authorId,
+        author_id: user.id,
         published: postData.published || false,
         cover_image: postData.cover_image,
         category_id: postData.category_id,
@@ -134,29 +141,21 @@ export class PostService {
   }
 
   // 更新文章
-  static async updatePost(
-    id: string,
-    postData: Partial<PostType>,
-    authorId: string
-  ) {
-    // 验证作者权限
-    const { data: existingPost } = await supabase
-      .from("posts")
-      .select("author_id")
-      .eq("id", id)
-      .single();
-
-    if (!existingPost || existingPost.author_id !== authorId) {
-      throw new Error("Unauthorized to update this post");
-    }
-
+  static async updatePost(id: string, postData: Partial<PostType>) {
     const updateData: Record<string, unknown> = { ...postData };
 
     if (postData.title) {
       updateData.slug = this.generateSlug(postData.title);
     }
 
-    if (postData.published && !existingPost) {
+    // 获取原始文章信息，用于判断是否需要设置发布时间
+    const { data: existingPost } = await supabase
+      .from("posts")
+      .select("published")
+      .eq("id", id)
+      .single();
+
+    if (postData.published && existingPost && !existingPost.published) {
       updateData.published_at = new Date().toISOString();
     }
 
@@ -168,6 +167,9 @@ export class PostService {
       .single();
 
     if (error) {
+      if (error.code === "PGRST116") {
+        throw new Error("Post not found or unauthorized");
+      }
       throw new Error(`Failed to update post: ${error.message}`);
     }
 
@@ -175,21 +177,13 @@ export class PostService {
   }
 
   // 删除文章
-  static async deletePost(id: string, authorId: string) {
-    // 验证作者权限
-    const { data: existingPost } = await supabase
-      .from("posts")
-      .select("author_id")
-      .eq("id", id)
-      .single();
-
-    if (!existingPost || existingPost.author_id !== authorId) {
-      throw new Error("Unauthorized to delete this post");
-    }
-
+  static async deletePost(id: string) {
     const { error } = await supabase.from("posts").delete().eq("id", id);
 
     if (error) {
+      if (error.code === "PGRST116") {
+        throw new Error("Post not found or unauthorized");
+      }
       throw new Error(`Failed to delete post: ${error.message}`);
     }
 
@@ -209,13 +203,17 @@ export class PostService {
 
   // 生成 URL 友好的 slug
   private static generateSlug(title: string): string {
-    return title
+    const baseSlug = title
       .toLowerCase()
       .replace(/[^\w\u4e00-\u9fa5\s-]/g, "")
       .replace(/\s+/g, "-")
       .replace(/-+/g, "-")
       .trim()
-      .substring(0, 100);
+      .substring(0, 80); // 保留空间给时间戳
+
+    const timestamp = format(new Date(), 'yyyyMMdd-HHmmss');
+
+    return `${baseSlug}-${timestamp}`;
   }
 
   // 生成文章摘要

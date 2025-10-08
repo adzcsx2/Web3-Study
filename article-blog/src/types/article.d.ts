@@ -18,6 +18,14 @@ export interface PostType {
   like_count?: number; // 点赞次数
   comment_count?: number; // 评论次数
 }
+// 文章列表返回
+export interface PostListData {
+  data: PostType[];
+  total: number;
+  current: number;
+  pageSize: number;
+  totalPages: number;
+}
 
 // 文章列表请求参数
 export interface PostListReq {
@@ -28,8 +36,8 @@ export interface PostListReq {
   category?: string;
   tags?: string;
   published?: boolean;
-  sort?: 'created_at' | 'updated_at' | 'view_count' | 'like_count';
-  order?: 'asc' | 'desc';
+  sort?: "created_at" | "updated_at" | "view_count" | "like_count";
+  order?: "asc" | "desc";
 }
 
 // 文章表单类型

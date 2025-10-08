@@ -1,21 +1,18 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import {
   AuditOutlined,
   BookOutlined,
-  DownOutlined,
   LayoutOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import type { MenuProps } from "antd";
-import { Layout as AntdLayout, Menu, Dropdown, Space } from "antd";
+import { Layout as AntdLayout, Menu } from "antd";
 import { usePathname, useRouter } from "next/navigation";
 import i18n from "@/i18n";
-import { Path } from "@/router/path";
 import { useTranslation } from "@/i18n/hooks";
 
-const { Header, Content, Footer, Sider } = AntdLayout;
+const { Header, Content, Sider } = AntdLayout;
 
 const ITEM = [
   {
@@ -60,7 +57,7 @@ function HomeLayout({
   const { t } = useTranslation();
   const router = useRouter();
   const pathname = usePathname(); // 获取当前路径
-  const [label, setLabel] = useState("");
+  const [label] = useState("");
 
   return (
     <AntdLayout className="w-full min-h-screen flex flex-col ">

@@ -1,31 +1,37 @@
 export default {
-  "title": "我的博客",
-  "标题": "我的博客",
-
-  // Authentication related error messages
-  "invalidCredentials": "邮箱或密码错误",
-  "emailNotConfirmed": "邮箱尚未确认，请先确认邮箱",
-  "invalidEmail": "邮箱格式不正确",
-  "passwordTooShort": "密码长度至少为6位",
-  "userAlreadyRegistered": "用户已注册",
-  "signupNotAllowed": "当前不允许注册新用户",
-  "emailRateLimitExceeded": "发送邮件过于频繁，请稍后再试",
-
-  // Database operation errors
-  "createUserProfileFailed": "创建用户资料失败",
-  "updateUserProfileFailed": "更新用户资料失败",
-  "followUserFailed": "关注用户失败",
-  "unfollowUserFailed": "取消关注失败",
-
-  // Password reset related
-  "resetPasswordLinkInvalid": "重置密码链接无效或已过期",
-  "newPasswordSameAsOld": "新密码不能与旧密码相同",
-
-  // Follow feature related
-  "cannotFollowYourself": "不能关注自己",
-
-  // Common errors
-  "databaseError": "数据库错误",
-  "networkError": "网络错误，请检查网络连接",
-  "requestTimeout": "请求超时，请重试",
+  "请输入博客标题": "请输入博客标题",
+  "请输入博客内容": "请输入博客内容",
+  "搜索": "搜索",
+  "添加": "添加",
+  "编辑": "编辑",
+  "删除": "删除",
+  "添加博客": "添加博客",
+  "更新博客": "更新博客",
+  "标题不能为空": "标题不能为空",
+  "内容不能为空": "内容不能为空",
+  "创建成功": "创建成功",
+  "创建失败": "创建失败",
+  "修改成功": "修改成功",
+  "更新失败": "更新失败",
+  "删除成功": "删除成功",
+  "删除失败": "删除失败",
+  "登录": "登录",
+  "登录成功": "登录成功",
+  "请输入账号": "请输入账号",
+  "账号名至少需要5个字符": "账号名至少需要5个字符",
+  "请输入密码": "请输入密码",
+  "密码至少需要6位": "密码至少需要6位",
+  "记住我": "记住我",
+  "忘记密码": "忘记密码",
+  "立即注册": "立即注册",
+  "注册": "注册",
+  "注册成功": "注册成功",
+  "注册失败": "注册失败",
+  "加载中": "加载中",
+  "文章博客": "文章博客",
+  "退出登录": "退出登录",
+  "请输入账号!": "请输入账号!",
+  "账号名至少需要5个字符!": "账号名至少需要5个字符!",
+  "请输入密码!": "请输入密码!",
+  "密码至少需要6位!": "密码至少需要6位!",
 };

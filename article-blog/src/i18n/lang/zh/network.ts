@@ -1,4 +1,3 @@
-// eslint-disable-next-line import/no-anonymous-default-export
 export default {
   // 请求状态
   duplicateRequest: "重复请求，自动取消",

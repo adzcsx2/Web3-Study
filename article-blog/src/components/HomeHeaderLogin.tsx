@@ -1,9 +1,10 @@
 import { Button, Typography } from "antd";
-import React, { use, useEffect } from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import { Path } from "@/router/path";
 import { AuthService } from "@/services/authService";
 import { useRouter } from "next/navigation";
+import t from "@/i18n/lang/zh/common";
 
 interface HomeHeaderLoginProps {
   className?: string;
@@ -51,16 +52,16 @@ export default function HomeHeaderLogin({ className }: HomeHeaderLoginProps) {
               });
             }}
           >
-            退出登录
+            {t["退出登录"]}
           </Button>
         </div>
       ) : (
         <div>
           <Link href={Path.LOGIN}>
-            <Button type="primary">登录</Button>
+            <Button type="primary">{t["登录"]}</Button>
           </Link>
           <Link className="ml-5" href={Path.REGISTER}>
-            <Button type="default">注册</Button>
+            <Button type="default">{t["注册"]}</Button>
           </Link>
         </div>
       )}
