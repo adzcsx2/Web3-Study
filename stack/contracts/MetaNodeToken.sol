@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19; // 指定具体版本提高安全性
 
-/// @title MetaNodeToken - 企业级ERC20代币合约
-/// @author 您的团队
+/// @title MetaNodeToken - ERC20代币合约
 /// @notice 一个功能完整的可升级ERC20代币，具有访问控制、暂停和燃烧功能
 /// @dev 使用OpenZeppelin的可升级合约与UUPS代理模式
+
+import "./events/Events.sol";
+import "./error/CustomError.sol";
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
@@ -26,20 +28,6 @@ contract MetaNodeToken is
     UUPSUpgradeable,
     ReentrancyGuardUpgradeable
 {
-    // 自定义错误类型以提高gas效率
-    error ExceedsMaxSupply(uint256 requested, uint256 available);
-    error ZeroAddress();
-    error ZeroAmount();
-    error InsufficientBalance(uint256 requested, uint256 available);
-    error BlacklistedAddress(address account);
-    error ArrayLengthMismatch(uint256 recipientsLength, uint256 amountsLength);
-    error CooldownNotMet(uint256 timeRemaining);
-    error RecoveryAmountTooLarge(uint256 requested, uint256 maxAllowed);
-    error EmptyArray();
-    error OwnTokenRecoveryNotAllowed();
-    error RecoveryAmountTooSmall(uint256 requested, uint256 minimum);
-    error InvalidConfirmationHash();
-
     // 版本跟踪用于升级
     uint256 public constant CONTRACT_VERSION = 1;
 
@@ -60,41 +48,13 @@ contract MetaNodeToken is
     //最小恢复数量
     uint256 public constant MIN_RECOVERY_AMOUNT = 1 ether;
 
-    // 企业级功能
+    // 黑名单和限频
     mapping(address => bool) public blacklist;
     mapping(address => uint256) public lastTransactionTime;
     uint256 public transferCooldown = 0; // 可由管理员设置用于限流
 
-    // 增强事件用于更好的追踪
-    event TokenMinted(
-        address indexed to,
-        uint256 amount,
-        address indexed minter
-    );
-    event TokenBurned(
-        address indexed from,
-        uint256 amount,
-        address indexed burner
-    );
-    event ContractUpgraded(
-        address indexed oldImplementation,
-        address indexed newImplementation,
-        uint256 version
-    );
-    event EmergencyPause(address indexed pauser, uint256 timestamp);
-    event EmergencyUnpause(address indexed unpauser, uint256 timestamp);
-    event SupplyCapUpdated(uint256 oldCap, uint256 newCap);
-
-    event BlacklistUpdated(address indexed account, bool isBlacklisted);
-    event TransferCooldownUpdated(uint256 newCooldown);
-    event OwnTokenRecoveryAttempted(
-        address indexed admin,
-        uint256 amount,
-        uint256 timestamp
-    );
-    event OwnTokenRecovered(address indexed admin, uint256 amount);
-    event OwnTokenRecoveryDisabled(address indexed admin, uint256 timestamp);
-    event TokenRecovered(address indexed token, uint256 amount);
+    /// @dev 完全禁用自身代币恢复的紧急功能
+    bool public ownTokenRecoveryDisabled = false;
 
     // 修饰符用于更好的访问控制
     modifier onlyValidAddress(address _address) {
@@ -177,8 +137,6 @@ contract MetaNodeToken is
         burnedSupply += amount;
         emit TokenBurned(account, amount, msg.sender);
     }
-
-    // 企业级增强视图函数
 
     /// @notice 返回还可以铸造的剩余代币数量
     /// @return MAX_SUPPLY与当前totalSupply的差值
@@ -462,9 +420,6 @@ contract MetaNodeToken is
         emit OwnTokenRecovered(msg.sender, tokenAmount);
     }
 
-    /// @dev 完全禁用自身代币恢复的紧急功能
-    bool public ownTokenRecoveryDisabled = false;
-
     function disableOwnTokenRecovery() external onlyRole(DEFAULT_ADMIN_ROLE) {
         ownTokenRecoveryDisabled = true;
         emit OwnTokenRecoveryDisabled(msg.sender, block.timestamp);
@@ -491,5 +446,4 @@ contract MetaNodeToken is
 
         _recoverOwnTokensSafely(tokenAmount);
     }
-
 }
