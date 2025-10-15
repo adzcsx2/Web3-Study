@@ -20,7 +20,7 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract MetaNodeToken is
+contract MetaNodeTokenV2 is
     Initializable,
     ERC20Upgradeable,
     ERC20BurnableUpgradeable,
@@ -30,7 +30,7 @@ contract MetaNodeToken is
     ReentrancyGuardUpgradeable
 {
     // 版本跟踪用于升级
-    uint16 public constant CONTRACT_VERSION = 1;
+    uint16 public constant CONTRACT_VERSION = 2;
 
     // 供应量常量（必须在使用前定义）
     //总量1000w个
@@ -446,5 +446,4 @@ contract MetaNodeToken is
     function getTokenVersion() public pure returns (uint256) {
         return CONTRACT_VERSION;
     }
-
 }

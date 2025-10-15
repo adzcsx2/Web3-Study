@@ -4,107 +4,147 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Web3 smart contract project built with Hardhat 3 Beta, featuring an enterprise-grade ERC20 token (MetaNodeToken) with staking functionality. The project uses Solidity 0.8.19/0.8.28 with OpenZeppelin upgradeable contracts and follows modern smart contract development practices.
+This is a Web3 project implementing an ERC20 token (MetaNodeToken - MNT) with staking capabilities, built using Hardhat and Solidity. The project uses UUPS upgradeable contracts with enterprise-level security features.
 
-## Development Commands
+## Key Commands
 
-### Testing
-```shell
-# Run all tests (Solidity and TypeScript)
-npx hardhat test
-
-# Run only Solidity tests
-npx hardhat test solidity
-
-# Run only TypeScript tests
-npx hardhat test nodejs
-
-# Run a specific test file
-npx hardhat test test/ErrorTest.t.sol
-```
+### Development & Testing
+- `npx hardhat test` - Run all tests
+- `npx hardhat test test/MetaNodeTokenTest.ts` - Run specific test file
+- `npx hardhat node` - Start local Hardhat network
+- `npx hardhat compile` - Compile contracts
+- `REPORT_GAS=true npx hardhat test` - Run tests with gas reporting
 
 ### Deployment
-```shell
-# Deploy to local chain
-npx hardhat ignition deploy ignition/modules/Counter.ts
+- `npx hardhat ignition deploy ./ignition/modules/Lock.ts` - Deploy using Ignition
+- `npx hardhat run script/deploy-meta-node-token.ts` - Run deployment script
 
-# Deploy to Sepolia testnet (requires SEPOLIA_PRIVATE_KEY)
-npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
-
-# Deploy MetaNodeToken using enterprise script
-npx hardhat run scripts/deploy-enterprise.ts
-
-# Deploy to Sepolia using enterprise script
-npx hardhat run scripts/deploy-enterprise.ts --network sepolia
-```
-
-### Local Development
-```shell
-# Start local Hardhat node
-npx hardhat node
-
-# Clean compilation artifacts
-npx hardhat clean
-
-# Compile contracts
-npx hardhat compile
-```
+### Contract Interaction
+- `npx hardhat console` - Open Hardhat console for contract interaction
 
 ## Architecture Overview
 
-### Smart Contracts
+### Core Contracts Structure
 
-**MetaNodeToken.sol** - The main ERC20 token contract featuring:
-- UUPS upgradeable pattern with OpenZeppelin v5.x
-- Role-based access control (Admin, Minter, Pauser, Upgrader)
-- Pausable transfers with emergency controls
-- Built-in burning mechanism with supply tracking
-- Blacklist functionality for compliance
-- Transfer cooldown for rate limiting
-- Enterprise token recovery with safety limits
-- Maximum supply cap (10M tokens, 1M initial supply)
+**MetaNodeToken.sol** - Main ERC20 token contract with advanced features:
+- UUPS upgradeable pattern
+- Role-based access control (DEFAULT_ADMIN_ROLE, MINTER_ROLE, PAUSER_ROLE, UPGRADER_ROLE)
+- Tokenomics: 10M max supply, 1M initial supply to deployer
+- Security features: pausable, blacklist, transfer cooldown, reentrancy protection
+- Gas-efficient custom errors instead of string messages
 
-**StackPledgeContract.sol** - Staking contract (in development):
-- Integrates with MetaNodeToken
-- Built on upgradeable pattern with pausable and access control
+**StackPledgeContract.sol** - Staking contract (currently scaffolded):
+- Designed to integrate with MetaNodeToken
+- UUPS upgradeable with similar security patterns
 
-### Configuration
+**Supporting Files**:
+- `contracts/events/Events.sol` - Centralized event definitions
+- `contracts/error/CustomError.sol` - Custom error definitions
+- `contracts/constants/Constants.sol` - Role and constant definitions
+- `contracts/TestProxy.sol` - Wrapper for ERC1967Proxy used in testing
 
-**hardhat.config.ts**:
-- Dual Solidity compiler support (0.8.19 and 0.8.28)
-- Optimized settings for deployment size vs gas efficiency
-- ViaIR compilation enabled for better optimization
+### Testing Architecture
 
-### Testing Strategy
+Tests use proxy pattern deployment:
+1. Deploy implementation contract
+2. Deploy TestProxy pointing to implementation
+3. Attach token interface to proxy address
+4. Initialize through proxy
+5. Test functionality through proxy
 
-The project uses a dual testing approach:
-1. **Solidity Tests** (Foundry-style using forge-std):
-   - Located in `test/` directory with `.t.sol` extension
-   - ErrorTest.t.sol validates custom error selectors
-   - Counter.t.sol demonstrates fuzz testing patterns
+**Note**: Direct calls to implementation contracts will fail due to `_disableInitializers()` in constructor.
 
-2. **TypeScript Tests** (using Hardhat's node:test runner):
-   - Integration tests with viem library
-   - Network simulation capabilities including OP mainnet
+### Development Environment
 
-### Key Dependencies
+**Solidity Configuration**:
+- Version: 0.8.26 with optimizer enabled (200 runs)
+- IR compilation enabled for better optimization
+- 18 decimals for token precision
 
-- **@openzeppelin/contracts-upgradeable**: Core upgradeable contract implementations
-- **@nomicfoundation/hardhat-toolbox-viem**: Hardhat 3 beta with viem integration
-- **forge-std**: Foundry-compatible testing utilities
-- **viem**: Modern TypeScript Ethereum library
+**Network Configuration**:
+- Localhost: http://localhost:8545
+- Sepolia testnet via Infura
+- Mainnet via Infura
+- Environment variables loaded from .env (INFURA_PROJECT_ID, PRIVATE_KEY)
 
-## Security Considerations
+## Key Development Patterns
 
-- All contracts use OpenZeppelin's security patterns (ReentrancyGuard, Pausable)
-- Custom errors for gas-efficient failure handling
-- Comprehensive access control with role-based permissions
-- Emergency functions for crisis response
-- Token recovery mechanisms with strict limits (max 0.1% of total supply per recovery)
+### UUPS Upgradeable Pattern
+- All contracts use UUPS proxy pattern
+- Implementation contracts have `_disableInitializers()` in constructor
+- Always interact through proxy, never directly with implementation
+- Use `onlyRole(UPGRADER_ROLE)` for upgrade authorization
 
-## Development Notes
+### Access Control System
+- Multi-role permission system using OpenZeppelin's AccessControl
+- Roles: DEFAULT_ADMIN_ROLE, MINTER_ROLE, PAUSER_ROLE, UPGRADER_ROLE
+- Admin can grant/revoke roles to other addresses
 
-- The project is configured for ES modules (`"type": "module"` in package.json)
-- Gas optimization prioritizes deployment size (optimizer runs: 1 for 0.8.19)
-- Uses UUPS proxy pattern for contract upgrades
-- Implements comprehensive event logging for audit trails
+### Security Features
+- **Reentrancy Protection**: All external functions use `nonReentrant`
+- **Pausable**: Emergency pause functionality for critical operations
+- **Blacklist**: Address blocking for compliance
+- **Transfer Cooldown**: Rate limiting for transfers
+- **Token Recovery**: Emergency recovery with safety limits
+
+### Testing Requirements
+- Always deploy through proxy pattern for upgradeable contracts
+- Use `ethers.parseEther()` for token amounts (18 decimals)
+- Test role-based access controls
+- Verify upgradeability mechanisms
+
+## Common Issues & Solutions
+
+### "AccessControlUnauthorizedAccount" Error
+This occurs when:
+- Calling functions directly on implementation contract instead of proxy
+- Caller doesn't have required role
+- Contract hasn't been initialized through proxy
+
+**Solution**: Ensure proper proxy deployment and initialization, verify caller has required role.
+
+### "Artifact for contract not found" Error
+Use full contract path with namespace:
+```typescript
+const Proxy = await ethers.getContractFactory("@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol:ERC1967Proxy");
+```
+
+Or use the local TestProxy wrapper:
+```typescript
+const Proxy = await ethers.getContractFactory("TestProxy");
+```
+
+## Contract Constants
+
+**Token Specifications**:
+- Name: "MetaNodeToken"
+- Symbol: "MNT"
+- Decimals: 18
+- Max Supply: 10,000,000 tokens
+- Initial Supply: 1,000,000 tokens
+
+**Security Constants**:
+- MIN_RECOVERY_AMOUNT: 1 ether
+- Max recovery per transaction: 0.1% of total supply
+
+## File Organization
+
+```
+contracts/
+├── MetaNodeToken.sol          # Main token contract
+├── MetaNodeTokenV2.sol        # V2 implementation
+├── StackPledgeContract.sol    # Staking contract
+├── TestProxy.sol              # Proxy wrapper for testing
+├── events/Events.sol          # Event definitions
+├── error/CustomError.sol      # Custom errors
+└── constants/Constants.sol    # Constants and roles
+
+test/
+└── MetaNodeTokenTest.ts       # Token contract tests
+
+script/
+└── deploy-meta-node-token.ts  # Deployment script (scaffold)
+
+ignition/modules/
+└── Lock.ts                    # Ignition deployment module
+```
