@@ -1,6 +1,12 @@
 {
   "name": "stack",
   "version": "1.0.0",
+  "scripts": {
+    "slither": "slither . --hardhat-ignore-compile",
+    "slither:high": "slither . --hardhat-ignore-compile --include-detectors reentrancy-eth,reentrancy-no-eth,unchecked-transfer,arbitrary-send-eth,suicidal,unprotected-upgrade",
+    "slither:report": "slither . --hardhat-ignore-compile --json slither-report.json",
+    "security": "npm run slither:high"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
     "@nomicfoundation/hardhat-ethers": "^3.1.0",
@@ -9,6 +15,7 @@
     "@nomicfoundation/hardhat-network-helpers": "^1.1.0",
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "@nomicfoundation/hardhat-verify": "^2.1.1",
+    "@nomiclabs/hardhat-solhint": "^4.1.0",
     "@openzeppelin/hardhat-upgrades": "^3.9.1",
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19; // 指定具体版本提高安全性
+pragma solidity ^0.8.26; // 指定具体版本提高安全性
 
 /// @title MetaNodeToken - ERC20代币合约
 /// @notice 一个功能完整的可升级ERC20代币，具有访问控制、暂停和燃烧功能
