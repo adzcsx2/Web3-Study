@@ -8,6 +8,8 @@ pragma solidity ^0.8.26; // 指定具体版本提高安全性
 import "./events/Events.sol";
 import "./errors/CustomErrors.sol";
 import "./constants/Constants.sol";
+import "./modify/CustomModifiers.sol";
+
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
@@ -20,6 +22,8 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+
+
 contract MetaNodeToken is
     Initializable,
     ERC20Upgradeable,
@@ -27,7 +31,8 @@ contract MetaNodeToken is
     ERC20PausableUpgradeable,
     AccessControlUpgradeable,
     UUPSUpgradeable,
-    ReentrancyGuardUpgradeable
+    ReentrancyGuardUpgradeable,
+    CustomModifiers
 {
     // 版本跟踪用于升级
     uint16 public constant CONTRACT_VERSION = 1;
@@ -52,16 +57,7 @@ contract MetaNodeToken is
     /// @dev 完全禁用自身代币恢复的紧急功能
     bool public ownTokenRecoveryDisabled = false;
 
-    // 修饰符用于更好的访问控制
-    modifier onlyValidAddress(address _address) {
-        if (_address == address(0)) revert ZeroAddress();
-        _;
-    }
 
-    modifier onlyPositiveAmount(uint256 _amount) {
-        if (_amount == 0) revert ZeroAmount();
-        _;
-    }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
