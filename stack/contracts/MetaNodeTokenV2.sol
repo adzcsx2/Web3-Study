@@ -6,7 +6,7 @@ pragma solidity ^0.8.26; // 指定具体版本提高安全性
 /// @dev 使用OpenZeppelin的可升级合约与UUPS代理模式
 
 import "./events/Events.sol";
-import "./error/CustomError.sol";
+import "./errors/CustomErrors.sol";
 import "./constants/Constants.sol";
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";

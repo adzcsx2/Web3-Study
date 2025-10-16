@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8;
+pragma solidity ^0.8.26;
 import "./MetaNodeToken.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+
+import "./errors/CustomErrors.sol";
+import "./events/Events.sol";
 
 // STAKE 质押合约
 contract StackPledgeContract is
@@ -18,7 +21,7 @@ contract StackPledgeContract is
     MetaNodeToken public metaNodeToken;
 
     // 版本跟踪用于升级
-    uint256 public constant CONTRACT_VERSION = 1;
+    uint16 public constant CONTRACT_VERSION = 1;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -88,5 +91,24 @@ contract StackPledgeContract is
         _pause();
         emit EmergencyPause(msg.sender, block.timestamp);
     }
-    
+
+    //质押业务测试
+
+    // 质押业务
+    function stakeTest1(uint256 amount) external whenNotPaused nonReentrant {
+        require(amount > 0, "amount must be greater than zero");
+    }
+    // 质押业务
+    function stakeTest2(uint256 amount) external whenNotPaused nonReentrant {
+        if (amount <= 0) {
+            revert ZeroAmount();
+        }
+    }
+    // 质押业务
+    function stake(uint256 amount) external whenNotPaused nonReentrant {
+        require(amount > 0, "amount must be greater than zero");
+        if (amount <= 0) {
+            revert ZeroAmount();
+        }
+    }
 }
