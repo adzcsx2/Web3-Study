@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 import "../errors/CustomErrors.sol";
+import "../events/Events.sol";
 
 abstract contract CustomModifiers {
     // 0地址判断
@@ -19,6 +20,14 @@ abstract contract CustomModifiers {
             revert NotInStakingPeriod();
         _;
     }
+    modifier onlyNotInBlacklist(
+        address account,
+        mapping(address => bool) storage blacklist
+    ) {
+        if (blacklist[account]) revert BlacklistedAddress(account);
+        _;
+    }
+
     // 限制合约调用频次
     modifier onlyAfterCooldown(
         address account,

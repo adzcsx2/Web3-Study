@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // 增强事件用于更好的追踪
 event TokenMinted(address indexed to, uint256 amount, address indexed minter);
@@ -14,7 +15,7 @@ event EmergencyUnpause(address indexed unpauser, uint256 timestamp);
 event SupplyCapUpdated(uint256 oldCap, uint256 newCap);
 
 event BlacklistUpdated(address indexed account, bool isBlacklisted);
-event TransferCooldownUpdated(uint256 newCooldown);
+event TransferCooldownUpdated(uint256 oldCooldown, uint256 newCooldown);
 event OwnTokenRecoveryAttempted(
     address indexed admin,
     uint256 amount,
@@ -31,3 +32,11 @@ event RewardsClaimed(address user, uint256 amount);
 event RewardRateUpdated(uint256 newRate);
 event TotalRewardsUpdated(uint256 newTotalRewards, uint256 remainRewards);
 event RequestUnstake(address user, uint256 amount, uint256 unlockBlock);
+event RewardTokenUpdated(
+    IERC20 indexed oldRewardToken,
+    IERC20 indexed newRewardToken
+);
+event StakeTokenUpdated(
+    IERC20 indexed oldStakeToken,
+    IERC20 indexed newStakeToken
+);

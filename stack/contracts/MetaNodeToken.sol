@@ -10,7 +10,6 @@ import "./errors/CustomErrors.sol";
 import "./constants/Constants.sol";
 import "./modify/CustomModifiers.sol";
 
-
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
@@ -21,8 +20,6 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-
-
 
 contract MetaNodeToken is
     Initializable,
@@ -56,8 +53,6 @@ contract MetaNodeToken is
 
     /// @dev 完全禁用自身代币恢复的紧急功能
     bool public ownTokenRecoveryDisabled = false;
-
-
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -316,8 +311,8 @@ contract MetaNodeToken is
     function setTransferCooldown(
         uint256 cooldownSeconds
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        emit TransferCooldownUpdated(transferCooldown, cooldownSeconds);
         transferCooldown = cooldownSeconds;
-        emit TransferCooldownUpdated(cooldownSeconds);
     }
 
     // 重写_update以解决继承冲突并添加合规检查
@@ -442,5 +437,4 @@ contract MetaNodeToken is
     function getTokenVersion() public pure returns (uint256) {
         return CONTRACT_VERSION;
     }
-
 }

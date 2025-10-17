@@ -320,8 +320,8 @@ contract MetaNodeTokenV2 is
     function setTransferCooldown(
         uint256 cooldownSeconds
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        emit TransferCooldownUpdated(transferCooldown, cooldownSeconds);
         transferCooldown = cooldownSeconds;
-        emit TransferCooldownUpdated(cooldownSeconds);
     }
 
     // 重写_update以解决继承冲突并添加合规检查

@@ -7,7 +7,6 @@ import "./errors/CustomErrors.sol";
 import "./events/Events.sol";
 import "./constants/Constants.sol";
 import "./modify/CustomModifiers.sol";
-import "./struct/UnstakeRequest.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
@@ -24,13 +23,34 @@ contract StakePledgeContract is
     ReentrancyGuardUpgradeable,
     CustomModifiers
 {
+    // 定义角色常量
+    struct UserInfo {
+        uint256 userRewardPerTokenPaid; // 用户已领取的每个质押代币的奖励
+        uint256 rewards; // 用户的累计奖励
+        uint256 balances; // 用户的质押余额
+        uint256 stakeTimestamps; // 用户的质押时间戳
+        uint256 lastStakeTimes; // 用户的最后质押时间
+        uint256 lastClaimTimes; // 用户的最后领取奖励时间
+        uint256 lastUnstakeTimes; // 用户的最后取消质押时间
+        uint256 totalRewardsByUser; // 用户的总奖励量
+        uint256 totalClaimedByUser; // 用户的总领取量
+        UnstakeRequest[] unstakeRequests; // 用户的解质押请求列表
+    }
+
+    //解质押请求结构体
+    struct UnstakeRequest {
+        uint256 amount;
+        uint256 unlockBlock;
+    }
+
     MetaNodeToken public metaNodeToken;
 
     // 版本跟踪用于升级
     uint16 public constant CONTRACT_VERSION = 1;
 
     //质押代币和奖励代币
-    IERC20 public stakeToken; // 质押的代币ID
+    IERC20 public stakeToken =
+        IERC20(0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238); // USDC
     IERC20 public rewardToken =
         IERC20(0xAB0CE015038945e4f115e0dA011D0DEdcA491DfA); // 奖励的代币ID
     uint256 public TOTAL_REWARDS = 1_000_000 * 10 ** 18; // 总奖励量
@@ -45,16 +65,9 @@ contract StakePledgeContract is
     uint256 public rewardPerTokenStored; // 每个质押代币的累计奖励
     uint256 public stake_cooldown = 1 minutes; // 质押和取消质押之间的冷却时间
 
-    mapping(address => uint256) public userRewardPerTokenPaid; // 用户已领取的每个质押代币的奖励
-    mapping(address => uint256) public rewards; // 用户的累计奖励
-    mapping(address => uint256) public balances; // 用户的质押余额
-    mapping(address => uint256) public stakeTimestamps; // 用户的质押时间戳
-    mapping(address => uint256) public lastStakeTimes; // 用户的最后质押时间
-    mapping(address => uint256) public lastClaimTimes; // 用户的最后领取奖励时间
-    mapping(address => uint256) public lastUnstakeTimes; // 用户的最后取消质押时间
-    mapping(address => uint256) public totalRewardsByUser; // 用户的总奖励量
-    mapping(address => uint256) public totalClaimedByUser; // 用户的总领取量
-    mapping(address => UnstakeRequest[]) public unstakeRequests; // 用户的解质押请求列表
+    mapping(address => bool) public blacklist; // 黑名单地址
+
+    mapping(address => UserInfo) public userInfo; // 用户信息
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -129,8 +142,14 @@ contract StakePledgeContract is
         _pause();
         emit EmergencyPause(msg.sender, block.timestamp);
     }
-
-    //开始质押周期
+    // 紧急提取功能
+    function emergencyWithdraw(
+        IERC20 token,
+        uint256 amount
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        token.transfer(msg.sender, amount);
+    }
+    // 质押合约开始运行
     function startStakingPeriod() public onlyRole(DEFAULT_ADMIN_ROLE) {
         if (startTime != 0) {
             revert StakingPeriodAlreadyStarted();
@@ -162,6 +181,21 @@ contract StakePledgeContract is
         emit TotalRewardsUpdated(TOTAL_REWARDS, remainRewards);
     }
 
+    //设置奖励代币
+    function setRewardToken(
+        IERC20 newRewardToken
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant whenNotPaused {
+        emit RewardTokenUpdated(rewardToken, newRewardToken);
+        rewardToken = newRewardToken;
+    }
+
+    //设置质押代币
+    function setStakeToken(
+        IERC20 newStakeToken
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant whenNotPaused {
+        emit StakeTokenUpdated(stakeToken, newStakeToken);
+        stakeToken = newStakeToken;
+    }
     //质押奖励
     function updateReward(address account) internal nonReentrant whenNotPaused {
         // 计算到目前为止的每个质押代币的奖励
@@ -171,9 +205,9 @@ contract StakePledgeContract is
 
         if (account != address(0)) {
             // 更新用户的累计奖励
-            rewards[account] += earned(account);
+            userInfo[account].rewards += earned(account);
             // 更新用户已领取的每个质押代币的奖励
-            userRewardPerTokenPaid[account] = rewardPerTokenStored;
+            userInfo[account].userRewardPerTokenPaid = rewardPerTokenStored;
         }
     }
 
@@ -193,11 +227,11 @@ contract StakePledgeContract is
         return rewardPerTokenStored + reward / totalStaked;
     }
 
-    // 计算用户从“上次结算”到“现在”应得的新增奖励
+    // 计算用户从"上次结算"到"现在"应得的新增奖励
     // 公式：新增奖励 = (当前每个代币奖励 - 上次每个代币奖励) × 用户质押数量
     function earned(address account) public view returns (uint256) {
-        return (balances[account] *
-            (rewardPerToken() - userRewardPerTokenPaid[account]));
+        return (userInfo[account].balances *
+            (rewardPerToken() - userInfo[account].userRewardPerTokenPaid));
     }
 
     // 质押业务
@@ -209,6 +243,7 @@ contract StakePledgeContract is
         nonReentrant
         onlyPositiveAmount(amount)
         onlyDuringStakingPeriod(startTime, endTime)
+        onlyNotInBlacklist(msg.sender, blacklist)
     {
         //先更新用户的奖励，确保“质押前”的奖励被正确结算
         updateReward(msg.sender);
@@ -218,13 +253,13 @@ contract StakePledgeContract is
         }
 
         // 增加用户的质押余额
-        balances[msg.sender] += amount;
+        userInfo[msg.sender].balances += amount;
         // 增加总质押量
         totalStaked += amount;
         // 记录质押时间戳
-        stakeTimestamps[msg.sender] = block.timestamp;
+        userInfo[msg.sender].stakeTimestamps = block.timestamp;
         // 记录最后质押时间
-        lastStakeTimes[msg.sender] = block.timestamp;
+        userInfo[msg.sender].lastStakeTimes = block.timestamp;
         //从用户钱包转账质押代币到合约
         stakeToken.transferFrom(msg.sender, address(this), amount);
 
@@ -234,15 +269,23 @@ contract StakePledgeContract is
     //申请解质押
     function requestUnstake(
         uint256 amount
-    ) external whenNotPaused nonReentrant onlyPositiveAmount(amount) {
-        if (balances[msg.sender] < amount) {
-            revert InsufficientBalance(amount, balances[msg.sender]);
+    )
+        external
+        whenNotPaused
+        nonReentrant
+        onlyPositiveAmount(amount)
+        onlyNotInBlacklist(msg.sender, blacklist)
+    {
+        if (userInfo[msg.sender].balances < amount) {
+            revert InsufficientBalance(amount, userInfo[msg.sender].balances);
         }
         //更新奖励
         updateReward(msg.sender);
         //创建解质押请求，设置解锁区块为当前区块加上冷却时间对应的区块数
         uint256 unlockBlock = block.number + (stake_cooldown / 12); // ethereum平均每块约12秒
-        unstakeRequests[msg.sender].push(UnstakeRequest(amount, unlockBlock));
+        userInfo[msg.sender].unstakeRequests.push(
+            UnstakeRequest(amount, unlockBlock)
+        );
 
         emit RequestUnstake(msg.sender, amount, unlockBlock);
     }
@@ -255,57 +298,69 @@ contract StakePledgeContract is
         whenNotPaused
         nonReentrant
         onlyPositiveAmount(amount)
-        onlyAfterCooldown(msg.sender, lastStakeTimes, stake_cooldown)
+        onlyNotInBlacklist(msg.sender, blacklist)
     {
+        // 检查冷却时间
+        if (
+            block.timestamp <
+            userInfo[msg.sender].lastStakeTimes + stake_cooldown
+        ) {
+            uint256 timeRemaining = (userInfo[msg.sender].lastStakeTimes +
+                stake_cooldown) - block.timestamp;
+            revert CooldownNotMet(timeRemaining);
+        }
+
         // 判断用户是否有足够的质押余额
-        if (balances[msg.sender] < amount) {
-            revert InsufficientBalance(amount, balances[msg.sender]);
+        if (userInfo[msg.sender].balances < amount) {
+            revert InsufficientBalance(amount, userInfo[msg.sender].balances);
         }
         // 检查是否有解质押请求
-        if (unstakeRequests[msg.sender].length == 0) {
-            revert RequestUnstakeFailed(unstakeRequests[msg.sender]);
+        if (userInfo[msg.sender].unstakeRequests.length == 0) {
+            revert RequestUnstakeFailed(
+                userInfo[msg.sender].unstakeRequests.length
+            );
         }
 
         // 查看解质押请求列表，找到可以解锁的请求
         uint256 totalUnlockable = 0;
         // 遍历解质押请求，计算可解锁的总金额
-        for (uint256 i = 0; i < unstakeRequests[msg.sender].length; i++) {
-            if (block.number >= unstakeRequests[msg.sender][i].unlockBlock) {
-                totalUnlockable += unstakeRequests[msg.sender][i].amount;
+        for (
+            uint256 i = 0;
+            i < userInfo[msg.sender].unstakeRequests.length;
+            i++
+        ) {
+            if (
+                block.number >=
+                userInfo[msg.sender].unstakeRequests[i].unlockBlock
+            ) {
+                totalUnlockable += userInfo[msg.sender]
+                    .unstakeRequests[i]
+                    .amount;
             }
         }
         // 检查用户请求取消质押的金额是否小于或等于可解锁的总金额
         if (amount > totalUnlockable) {
             revert InsufficientBalance(amount, totalUnlockable);
         }
-        // 从解质押请求列表中移除已处理的请求
-        uint256 remaining = amount;
-        while (remaining > 0 && unstakeRequests[msg.sender].length > 0) {
-            if (block.number >= unstakeRequests[msg.sender][0].unlockBlock) {
-                //已解锁
-                if (unstakeRequests[msg.sender][0].amount <= remaining) {
-                    // 如果解锁请求的金额小于等于剩余需要取消质押的金额
-                    remaining -= unstakeRequests[msg.sender][0].amount;
-                    // 移除请求
-                    unstakeRequestRemoveAt(unstakeRequests[msg.sender], 0);
-                } else {
-                    //如果解锁请求的金额大于剩余需要取消质押的金额
-                    unstakeRequests[msg.sender][0].amount -= remaining;
-                    remaining = 0;
-                }
-            } else {
-                break; // 后续请求还未解锁，直接跳出循环
-            }
+        // 使用优化后的方法处理解质押请求
+        uint256 processedAmount = unstakeRequestProcess(
+            userInfo[msg.sender].unstakeRequests,
+            amount
+        );
+
+        // 确保处理的金额等于请求的金额
+        if (processedAmount != amount) {
+            revert FailedToProcessFullAmount();
         }
 
-        //先更新用户的奖励，确保“取消质押前”的奖励被正确结算
+        //先更新用户的奖励，确保"取消质押前"的奖励被正确结算
         updateReward(msg.sender);
         // 减少用户的质押余额
-        balances[msg.sender] -= amount;
+        userInfo[msg.sender].balances -= amount;
         // 减少总质押量
         totalStaked -= amount;
         // 记录最后取消质押时间
-        lastUnstakeTimes[msg.sender] = block.timestamp;
+        userInfo[msg.sender].lastUnstakeTimes = block.timestamp;
         //将质押代币从合约转回用户钱包
         stakeToken.transfer(msg.sender, amount);
 
@@ -318,21 +373,28 @@ contract StakePledgeContract is
         whenNotPaused
         nonReentrant
         onlyDuringStakingPeriod(startTime, endTime)
+        onlyNotInBlacklist(msg.sender, blacklist)
     {
-        //先更新用户的奖励，确保“领取奖励前”的奖励被正确结算
+        uint256 reward = userInfo[msg.sender].rewards;
+
+        if (rewardToken.balanceOf(address(this)) < reward) {
+            revert InsufficientRewardPool();
+        }
+
+        //先更新用户的奖励，确保"领取奖励前"的奖励被正确结算
         updateReward(msg.sender);
-        uint256 reward = rewards[msg.sender];
+
         if (reward > 0) {
             // 清空用户的累计奖励
-            rewards[msg.sender] = 0;
+            userInfo[msg.sender].rewards = 0;
             // 增加已发放的总奖励
             totalRewardsIssued += reward;
             // 增加用户的总奖励量
-            totalRewardsByUser[msg.sender] += reward;
+            userInfo[msg.sender].totalRewardsByUser += reward;
             // 增加用户的总领取量
-            totalClaimedByUser[msg.sender] += reward;
+            userInfo[msg.sender].totalClaimedByUser += reward;
             // 记录最后领取奖励时间
-            lastClaimTimes[msg.sender] = block.timestamp;
+            userInfo[msg.sender].lastClaimTimes = block.timestamp;
             //将奖励代币从合约转到用户钱包
             rewardToken.transfer(msg.sender, reward);
 
@@ -344,9 +406,86 @@ contract StakePledgeContract is
     function setStakeCooldown(
         uint256 newCooldown
     ) external onlyRole(DEFAULT_ADMIN_ROLE) whenNotPaused {
+        emit TransferCooldownUpdated(stake_cooldown, newCooldown);
         stake_cooldown = newCooldown;
     }
 
+    // 合规和黑名单函数
+    function addToBlacklist(
+        address account
+    )
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyValidAddress(account)
+        onlyNotInBlacklist(account, blacklist)
+    {
+        blacklist[account] = true;
+        emit BlacklistUpdated(account, true);
+    }
+
+    function removeFromBlacklist(
+        address account
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) onlyValidAddress(account) {
+        if (!blacklist[account]) {
+            revert AddressNotBlacklisted(account);
+        }
+        blacklist[account] = false;
+        emit BlacklistUpdated(account, false);
+    }
+
+    //获取用户详细信息的视图函数
+    function getUserInfo(
+        address account
+    )
+        external
+        view
+        returns (
+            uint256 stakedBalance,
+            uint256 pendingRewards,
+            uint256 totalRewardsEarned,
+            uint256 totalRewardsClaimed,
+            UnstakeRequest[] memory pendingUnstakeRequests
+        )
+    {
+        UserInfo storage info = userInfo[account];
+        stakedBalance = info.balances;
+        pendingRewards = info.rewards + earned(account);
+        totalRewardsEarned = info.totalRewardsByUser;
+        totalRewardsClaimed = info.totalClaimedByUser;
+        pendingUnstakeRequests = info.unstakeRequests;
+    }
+
+    //获取合约状态统计的函数
+    function getContractStats()
+        external
+        view
+        returns (
+            uint256 totalStakedTokens,
+            uint256 totalRewardsDistributed,
+            uint256 currentRewardRate,
+            uint256 stakingStartTime,
+            uint256 stakingEndTime
+        )
+    {
+        totalStakedTokens = totalStaked;
+        totalRewardsDistributed = totalRewardsIssued;
+        currentRewardRate = rewardRate;
+        stakingStartTime = startTime;
+        stakingEndTime = endTime;
+    }
+
+    // 批量查询用户列表的功能
+    function batchGetUserInfos(
+        address[] calldata accounts
+    ) external view returns (UserInfo[] memory userInfos) {
+        uint256 length = accounts.length;
+        userInfos = new UserInfo[](length);
+        for (uint256 i = 0; i < length; i++) {
+            userInfos[i] = userInfo[accounts[i]];
+        }
+    }
+
+    ///////////////////////////////////////////////常规方法/////////////////////////////////////////////
     //设置最小质押额度,默认0.01 ether
     function setMinDepositAmount(
         uint256 newMinDeposit
@@ -364,16 +503,63 @@ contract StakePledgeContract is
     }
 
     /**
-     *  移除指定索引的元素（保持顺序）
+     * @dev 高效移除指定索引的元素（swap-and-pop，不保持顺序）
+     * @param arr 要操作的数组
+     * @param index 要移除的元素索引
+     * @notice 这个函数会改变数组顺序，但效率最高 O(1)
      */
-    function unstakeRequestRemoveAt(
+    function unstakeRequestRemove(
         UnstakeRequest[] storage arr,
         uint256 index
     ) internal {
-        require(index < arr.length, "Index out of bounds");
-        for (uint256 i = index; i < arr.length - 1; i++) {
-            arr[i] = arr[i + 1];
+        // 使用自定义错误替代 require，节省 gas
+        if (index >= arr.length) {
+            revert IndexOutOfBounds();
         }
+
+        // 避免不必要的赋值操作
+        uint256 lastIndex = arr.length - 1;
+        if (index != lastIndex) {
+            // 只有当要删除的不是最后一个元素时才进行 swap
+            arr[index] = arr[lastIndex];
+        }
+
+        // 删除最后一个元素
         arr.pop();
+    }
+
+    /**
+     * @dev 处理解质押请求，返回实际处理的金额
+     * @param arr 解质押请求数组
+     * @param requestedAmount 请求处理的金额
+     * @return processedAmount 实际处理的金额
+     */
+    function unstakeRequestProcess(
+        UnstakeRequest[] storage arr,
+        uint256 requestedAmount
+    ) internal returns (uint256 processedAmount) {
+        uint256 remaining = requestedAmount;
+        uint256 i = 0;
+
+        while (remaining > 0 && i < arr.length) {
+            if (block.number >= arr[i].unlockBlock) {
+                // 已解锁
+                if (arr[i].amount <= remaining) {
+                    // 完全处理这个请求
+                    remaining -= arr[i].amount;
+                    unstakeRequestRemove(arr, i);
+                    // 不增加 i，因为当前位置现在是之前的最后一个元素
+                } else {
+                    // 部分处理这个请求
+                    arr[i].amount -= remaining;
+                    remaining = 0;
+                }
+            } else {
+                // 未解锁，检查下一个
+                i++;
+            }
+        }
+
+        processedAmount = requestedAmount - remaining;
     }
 }
