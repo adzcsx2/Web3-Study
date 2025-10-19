@@ -14,7 +14,11 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
-// STAKE 质押合约
+/**
+ * @title 质押合约 单币种质押
+ */
+
+// STAKE 质押合约 基于动态APR模型
 contract StakePledgeContract is
     Initializable,
     PausableUpgradeable,

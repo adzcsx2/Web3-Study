@@ -1,0 +1,48 @@
+{
+  "network": "sepolia",
+  "deployedAt": "2025-10-19T20:11:02.082Z",
+  "contracts": {
+    "MetaNodeToken": {
+      "address": "0xeD58F6aB2A8e97903C4155bB00776486510F9f3c",
+      "contractName": "MetaNodeToken"
+    },
+    "MultiStakePledgeContract": {
+      "address": "0xA1e941c8f85A7d73c7EC81f8C562af9cb5E9b2EE",
+      "contractName": "MultiStakePledgeContract"
+    }
+  },
+  "tokens": {
+    "USDC": {
+      "address": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+      "name": "Sepolia USDC",
+      "symbol": "USDC",
+      "decimals": 6
+    },
+    "WETH": {
+      "address": "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
+      "name": "Sepolia Wrapped Ether",
+      "symbol": "WETH",
+      "decimals": 18
+    }
+  },
+  "pools": [
+    {
+      "id": 0,
+      "name": "Sepolia USDC Pool",
+      "stakeToken": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+      "rewardToken": "0xeD58F6aB2A8e97903C4155bB00776486510F9f3c",
+      "totalRewards": "5000000.0",
+      "duration": 604800,
+      "minDepositAmount": "1000000"
+    },
+    {
+      "id": 1,
+      "name": "Sepolia WETH Pool",
+      "stakeToken": "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14",
+      "rewardToken": "0xeD58F6aB2A8e97903C4155bB00776486510F9f3c",
+      "totalRewards": "15000000.0",
+      "duration": 604800,
+      "minDepositAmount": "1000000000000000"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26; // 指定具体版本提高安全性
 
-/// @title MetaNodeToken - ERC20代币合约
+/// @title MetaNodeToken - ERC20代币合约V2 测试升级
 /// @notice 一个功能完整的可升级ERC20代币，具有访问控制、暂停和燃烧功能
 /// @dev 使用OpenZeppelin的可升级合约与UUPS代理模式
 
@@ -32,11 +32,11 @@ contract MetaNodeTokenV2 is
     // 版本跟踪用于升级
     uint16 public constant CONTRACT_VERSION = 2;
 
-    // 供应量常量（必须在使用前定义）
-    //总量1000w个
-    uint256 public constant MAX_SUPPLY = 10_000_000 * 10 ** 18;
-    //项目方初始化100w个(可升级为3年线性释放)
-    uint256 public constant INITIAL_SUPPLY = 1_000_000 * 10 ** 18;
+    // 供应量常量
+    //总量10亿个
+    uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10 ** 18;
+    //项目方初始化1000w个(可升级为3年线性释放)
+    uint256 public constant INITIAL_SUPPLY = 100_000_000 * 10 ** 18;
 
     // 状态变量
     //已经烧毁的数量
@@ -316,7 +316,7 @@ contract MetaNodeTokenV2 is
         blacklist[account] = false;
         emit BlacklistUpdated(account, false);
     }
-
+    // 设置转账冷却时间
     function setTransferCooldown(
         uint256 cooldownSeconds
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {

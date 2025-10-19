@@ -34,11 +34,11 @@ contract MetaNodeToken is
     // 版本跟踪用于升级
     uint16 public constant CONTRACT_VERSION = 1;
 
-    // 供应量常量（必须在使用前定义）
-    //总量1000w个
-    uint256 public constant MAX_SUPPLY = 10_000_000 * 10 ** 18;
-    //项目方初始化100w个(可升级为3年线性释放)
-    uint256 public constant INITIAL_SUPPLY = 1_000_000 * 10 ** 18;
+    // 供应量常量
+    //总量10亿个
+    uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10 ** 18;
+    //项目方初始化1000w个(可升级为3年线性释放)
+    uint256 public constant INITIAL_SUPPLY = 100_000_000 * 10 ** 18;
 
     // 状态变量
     //已经烧毁的数量
