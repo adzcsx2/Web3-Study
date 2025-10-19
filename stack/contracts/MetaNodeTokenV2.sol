@@ -158,6 +158,9 @@ contract MetaNodeTokenV2 is
     function getTotalMintedSupply() public view returns (uint256) {
         return totalSupply() + burnedSupply;
     }
+    function getTotalMintedSupply2() public view returns (uint256) {
+        return totalSupply() + burnedSupply;
+    }
 
     function getContractInfo()
         public
