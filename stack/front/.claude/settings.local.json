@@ -24,7 +24,10 @@
       "mcp__chrome-devtools__list_pages",
       "mcp__chrome-devtools__new_page",
       "mcp__chrome-devtools__fill_form",
-      "Bash(del:*)"
+      "Bash(del:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []
