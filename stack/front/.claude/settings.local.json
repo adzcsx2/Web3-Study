@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(taskkill:*)",
+      "Bash(tskill:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(echo:*)",
+      "Bash(powershell \"Get-ChildItem -Path $env:APPDATA -Recurse -Filter ''settings.json'' -ErrorAction SilentlyContinue | Select-Object -First 5\")",
+      "Bash(vscode:*)",
+      "Bash(code:*)",
+      "Bash(npm run compile:*)",
+      "Bash(npm run install:*)",
+      "Bash(npm run package:*)",
+      "Bash(powershell:*)",
+      "Bash(node:*)",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__click",
+      "mcp__chrome-devtools__wait_for",
+      "mcp__chrome-devtools__navigate_page_history",
+      "mcp__chrome-devtools__fill",
+      "mcp__chrome-devtools__evaluate_script",
+      "mcp__chrome-devtools__list_pages",
+      "mcp__chrome-devtools__new_page",
+      "mcp__chrome-devtools__fill_form",
+      "Bash(del:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
