@@ -2,9 +2,10 @@
 pragma solidity ^0.8.26;
 
 import "./MetaNodeToken.sol";
-import "./multipool/MultipoolTypes.sol";
-import "./multipool/MultipoolEvents.sol";
-import "./multipool/MultipoolErrors.sol";
+
+import "./structs/MultipoolTypes.sol";
+import "./events/MultipoolEvents.sol";
+import "./errors/MultipoolErrors.sol";
 
 import "./errors/CustomErrors.sol";
 import "./events/Events.sol";

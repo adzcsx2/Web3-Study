@@ -1,0 +1,1844 @@
+/**
+ * 基于 Viem 的智能合约交互工具集（增强版 v3.0）
+ *
+ * 提供了一系列用于与智能合约进行读写操作的工具类。
+ * 基于 Viem 库封装，提供类型安全、错误处理、统一写方法和状态跟踪功能。
+ *
+ * 🚀 核心功能：
+ * - 合约读取操作（可在循环中使用）
+ * - 合约写入操作（支持交易状态跟踪）
+ * - 统一写方法处理（executeWrite / executeWriteWithStatus）
+ *   └─ executeWrite: 简化的写入方法，自动处理 Gas 和选项合并
+ *   └─ executeWriteWithStatus: 完整的状态跟踪，支持 7 种生命周期回调
+ * - 交易状态回调系统（onPending, onSent, onConfirming, onConfirmed, onSuccess, onReverted, onError）
+ * - 批量操作支持
+ * - 自动重试机制
+ * - 交易超时处理
+ * - Gas 费用估算
+ * - 事件监听支持
+ * - 可配置的日志记录和错误处理
+ *
+ * 🎯 新增特性（v3.0）：
+ * ✨ executeWrite() - 统一的写方法处理，自动合并交易选项和 Gas 估算
+ * ✨ executeWriteWithStatus() - 带完整状态跟踪的写方法，支持生命周期回调
+ *   └─ onPending, onSent, onConfirming, onConfirmed, onSuccess, onReverted, onError
+ * ✨ ExtendedContractWriteOptions - 扩展选项接口，支持交易状态回调
+ * ✨ 消除代码重复 - 所有合约包装器共享统一的写方法逻辑
+ *
+ * 🔥 v3.1 优化特性：
+ * ✨ 自动 PublicClient 管理 - 合约包装器内置 publicClient，无需手动传入
+ * ✨ 便捷函数自动化 - 所有便捷函数自动创建 publicClient，开箱即用
+ * ✨ 性能优化 - 合约包装器复用同一 publicClient 实例，减少连接开销
+ * ✨ 网络状态访问 - 直接访问内置 publicClient 和链配置信息
+ *
+ * 优势对比 React Hooks：
+ * ✅ 可以在循环中调用
+ * ✅ 可以在条件语句中调用
+ * ✅ 支持并行批量操作
+ * ✅ 更灵活的错误处理
+ * ✅ 更好的性能控制
+ * ✅ 支持交易超时和 Gas 估算
+ * ✅ 支持事件监听和过滤
+ * ✅ 统一的写方法 API，减少代码重复
+ * ✅ 完整的交易状态跟踪和回调支持
+ * ✅ 基于 Viem 的现代化 API 和类型安全
+ *
+ * @example
+ * ```typescript
+ * // 🔥 v3.1 新特性：自动管理 publicClient
+ * const contract = createViemContractWrapper({
+ *   contractAddress: "0x123...",
+ *   contractAbi: abi,
+ *   contractName: "MyContract"
+ *   // publicClient 自动创建和管理，无需传入！
+ * });
+ *
+ * // ✅ 读取操作 - 自动使用内置 publicClient
+ * const balance = await contract.read('balanceOf', [userAddress]);
+ * const networkStats = await contract.getNetworkStats();
+ *
+ * // ✅ 便捷函数 - 自动创建 publicClient
+ * const poolCount = await readViemContract(address, abi, 'poolCounter');
+ * // 无需传入 publicClient 参数！
+ *
+ * // ✅ 基础写入操作 - 自动处理 gas 估算
+ * const result = await contract.write('transfer', [to, amount], {
+ *   account: walletAccount,
+ *   estimateGas: true // 自动估算 Gas 费用
+ * });
+ *
+ * // 🎯 统一写入方法 - executeWrite（推荐）
+ * const result2 = await contract.executeWrite('setPoolCount', [5n], {
+ *   account: walletAccount,
+ *   estimateGas: true,
+ *   gas: 100000n
+ * });
+ *
+ * // 🔄 带状态跟踪的写入 - executeWriteWithStatus（完整生命周期）
+ * await contract.executeWriteWithStatus('stake', [poolId, amount], {
+ *   account: walletAccount,
+ *   value: parseEther('1.0'),
+ *   estimateGas: true,
+ *   // 状态回调函数
+ *   onPending: () => console.log('🔄 交易准备中...'),
+ *   onSent: (hash) => console.log('📤 交易已发送:', hash),
+ *   onConfirming: () => console.log('⏳ 等待确认...'),
+ *   onConfirmed: (receipt) => console.log('📋 交易已确认:', receipt.transactionHash),
+ *   onSuccess: (receipt) => console.log('✅ 交易成功！Gas 使用:', receipt.gasUsed),
+ *   onReverted: (receipt) => console.log('❌ 交易回滚:', receipt.status),
+ *   onError: (error) => console.error('💥 交易失败:', error.message)
+ * });
+ *
+ * // ✅ 批量操作 - 复用同一 publicClient 实例
+ * const calls = [{functionName: 'getPoolInfo', args: [i]} for i in range(10)];
+ * const results = await contract.batchRead(calls);
+ * ```
+ *
+ * @author Hoyn
+ * @version 3.1.0
+ * @lastModified 2025-10-24
+ */
+
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  formatEther,
+  parseEther,
+  formatUnits,
+  parseUnits,
+  isAddress,
+  getContract,
+  type Abi,
+  type Address,
+  type Hash,
+  type PublicClient,
+  type WalletClient,
+  type Account,
+  type TransactionReceipt,
+  type Log,
+  type WriteContractParameters,
+  type WatchContractEventParameters,
+  type Chain,
+} from "viem";
+import { sepolia } from "viem/chains";
+import { config as wagmiConfig, CONTRACT_CONFIG } from "@/config/wagmi";
+import { RPC_URLS } from "@/config/rpc";
+
+/**
+ * 从共享 RPC 配置获取 wagmi 配置中链的 RPC URLs
+ */
+function getWagmiRpcUrls(): Record<number, string> {
+  const rpcUrls: Record<number, string> = {};
+
+  // 只为 wagmi 配置中实际存在的链添加 RPC URL
+  for (const chain of wagmiConfig.chains) {
+    const chainId = chain.id;
+    if (RPC_URLS[chainId]) {
+      rpcUrls[chainId] = RPC_URLS[chainId];
+    } else {
+      console.warn(
+        `No RPC URL configured for chain ${chainId} (${chain.name})`
+      );
+      // 可以尝试使用链的默认 RPC URL
+      rpcUrls[chainId] =
+        chain.rpcUrls.default.http[0] ||
+        `https://rpc.${chain.name.toLowerCase()}.com`;
+    }
+  }
+
+  return rpcUrls;
+}
+
+/**
+ * Viem 配置 - 基于 wagmi 配置
+ */
+export const VIEM_CONFIG = {
+  // 网络配置 - 使用 wagmi 配置中的 chains
+  chains: Object.fromEntries(
+    wagmiConfig.chains.map((chain) => [
+      chain.name.toLowerCase().replace(/\s+/g, ""),
+      chain,
+    ])
+  ) as Record<string, Chain>,
+
+  // 获取所有支持的链
+  supportedChains: wagmiConfig.chains,
+
+  // 获取 wagmi 配置中的 transports
+  getTransport: (chainId: number) => {
+    const transports = wagmiConfig._internal.transports as Record<
+      number,
+      unknown
+    >;
+    return transports[chainId];
+  },
+
+  // RPC 配置 - 从 wagmi 配置中提取
+  rpcUrls: getWagmiRpcUrls(),
+
+  // 默认网络 - 使用 sepolia 如果可用，否则使用第一个链
+  defaultChain:
+    wagmiConfig.chains.find((chain) => chain.id === sepolia.id) ||
+    wagmiConfig.chains[0],
+
+  // 合约设置 - 使用 wagmi 配置中的 CONTRACT_CONFIG
+  contract: {
+    // 默认的 Gas 设置
+    defaultGasLimit: BigInt(CONTRACT_CONFIG.defaultGasLimit),
+    defaultGasPrice: BigInt(CONTRACT_CONFIG.defaultGasPrice),
+
+    // 重试设置
+    defaultRetryCount: CONTRACT_CONFIG.defaultRetryCount,
+    defaultRetryDelay: CONTRACT_CONFIG.defaultRetryDelay,
+
+    // 日志设置
+    enableLogging: CONTRACT_CONFIG.enableLogging,
+
+    // 交易确认设置
+    confirmations: CONTRACT_CONFIG.confirmations,
+    timeout: CONTRACT_CONFIG.timeout,
+  },
+};
+
+/**
+ * 合约读取操作的配置选项
+ */
+export interface ViemContractReadOptions {
+  /** 合约地址 */
+  contractAddress: Address;
+  /** 合约 ABI */
+  contractAbi: Abi;
+  /** 要调用的合约函数名称 */
+  functionName: string;
+  /** 传递给合约函数的参数数组 */
+  args?: readonly unknown[];
+  /** 区块号或标签 */
+  blockNumber?: bigint | "latest" | "earliest" | "pending";
+  /** 是否跳过日志输出，默认为 false */
+  skipLogging?: boolean;
+  /** 重试次数，默认为 3 */
+  retryCount?: number;
+  /** 重试间隔（毫秒），默认为 1000 */
+  retryDelay?: number;
+  /** 可选的 PublicClient */
+  publicClient?: PublicClient;
+  /** 链配置 */
+  chain?: Chain;
+}
+
+/**
+ * 合约读取操作的返回结果
+ */
+export interface ViemContractReadResult<T> {
+  /** 合约调用返回的数据 */
+  data: T | null;
+  /** 错误信息，如果有的话 */
+  error: Error | null;
+  /** 是否发生错误 */
+  isError: boolean;
+  /** 调用是否成功 */
+  isSuccess: boolean;
+}
+
+/**
+ * 合约写入操作的配置选项
+ */
+export interface ViemContractWriteOptions {
+  /** 合约地址 */
+  contractAddress: Address;
+  /** 合约 ABI */
+  contractAbi: Abi;
+  /** 要调用的合约函数名称 */
+  functionName: string;
+  /** 传递给合约函数的参数数组 */
+  args?: readonly unknown[];
+  /** 要发送的以太币数量（wei 单位） */
+  value?: bigint;
+  /** Gas limit */
+  gas?: bigint;
+  /** Gas price (Legacy transactions) */
+  gasPrice?: bigint;
+  /** 最大优先费用（EIP-1559） */
+  maxPriorityFeePerGas?: bigint;
+  /** 最大费用（EIP-1559） */
+  maxFeePerGas?: bigint;
+  /** 是否自动估算 Gas，默认为 false */
+  estimateGas?: boolean;
+  /** 交易超时时间（毫秒），默认为 300000 (5分钟) */
+  timeout?: number;
+  /** 是否跳过日志输出，默认为 false */
+  skipLogging?: boolean;
+  /** 必需的钱包账户 */
+  account?: Account;
+  /** 可选的 WalletClient */
+  walletClient?: WalletClient;
+  /** 可选的 PublicClient */
+  publicClient?: PublicClient;
+  /** 链配置 */
+  chain?: Chain;
+  /** Nonce */
+  nonce?: number;
+}
+
+/**
+ * 扩展的合约写入选项，支持状态回调
+ */
+export interface ExtendedViemContractWriteOptions
+  extends ViemContractWriteOptions {
+  /** 交易待处理时的回调 */
+  onPending?: () => void;
+  /** 交易已发送时的回调（返回交易哈希） */
+  onSent?: (hash: Hash) => void;
+  /** 交易确认中的回调 */
+  onConfirming?: () => void;
+  /** 交易确认完成的回调 */
+  onConfirmed?: (receipt: TransactionReceipt) => void;
+  /** 交易成功完成的回调 */
+  onSuccess?: (receipt: TransactionReceipt) => void;
+  /** 交易回滚的回调 */
+  onReverted?: (receipt: TransactionReceipt) => void;
+  /** 交易错误的回调 */
+  onError?: (error: Error) => void;
+}
+
+/**
+ * Gas 估算结果
+ */
+export interface ViemGasEstimation {
+  /** 估算的 Gas limit */
+  gasLimit: bigint;
+  /** 当前 Gas price */
+  gasPrice?: bigint;
+  /** 最大费用（EIP-1559） */
+  maxFeePerGas?: bigint;
+  /** 最大优先费用（EIP-1559） */
+  maxPriorityFeePerGas?: bigint;
+  /** 估算的总费用（ETH） */
+  estimatedCost: string;
+}
+
+/**
+ * 事件监听选项
+ */
+export interface ViemEventListenerOptions {
+  /** 合约地址 */
+  contractAddress: Address;
+  /** 合约 ABI */
+  contractAbi: Abi;
+  /** 事件名称 */
+  eventName: string;
+  /** 事件过滤器参数 */
+  args?: Record<string, unknown>;
+  /** 从哪个区块开始监听 */
+  fromBlock?: bigint | "latest" | "earliest" | "pending";
+  /** 到哪个区块结束监听 */
+  toBlock?: bigint | "latest" | "earliest" | "pending";
+  /** 可选的 PublicClient */
+  publicClient?: PublicClient;
+  /** 链配置 */
+  chain?: Chain;
+}
+
+/**
+ * 批量调用配置
+ */
+export interface ViemBatchCall {
+  /** 合约地址 */
+  contractAddress: Address;
+  /** 合约 ABI */
+  contractAbi: Abi;
+  /** 函数名称 */
+  functionName: string;
+  /** 函数参数 */
+  args?: readonly unknown[];
+}
+
+/**
+ * 合约写入操作的返回结果
+ */
+export interface ViemContractWriteResult {
+  /** 交易哈希 */
+  hash: Hash | null;
+  /** 交易收据 */
+  receipt: TransactionReceipt | null;
+  /** 错误信息，如果有的话 */
+  error: Error | null;
+  /** 是否发生错误 */
+  isError: boolean;
+  /** 调用是否成功 */
+  isSuccess: boolean;
+  /** 交易是否已确认 */
+  isConfirmed: boolean;
+  /** 交易执行是否成功（区分上链成功和执行成功） */
+  isTransactionSuccessful: boolean;
+  /** 交易是否因执行失败而回滚 */
+  isReverted: boolean;
+  /** Gas 使用量 */
+  gasUsed?: bigint;
+  /** 实际 Gas 价格 */
+  effectiveGasPrice?: bigint;
+  /** 交易费用（ETH） */
+  transactionCost?: string;
+  /** Gas 估算结果（如果进行了估算） */
+  gasEstimation?: ViemGasEstimation;
+}
+
+/**
+ * 获取 PublicClient
+ */
+function getPublicClient(
+  publicClient?: PublicClient,
+  chain: Chain = VIEM_CONFIG.defaultChain
+): PublicClient {
+  // 优先使用传入的 publicClient
+  if (publicClient) {
+    return publicClient;
+  }
+
+  // 获取对应链的 RPC URL
+  const rpcUrl = VIEM_CONFIG.rpcUrls[chain.id];
+  if (!rpcUrl) {
+    throw new Error(`No RPC URL configured for chain ${chain.id}`);
+  }
+
+  return createPublicClient({
+    chain,
+    transport: http(rpcUrl),
+  });
+}
+
+/**
+ * 获取 WalletClient
+ */
+function getWalletClient(
+  walletClient?: WalletClient,
+  chain: Chain = VIEM_CONFIG.defaultChain
+): WalletClient {
+  if (walletClient) {
+    return walletClient;
+  }
+
+  // 注意: 如果需要自动获取已连接的钱包客户端，
+  // 请在调用时传入 walletClient 参数，或使用专门的钱包客户端 Hook
+
+  // 如果在浏览器环境且有 window.ethereum（降级方案）
+  if (typeof window !== "undefined" && window.ethereum) {
+    const rpcUrl = VIEM_CONFIG.rpcUrls[chain.id];
+    return createWalletClient({
+      chain,
+      transport: http(rpcUrl),
+    });
+  }
+
+  throw new Error(
+    "No wallet client available. Please provide a wallet client or connect to a wallet using the wallet connection interface."
+  );
+}
+
+/**
+ * 延迟函数
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * 合约包装器配置接口
+ */
+export interface ViemContractWrapperConfig {
+  /** 合约地址 */
+  contractAddress: Address;
+  /** 合约 ABI */
+  contractAbi: Abi;
+  /** 合约名称（可选，用于日志） */
+  contractName?: string;
+  /** 链配置 */
+  chain?: Chain;
+}
+
+/**
+ * 基于 Viem 的合约服务类
+ */
+export class ViemContractService {
+  /**
+   * 读取合约数据的基础方法
+   *
+   * @template T 返回数据的类型
+   * @param options 配置选项
+   * @returns 合约读取结果
+   *
+   * @example
+   * ```typescript
+   * const result = await ViemContractService.read<string>({
+   *   contractAddress: '0x...',
+   *   contractAbi: abi,
+   *   functionName: 'name',
+   *   args: []
+   * });
+   * ```
+   */
+  static async read<T = unknown>(
+    options: ViemContractReadOptions
+  ): Promise<ViemContractReadResult<T>> {
+    const {
+      contractAddress,
+      contractAbi,
+      functionName,
+      args = [],
+      blockNumber,
+      skipLogging = !VIEM_CONFIG.contract.enableLogging,
+      retryCount = VIEM_CONFIG.contract.defaultRetryCount,
+      retryDelay = VIEM_CONFIG.contract.defaultRetryDelay,
+      publicClient,
+      chain = VIEM_CONFIG.defaultChain,
+    } = options;
+
+    // 验证合约地址
+    if (!isAddress(contractAddress)) {
+      const error = new Error("Invalid contract address");
+      return { data: null, error, isError: true, isSuccess: false };
+    }
+
+    let lastError: Error | null = null;
+
+    // 重试机制
+    for (let attempt = 0; attempt <= retryCount; attempt++) {
+      try {
+        if (!skipLogging) {
+          console.log(
+            `=== Viem Contract ${functionName} Call (Attempt ${attempt + 1}) ===`
+          );
+          console.log("Contract Address:", contractAddress);
+          console.log("Function Name:", functionName);
+          console.log("Arguments:", args);
+          console.log("Chain:", chain.name);
+        }
+
+        const client = getPublicClient(publicClient, chain);
+
+        const contract = getContract({
+          address: contractAddress,
+          abi: contractAbi,
+          client,
+        });
+
+        const readOptions = {
+          blockNumber,
+        };
+
+        // 执行合约读取
+        const data = (await (
+          contract.read as Record<
+            string,
+            (...args: unknown[]) => Promise<unknown>
+          >
+        )[functionName](args.length > 0 ? args : undefined, readOptions)) as T;
+
+        if (!skipLogging) {
+          console.log("✅ Call Success");
+          console.log("Data:", data);
+          console.log("===============================");
+        }
+
+        return {
+          data,
+          error: null,
+          isError: false,
+          isSuccess: true,
+        };
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        if (!skipLogging) {
+          console.error(`❌ Call Failed (Attempt ${attempt + 1}):`, lastError);
+        }
+
+        // 如果不是最后一次尝试，等待后重试
+        if (attempt < retryCount) {
+          await delay(retryDelay);
+        }
+      }
+    }
+
+    if (!skipLogging) {
+      console.error(
+        `💥 All ${retryCount + 1} attempts failed for ${functionName}`
+      );
+      console.error("Final Error:", lastError);
+      console.log("===============================");
+    }
+
+    return {
+      data: null,
+      error: lastError,
+      isError: true,
+      isSuccess: false,
+    };
+  }
+
+  /**
+   * 🔄 批量读取合约数据（可在循环中使用）
+   *
+   * @param calls 批量调用配置数组
+   * @returns 批量读取结果数组
+   *
+   * @example
+   * ```typescript
+   * const calls = [];
+   * for (let i = 0; i < poolCount; i++) {
+   *   calls.push({
+   *     contractAddress: '0x...',
+   *     contractAbi: abi,
+   *     functionName: 'getPoolInfo',
+   *     args: [i]
+   *   });
+   * }
+   * const results = await ViemContractService.batchRead(calls);
+   * ```
+   */
+  static async batchRead(
+    calls: Omit<ViemContractReadOptions, "retryCount" | "retryDelay">[]
+  ): Promise<ViemContractReadResult<unknown>[]> {
+    console.log(`🚀 开始批量读取 ${calls.length} 个合约调用`);
+
+    // 并行执行所有调用
+    const promises = calls.map((call, index) =>
+      this.read({ ...call, skipLogging: true })
+        .then((result) => ({ ...result, index }))
+        .catch((error) => ({
+          data: null,
+          error: error instanceof Error ? error : new Error(String(error)),
+          isError: true,
+          isSuccess: false,
+          index,
+        }))
+    );
+
+    const results = await Promise.all(promises);
+
+    // 统计结果
+    const successCount = results.filter((r) => r.isSuccess).length;
+    console.log(`✅ 批量读取完成: ${successCount}/${calls.length} 成功`);
+
+    return results.map((result) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { index, ...cleanResult } = result;
+      return cleanResult;
+    });
+  }
+
+  /**
+   * 🔄 顺序读取合约数据（在循环中使用await）
+   *
+   * @param calls 批量调用配置数组
+   * @returns 批量读取结果数组
+   *
+   * @example
+   * ```typescript
+   * const results = [];
+   * for (let i = 0; i < poolCount; i++) {
+   *   const result = await ViemContractService.readSequential({
+   *     contractAddress: '0x...',
+   *     contractAbi: abi,
+   *     functionName: 'getPoolInfo',
+   *     args: [i]
+   *   });
+   *   results.push(result);
+   * }
+   * ```
+   */
+  static async readSequential(
+    options: ViemContractReadOptions
+  ): Promise<ViemContractReadResult<unknown>> {
+    return this.read(options);
+  }
+
+  /**
+   * 💰 估算 Gas 费用
+   *
+   * @param options 合约写入选项（不包含 account）
+   * @returns Gas 估算结果
+   *
+   * @example
+   * ```typescript
+   * const estimation = await ViemContractService.estimateGas({
+   *   contractAddress: '0x...',
+   *   contractAbi: abi,
+   *   functionName: 'stake',
+   *   args: [parseEther('1.0')],
+   *   value: parseEther('1.0')
+   * });
+   * console.log(`估算费用: ${estimation.estimatedCost} ETH`);
+   * ```
+   */
+  static async estimateGas(
+    options: Omit<ViemContractWriteOptions, "account" | "walletClient">
+  ): Promise<ViemGasEstimation> {
+    const {
+      contractAddress,
+      contractAbi,
+      functionName,
+      args = [],
+      value,
+      publicClient,
+      chain = VIEM_CONFIG.defaultChain,
+    } = options;
+
+    try {
+      const client = getPublicClient(publicClient, chain);
+
+      // 使用 client 进行 Gas 估算
+      const estimatedGasLimit = await client.estimateContractGas({
+        address: contractAddress,
+        abi: contractAbi,
+        functionName,
+        args: args.length > 0 ? args : undefined,
+        value,
+      });
+
+      // 获取当前费用数据
+      const feeData = await client.estimateFeesPerGas();
+
+      let estimatedCost: string;
+      let gasPrice: bigint | undefined;
+      let maxFeePerGas: bigint | undefined;
+      let maxPriorityFeePerGas: bigint | undefined;
+
+      if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
+        // EIP-1559 (Type 2) 交易
+        maxFeePerGas = feeData.maxFeePerGas;
+        maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+        const totalCost = estimatedGasLimit * maxFeePerGas;
+        estimatedCost = formatEther(totalCost);
+      } else {
+        // Legacy (Type 0) 交易
+        gasPrice = await client.getGasPrice();
+        const totalCost = estimatedGasLimit * gasPrice;
+        estimatedCost = formatEther(totalCost);
+      }
+
+      return {
+        gasLimit: estimatedGasLimit,
+        gasPrice,
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+        estimatedCost,
+      };
+    } catch (error) {
+      console.error("❌ Gas 估算失败:", error);
+      throw error instanceof Error ? error : new Error(String(error));
+    }
+  }
+
+  /**
+   * 写入合约数据（增强版，支持 Gas 估算和超时）
+   *
+   * @param options 写入配置选项
+   * @returns 写入结果
+   *
+   * @example
+   * ```typescript
+   * const result = await ViemContractService.write({
+   *   contractAddress: '0x...',
+   *   contractAbi: abi,
+   *   functionName: 'stake',
+   *   args: [parseEther('1.0')],
+   *   value: parseEther('1.0'),
+   *   account: walletAccount,
+   *   estimateGas: true,
+   *   timeout: 180000 // 3分钟超时
+   * });
+   * ```
+   */
+  static async write(
+    options: ViemContractWriteOptions
+  ): Promise<ViemContractWriteResult> {
+    const {
+      contractAddress,
+      contractAbi,
+      functionName,
+      args = [],
+      value,
+      gas,
+      gasPrice,
+      maxPriorityFeePerGas,
+      maxFeePerGas,
+      estimateGas = false,
+      timeout = VIEM_CONFIG.contract.timeout,
+      skipLogging = false,
+      account,
+      walletClient,
+      publicClient,
+      chain = VIEM_CONFIG.defaultChain,
+      nonce,
+    } = options;
+
+    let gasEstimation: ViemGasEstimation | undefined;
+
+    try {
+      if (!skipLogging) {
+        console.log(`=== Viem Contract ${functionName} Write ===`);
+        console.log("Function Name:", functionName);
+        console.log("Arguments:", args);
+        console.log("Value:", value);
+        console.log("Estimate Gas:", estimateGas);
+        console.log("Timeout:", timeout);
+        console.log("Chain:", chain.name);
+      }
+
+      // 验证合约地址
+      if (!isAddress(contractAddress)) {
+        throw new Error("Invalid contract address");
+      }
+
+      // 验证账户
+      if (!account) {
+        throw new Error("Account is required for write operations");
+      }
+
+      // 如果启用了 Gas 估算
+      if (estimateGas) {
+        try {
+          gasEstimation = await this.estimateGas({
+            contractAddress,
+            contractAbi,
+            functionName,
+            args,
+            value,
+            publicClient,
+            chain,
+          });
+
+          if (!skipLogging) {
+            console.log("💰 Gas 估算结果:");
+            console.log("  Gas Limit:", gasEstimation.gasLimit.toString());
+            console.log("  估算费用:", gasEstimation.estimatedCost, "ETH");
+          }
+        } catch (error) {
+          console.warn("⚠️ Gas 估算失败，使用默认值:", error);
+        }
+      }
+
+      const client = getWalletClient(walletClient, chain);
+      const pubClient = getPublicClient(publicClient, chain);
+
+      // 构建写入参数 - 分离 EIP-1559 和 Legacy 参数
+      const baseParams = {
+        address: contractAddress,
+        abi: contractAbi,
+        functionName,
+        args: args.length > 0 ? args : undefined,
+        account,
+        value,
+        gas:
+          gas ||
+          (gasEstimation?.gasLimit
+            ? (gasEstimation.gasLimit * 120n) / 100n
+            : undefined),
+        nonce,
+        chain,
+      };
+
+      // 根据是否有 EIP-1559 参数决定交易类型
+      const writeParams: WriteContractParameters = gasPrice
+        ? { ...baseParams, gasPrice, type: "legacy" }
+        : {
+            ...baseParams,
+            maxFeePerGas: maxFeePerGas || gasEstimation?.maxFeePerGas,
+            maxPriorityFeePerGas:
+              maxPriorityFeePerGas || gasEstimation?.maxPriorityFeePerGas,
+          };
+
+      // 发送交易
+      const hash = await client.writeContract(writeParams);
+
+      if (!skipLogging) {
+        console.log("📤 交易已发送，哈希:", hash);
+        console.log("⏳ 等待确认...");
+        if (writeParams.gas)
+          console.log("  Gas Limit:", writeParams.gas.toString());
+        if (writeParams.maxFeePerGas)
+          console.log(
+            "  Max Fee:",
+            formatUnits(writeParams.maxFeePerGas, 9),
+            "Gwei"
+          );
+      }
+
+      // 等待交易确认（带超时）
+      const receipt = await Promise.race([
+        pubClient.waitForTransactionReceipt({ hash }),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`交易超时 (${timeout}ms)`)),
+            timeout
+          )
+        ),
+      ]);
+
+      // 判断交易执行状态
+      const isConfirmed = receipt !== null;
+      const isTransactionSuccessful = receipt?.status === "success";
+      const isReverted = receipt?.status === "reverted";
+
+      // 计算 Gas 使用信息
+      let gasUsed: bigint | undefined;
+      let effectiveGasPrice: bigint | undefined;
+      let transactionCost: string | undefined;
+
+      if (receipt) {
+        gasUsed = receipt.gasUsed;
+        effectiveGasPrice = receipt.effectiveGasPrice;
+        if (gasUsed && effectiveGasPrice) {
+          const cost = gasUsed * effectiveGasPrice;
+          transactionCost = formatEther(cost);
+        }
+      }
+
+      if (!skipLogging) {
+        if (isTransactionSuccessful) {
+          console.log("✅ 交易执行成功！");
+          if (gasUsed) console.log("  Gas 使用量:", gasUsed.toString());
+          if (effectiveGasPrice)
+            console.log(
+              "  实际 Gas 价格:",
+              formatUnits(effectiveGasPrice, 9),
+              "Gwei"
+            );
+          if (transactionCost)
+            console.log("  交易费用:", transactionCost, "ETH");
+        } else if (isReverted) {
+          console.log("❌ 交易已上链但执行失败（回滚）");
+          if (transactionCost)
+            console.log("  消耗费用:", transactionCost, "ETH");
+        }
+        console.log("Receipt:", receipt);
+        console.log("===============================");
+      }
+
+      return {
+        hash,
+        receipt,
+        error: null,
+        isError: false,
+        isSuccess: true,
+        isConfirmed,
+        isTransactionSuccessful,
+        isReverted,
+        gasUsed,
+        effectiveGasPrice,
+        transactionCost,
+        gasEstimation,
+      };
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+
+      if (!skipLogging) {
+        console.error(`💥 交易发送失败: ${functionName}`);
+        console.error("Error:", err);
+        console.error("===============================");
+      }
+
+      return {
+        hash: null,
+        receipt: null,
+        error: err,
+        isError: true,
+        isSuccess: false,
+        isConfirmed: false,
+        isTransactionSuccessful: false,
+        isReverted: false,
+        gasUsed: undefined,
+        effectiveGasPrice: undefined,
+        transactionCost: undefined,
+        gasEstimation,
+      };
+    }
+  }
+
+  /**
+   * 📡 监听合约事件
+   *
+   * @param options 事件监听选项
+   * @param callback 事件回调函数
+   * @returns 取消监听的函数
+   *
+   * @example
+   * ```typescript
+   * const removeListener = ViemContractService.addEventListener({
+   *   contractAddress: '0x...',
+   *   contractAbi: abi,
+   *   eventName: 'Transfer',
+   *   args: { from: userAddress }
+   * }, (logs) => {
+   *   console.log('Transfer事件:', logs);
+   * });
+   *
+   * // 取消监听
+   * removeListener();
+   * ```
+   */
+  static addEventListener(
+    options: ViemEventListenerOptions,
+    callback: (logs: Log[]) => void
+  ): () => void {
+    const {
+      contractAddress,
+      contractAbi,
+      eventName,
+      args = {},
+      publicClient,
+      chain = VIEM_CONFIG.defaultChain,
+    } = options;
+
+    const client = getPublicClient(publicClient, chain);
+
+    // 创建事件监听参数
+    const watchParams: WatchContractEventParameters = {
+      address: contractAddress,
+      abi: contractAbi,
+      eventName,
+      args: Object.keys(args).length > 0 ? args : undefined,
+      onLogs: callback,
+    };
+
+    // 开始监听
+    const unwatch = client.watchContractEvent(watchParams);
+
+    console.log(
+      `📡 开始监听事件 ${eventName} 在合约 ${contractAddress}${
+        Object.keys(args).length > 0 ? " (带过滤器)" : ""
+      }`
+    );
+
+    // 返回取消监听的函数
+    return () => {
+      unwatch();
+      console.log(`🔇 停止监听事件 ${eventName}`);
+    };
+  }
+
+  /**
+   * 📡 获取历史事件
+   *
+   * @param options 事件查询选项
+   * @returns 事件数组
+   *
+   * @example
+   * ```typescript
+   * const events = await ViemContractService.getEvents({
+   *   contractAddress: '0x...',
+   *   contractAbi: abi,
+   *   eventName: 'Transfer',
+   *   args: { from: userAddress },
+   *   fromBlock: 'earliest',
+   *   toBlock: 'latest'
+   * });
+   * ```
+   */
+  static async getEvents(options: ViemEventListenerOptions): Promise<Log[]> {
+    const {
+      contractAddress,
+      eventName,
+      fromBlock = "latest",
+      toBlock = "latest",
+      publicClient,
+      chain = VIEM_CONFIG.defaultChain,
+    } = options;
+
+    try {
+      const client = getPublicClient(publicClient, chain);
+
+      // 简化的事件查询 - 获取指定地址的所有日志
+      const logs = await client.getLogs({
+        address: contractAddress,
+        fromBlock,
+        toBlock,
+      });
+
+      console.log(`📡 找到 ${logs.length} 个来自合约的事件 (${eventName})`);
+
+      return logs;
+    } catch (error) {
+      console.error(`❌ 获取事件失败:`, error);
+      throw error instanceof Error ? error : new Error(String(error));
+    }
+  }
+
+  /**
+   * 🔗 批量多合约调用
+   *
+   * @param calls 批量调用配置数组（支持不同合约）
+   * @returns 批量调用结果
+   *
+   * @example
+   * ```typescript
+   * const calls = [
+   *   { contractAddress: '0x...', contractAbi: abi1, functionName: 'balanceOf', args: [user] },
+   *   { contractAddress: '0x...', contractAbi: abi2, functionName: 'totalSupply', args: [] }
+   * ];
+   * const results = await ViemContractService.multiContractRead(calls);
+   * ```
+   */
+  static async multiContractRead(
+    calls: ViemBatchCall[],
+    publicClient?: PublicClient,
+    chain?: Chain
+  ): Promise<ViemContractReadResult<unknown>[]> {
+    console.log(`🔗 开始多合约批量调用 ${calls.length} 个方法`);
+
+    // 转换为统一的调用格式
+    const readCalls = calls.map((call) => ({
+      ...call,
+      skipLogging: true,
+      publicClient,
+      chain,
+    }));
+
+    return this.batchRead(readCalls);
+  }
+}
+
+// 导出便捷方法
+export const viemContract = ViemContractService;
+
+/**
+ * 🎯 便捷函数：读取单个合约方法（自动管理 publicClient）
+ */
+export async function readViemContract<T = unknown>(
+  contractAddress: Address,
+  contractAbi: Abi,
+  functionName: string,
+  args: readonly unknown[] = [],
+  skipLogging = false,
+  publicClient?: PublicClient, // 可选，如果不传入会自动创建
+  chain?: Chain
+): Promise<T | null> {
+  // 🔥 如果没有传入 publicClient，自动创建一个
+  const clientToUse = publicClient || getPublicClient(undefined, chain);
+
+  const result = await ViemContractService.read<T>({
+    contractAddress,
+    contractAbi,
+    functionName,
+    args,
+    skipLogging,
+    publicClient: clientToUse,
+    chain,
+  });
+
+  return result.data;
+}
+
+/**
+ * 🎯 便捷函数：批量读取合约方法（自动管理 publicClient）
+ */
+export async function readViemContractBatch(
+  contractAddress: Address,
+  contractAbi: Abi,
+  calls: {
+    functionName: string;
+    args?: readonly unknown[];
+  }[],
+  publicClient?: PublicClient, // 可选，如果不传入会自动创建
+  chain?: Chain
+): Promise<unknown[]> {
+  // 🔥 如果没有传入 publicClient，自动创建一个并复用
+  const clientToUse = publicClient || getPublicClient(undefined, chain);
+
+  // 为每个 call 添加必需的合约信息
+  const callsWithContract = calls.map((call) => ({
+    contractAddress,
+    contractAbi,
+    functionName: call.functionName,
+    args: call.args,
+    publicClient: clientToUse, // 复用同一个 client
+    chain,
+  }));
+
+  const results = await ViemContractService.batchRead(callsWithContract);
+  return results.map((r) => r.data);
+}
+
+/**
+ * 🎯 便捷函数：写入合约方法（自动管理 publicClient）
+ */
+export async function writeViemContract(
+  contractAddress: Address,
+  contractAbi: Abi,
+  functionName: string,
+  args: readonly unknown[] = [],
+  options: Omit<
+    ViemContractWriteOptions,
+    "contractAddress" | "contractAbi" | "functionName" | "args"
+  > = {}
+): Promise<ViemContractWriteResult> {
+  // 🔥 如果没有传入 publicClient，自动创建一个
+  const clientToUse =
+    options.publicClient || getPublicClient(undefined, options.chain);
+
+  return ViemContractService.write({
+    contractAddress,
+    contractAbi,
+    functionName,
+    args,
+    ...options,
+    publicClient: clientToUse, // 确保使用 publicClient
+  });
+}
+
+/**
+ * 🎯 便捷函数：估算 Gas 费用（自动管理 publicClient）
+ */
+export async function estimateViemContractGas(
+  contractAddress: Address,
+  contractAbi: Abi,
+  functionName: string,
+  args: readonly unknown[] = [],
+  value?: bigint,
+  publicClient?: PublicClient,
+  chain?: Chain
+): Promise<ViemGasEstimation> {
+  // 🔥 如果没有传入 publicClient，自动创建一个
+  const clientToUse = publicClient || getPublicClient(undefined, chain);
+
+  return ViemContractService.estimateGas({
+    contractAddress,
+    contractAbi,
+    functionName,
+    args,
+    value,
+    publicClient: clientToUse,
+    chain,
+  });
+}
+
+/**
+ * 🎯 便捷函数：监听合约事件（自动管理 publicClient）
+ */
+export function listenToViemContractEvent(
+  contractAddress: Address,
+  contractAbi: Abi,
+  eventName: string,
+  callback: (logs: Log[]) => void,
+  args?: Record<string, unknown>,
+  publicClient?: PublicClient,
+  chain?: Chain
+): () => void {
+  // 🔥 如果没有传入 publicClient，自动创建一个
+  const clientToUse = publicClient || getPublicClient(undefined, chain);
+
+  return ViemContractService.addEventListener(
+    {
+      contractAddress,
+      contractAbi,
+      eventName,
+      args,
+      publicClient: clientToUse,
+      chain,
+    },
+    callback
+  );
+}
+
+/**
+ * 🎯 便捷函数：获取历史事件（自动管理 publicClient）
+ */
+export async function getViemContractEvents(
+  contractAddress: Address,
+  contractAbi: Abi,
+  eventName: string,
+  args?: Record<string, unknown>,
+  fromBlock: bigint | "latest" | "earliest" | "pending" = "latest",
+  toBlock: bigint | "latest" | "earliest" | "pending" = "latest",
+  publicClient?: PublicClient,
+  chain?: Chain
+): Promise<Log[]> {
+  // 🔥 如果没有传入 publicClient，自动创建一个
+  const clientToUse = publicClient || getPublicClient(undefined, chain);
+
+  return ViemContractService.getEvents({
+    contractAddress,
+    contractAbi,
+    eventName,
+    args,
+    fromBlock,
+    toBlock,
+    publicClient: clientToUse,
+    chain,
+  });
+}
+
+// ==================== 工具函数 ====================
+
+/**
+ * 💰 格式化 Wei 为 ETH (Viem版本)
+ */
+export const formatViemEther = formatEther;
+
+/**
+ * 💰 解析 ETH 为 Wei (Viem版本)
+ */
+export const parseViemEther = parseEther;
+
+/**
+ * 💰 格式化 Gas 价格（Gwei）(Viem版本)
+ */
+export function formatViemGasPrice(gasPrice: bigint): string {
+  return formatUnits(gasPrice, 9) + " Gwei";
+}
+
+/**
+ * 💰 解析 Gwei 为 Wei (Viem版本)
+ */
+export function parseViemGwei(value: string): bigint {
+  return parseUnits(value, 9);
+}
+
+/**
+ * 🔗 检查合约地址是否有效 (Viem版本)
+ */
+export const isValidViemAddress = isAddress;
+
+/**
+ * 🔗 获取合约代码大小（判断是否为合约）(Viem版本)
+ */
+export async function isViemContract(
+  address: Address,
+  publicClient?: PublicClient,
+  chain?: Chain
+): Promise<boolean> {
+  try {
+    const client = getPublicClient(publicClient, chain);
+    const code = await client.getCode({ address });
+    return code !== undefined && code !== "0x";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * ⏱️ 等待指定的区块数 (Viem版本)
+ */
+export async function waitForViemBlocks(
+  blockCount: number,
+  publicClient?: PublicClient,
+  chain?: Chain
+): Promise<void> {
+  const client = getPublicClient(publicClient, chain);
+  const startBlock = await client.getBlockNumber();
+  const targetBlock = startBlock + BigInt(blockCount);
+
+  return new Promise((resolve) => {
+    const checkBlock = async () => {
+      const currentBlock = await client.getBlockNumber();
+      if (currentBlock >= targetBlock) {
+        resolve();
+      } else {
+        setTimeout(checkBlock, 1000); // 每秒检查一次
+      }
+    };
+    checkBlock();
+  });
+}
+
+/**
+ * 📊 获取网络统计信息 (Viem版本)
+ */
+export async function getViemNetworkStats(
+  publicClient?: PublicClient,
+  chain?: Chain
+): Promise<{
+  blockNumber: bigint;
+  gasPrice: string;
+  chainId: number;
+  chainName: string;
+}> {
+  const client = getPublicClient(publicClient, chain);
+
+  const [blockNumber, gasPrice, chainId] = await Promise.all([
+    client.getBlockNumber(),
+    client.getGasPrice(),
+    client.getChainId(),
+  ]);
+
+  return {
+    blockNumber,
+    gasPrice: formatViemGasPrice(gasPrice),
+    chainId,
+    chainName: chain?.name || "Unknown",
+  };
+}
+
+// ==================== 合约包装器类 ====================
+
+/**
+ * 🎯 Viem 合约包装器类
+ *
+ * 为特定合约创建专用实例，预配置合约地址和 ABI
+ * 提供更简洁的 API，无需每次传递合约配置
+ *
+ * @example
+ * ```typescript
+ * import contract from "@/app/abi/MultiStakePledgeContract.json";
+ *
+ * // 创建专用合约包装器
+ * const multiStakeContract = new ViemContractWrapper({
+ *   contractAddress: "0x123...",
+ *   contractAbi: contract.abi,
+ *   contractName: "MultiStakePledge"
+ * });
+ *
+ * // 简洁的读取调用
+ * const poolCount = await multiStakeContract.read<bigint>('poolCount');
+ * const poolInfo = await multiStakeContract.read('getPoolInfo', [poolId]);
+ *
+ * // 简洁的写入调用
+ * const result = await multiStakeContract.write('stake', [poolId], {
+ *   account: walletAccount,
+ *   value: parseEther('1.0'),
+ *   estimateGas: true
+ * });
+ * ```
+ */
+export class ViemContractWrapper {
+  private config: ViemContractWrapperConfig;
+  private _publicClient: PublicClient;
+  private _chain: Chain;
+
+  constructor(config: ViemContractWrapperConfig) {
+    this.config = config;
+    this._chain = config.chain || VIEM_CONFIG.defaultChain;
+
+    if (!isAddress(this.config.contractAddress)) {
+      throw new Error("Invalid contract address");
+    }
+
+    if (!this.config.contractAbi) {
+      throw new Error("Contract ABI is required");
+    }
+
+    // 🔥 自动创建和管理 publicClient
+    this._publicClient = this.createPublicClient();
+
+    console.log(
+      `🎯 创建 Viem 合约包装器: ${this.config.contractName || "Unknown Contract"} (${this.config.contractAddress})`
+    );
+    console.log(
+      `📡 自动配置 PublicClient: ${this._chain.name} (${this._chain.id})`
+    );
+  }
+
+  /**
+   * 🔧 创建 PublicClient 实例
+   */
+  private createPublicClient(): PublicClient {
+    const rpcUrl = VIEM_CONFIG.rpcUrls[this._chain.id];
+    if (!rpcUrl) {
+      throw new Error(`No RPC URL configured for chain ${this._chain.id}`);
+    }
+
+    return createPublicClient({
+      chain: this._chain,
+      transport: http(rpcUrl),
+    });
+  }
+
+  /**
+   * 📖 读取合约数据（自动使用内置 publicClient）
+   *
+   * @template T 返回数据类型
+   * @param functionName 函数名称
+   * @param args 函数参数（可选）
+   * @param options 额外配置（可选）
+   * @returns 读取结果
+   */
+  async read<T = unknown>(
+    functionName: string,
+    args?: readonly unknown[],
+    options?: Partial<
+      Omit<
+        ViemContractReadOptions,
+        | "contractAddress"
+        | "contractAbi"
+        | "functionName"
+        | "args"
+        | "publicClient"
+        | "chain"
+      >
+    >
+  ): Promise<T | null> {
+    const result = await ViemContractService.read<T>({
+      contractAddress: this.config.contractAddress,
+      contractAbi: this.config.contractAbi,
+      functionName,
+      args: args || [],
+      publicClient: this._publicClient, // 🔥 自动使用内置 publicClient
+      chain: this._chain,
+      ...options,
+    });
+
+    if (result.isError) {
+      throw result.error;
+    }
+
+    return result.data;
+  }
+
+  /**
+   * 📝 写入合约数据（自动使用内置 publicClient）
+   *
+   * @param functionName 函数名称
+   * @param args 函数参数（可选）
+   * @param options 交易配置（可选）
+   * @returns 写入结果
+   */
+  async write(
+    functionName: string,
+    args?: readonly unknown[],
+    options?: Partial<
+      Omit<
+        ViemContractWriteOptions,
+        | "contractAddress"
+        | "contractAbi"
+        | "functionName"
+        | "args"
+        | "publicClient"
+        | "chain"
+      >
+    >
+  ): Promise<ViemContractWriteResult> {
+    return ViemContractService.write({
+      contractAddress: this.config.contractAddress,
+      contractAbi: this.config.contractAbi,
+      functionName,
+      args: args || [],
+      publicClient: this._publicClient, // 🔥 自动使用内置 publicClient
+      chain: this._chain,
+      ...options,
+    });
+  }
+
+  /**
+   * 💰 估算 Gas 费用（自动使用内置 publicClient）
+   *
+   * @param functionName 函数名称
+   * @param args 函数参数（可选）
+   * @param options 额外配置（可选）
+   * @returns Gas 估算结果
+   */
+  async estimateGas(
+    functionName: string,
+    args?: readonly unknown[],
+    options?: Partial<
+      Omit<
+        ViemContractWriteOptions,
+        | "contractAddress"
+        | "contractAbi"
+        | "functionName"
+        | "args"
+        | "account"
+        | "walletClient"
+        | "publicClient"
+        | "chain"
+      >
+    >
+  ): Promise<ViemGasEstimation> {
+    return ViemContractService.estimateGas({
+      contractAddress: this.config.contractAddress,
+      contractAbi: this.config.contractAbi,
+      functionName,
+      args: args || [],
+      publicClient: this._publicClient, // 🔥 自动使用内置 publicClient
+      chain: this._chain,
+      ...options,
+    });
+  }
+
+  /**
+   * 📡 监听合约事件（自动使用内置 publicClient）
+   *
+   * @param eventName 事件名称
+   * @param callback 事件回调函数
+   * @param args 事件过滤器（可选）
+   * @returns 取消监听的函数
+   */
+  addEventListener(
+    eventName: string,
+    callback: (logs: Log[]) => void,
+    args?: Record<string, unknown>
+  ): () => void {
+    return ViemContractService.addEventListener(
+      {
+        contractAddress: this.config.contractAddress,
+        contractAbi: this.config.contractAbi,
+        eventName,
+        args,
+        publicClient: this._publicClient, // 🔥 自动使用内置 publicClient
+        chain: this._chain,
+      },
+      callback
+    );
+  }
+
+  /**
+   * 📡 获取历史事件（自动使用内置 publicClient）
+   *
+   * @param eventName 事件名称
+   * @param args 事件过滤器（可选）
+   * @param fromBlock 开始区块（可选）
+   * @param toBlock 结束区块（可选）
+   * @returns 事件数组
+   */
+  async getEvents(
+    eventName: string,
+    args?: Record<string, unknown>,
+    fromBlock?: bigint | "latest" | "earliest" | "pending",
+    toBlock?: bigint | "latest" | "earliest" | "pending"
+  ): Promise<Log[]> {
+    return ViemContractService.getEvents({
+      contractAddress: this.config.contractAddress,
+      contractAbi: this.config.contractAbi,
+      eventName,
+      args,
+      fromBlock,
+      toBlock,
+      publicClient: this._publicClient, // 🔥 自动使用内置 publicClient
+      chain: this._chain,
+    });
+  }
+
+  /**
+   * 🔄 批量读取合约数据（自动使用内置 publicClient）
+   *
+   * @param calls 批量调用配置数组
+   * @returns 批量读取结果数组
+   */
+  async batchRead(
+    calls: {
+      functionName: string;
+      args?: readonly unknown[];
+    }[]
+  ): Promise<ViemContractReadResult<unknown>[]> {
+    const batchCalls = calls.map((call) => ({
+      contractAddress: this.config.contractAddress,
+      contractAbi: this.config.contractAbi,
+      functionName: call.functionName,
+      args: call.args || [],
+      publicClient: this._publicClient, // 🔥 自动使用内置 publicClient
+      chain: this._chain,
+    }));
+
+    return ViemContractService.batchRead(batchCalls);
+  }
+
+  /**
+   * ℹ️ 获取合约配置信息
+   */
+  getConfig(): Readonly<ViemContractWrapperConfig> {
+    return Object.freeze({ ...this.config });
+  }
+
+  /**
+   * 🔗 获取合约地址
+   */
+  get address(): Address {
+    return this.config.contractAddress;
+  }
+
+  /**
+   * 📋 获取合约 ABI
+   */
+  get abi(): Abi {
+    return this.config.contractAbi;
+  }
+
+  /**
+   * 🏷️ 获取合约名称
+   */
+  get name(): string {
+    return this.config.contractName || "Unknown Contract";
+  }
+
+  /**
+   * 📊 获取合约网络状态（使用内置 publicClient）
+   */
+  async getNetworkStats(): Promise<{
+    blockNumber: bigint;
+    gasPrice: string;
+    chainId: number;
+    chainName: string;
+  }> {
+    return getViemNetworkStats(this._publicClient, this._chain);
+  }
+
+  /**
+   * 🔧 获取内置的 PublicClient（只读访问）
+   */
+  get publicClient(): PublicClient {
+    return this._publicClient;
+  }
+
+  /**
+   * 🔧 获取当前链配置（只读访问）
+   */
+  get chain(): Chain {
+    return this._chain;
+  }
+
+  /**
+   * 🔧 私有方法：合并交易选项
+   * @param options 用户提供的选项
+   * @param defaults 默认选项
+   */
+  private mergeWriteOptions(
+    options?: Partial<
+      Omit<
+        ViemContractWriteOptions,
+        "contractAddress" | "contractAbi" | "functionName" | "args"
+      >
+    >,
+    defaults: Record<string, unknown> = {}
+  ) {
+    return {
+      estimateGas: options?.estimateGas ?? true,
+      timeout: options?.timeout,
+      account: options?.account,
+      walletClient: options?.walletClient,
+      publicClient: options?.publicClient,
+      gas: options?.gas,
+      gasPrice: options?.gasPrice,
+      maxPriorityFeePerGas: options?.maxPriorityFeePerGas,
+      maxFeePerGas: options?.maxFeePerGas,
+      value: options?.value,
+      skipLogging: options?.skipLogging,
+      chain: options?.chain || this.config.chain,
+      nonce: options?.nonce,
+      ...defaults,
+    };
+  }
+
+  /**
+   * ✍️ 统一的写入方法，简化合约写入操作
+   * @param functionName 合约函数名
+   * @param args 函数参数
+   * @param options 交易选项
+   * @returns 写入结果
+   */
+  async executeWrite(
+    functionName: string,
+    args?: readonly unknown[],
+    options?: Partial<
+      Omit<
+        ViemContractWriteOptions,
+        "contractAddress" | "contractAbi" | "functionName" | "args"
+      >
+    >
+  ): Promise<ViemContractWriteResult> {
+    return this.write(functionName, args, this.mergeWriteOptions(options));
+  }
+
+  /**
+   * ✍️ 带状态跟踪的写入方法，支持回调函数
+   * @param functionName 合约函数名
+   * @param args 函数参数
+   * @param options 扩展交易选项（包含回调函数）
+   * @returns 写入结果
+   */
+  async executeWriteWithStatus(
+    functionName: string,
+    args?: readonly unknown[],
+    options?: Partial<
+      Omit<
+        ExtendedViemContractWriteOptions,
+        "contractAddress" | "contractAbi" | "functionName" | "args"
+      >
+    >
+  ): Promise<ViemContractWriteResult> {
+    try {
+      // 触发待处理状态
+      options?.onPending?.();
+
+      // 执行写入
+      const result = await this.write(
+        functionName,
+        args,
+        this.mergeWriteOptions(options)
+      );
+
+      // 处理错误结果
+      if (result.isError) {
+        options?.onError?.(result.error!);
+        return result;
+      }
+
+      // 触发已发送状态
+      if (result.hash) {
+        options?.onSent?.(result.hash);
+      }
+
+      // 如果有交易哈希，等待确认
+      if (result.hash && !result.isConfirmed) {
+        options?.onConfirming?.();
+        // 这里可以添加等待确认的逻辑，如果需要的话
+      }
+
+      // 处理最终结果
+      if (result.isConfirmed && result.receipt) {
+        options?.onConfirmed?.(result.receipt);
+
+        if (result.isTransactionSuccessful) {
+          options?.onSuccess?.(result.receipt);
+        } else if (result.isReverted) {
+          options?.onReverted?.(result.receipt);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      options?.onError?.(err);
+
+      return {
+        hash: null,
+        receipt: null,
+        error: err,
+        isError: true,
+        isSuccess: false,
+        isConfirmed: false,
+        isTransactionSuccessful: false,
+        isReverted: false,
+      };
+    }
+  }
+}
+
+/**
+ * 🏭 Viem 合约包装器工厂函数
+ *
+ * 快速创建合约包装器实例的便捷函数
+ *
+ * @param config 合约配置
+ * @returns 合约包装器实例
+ *
+ * @example
+ * ```typescript
+ * import contract from "@/app/abi/MultiStakePledgeContract.json";
+ *
+ * const multiStakeContract = createViemContractWrapper({
+ *   contractAddress: "0x123...",
+ *   contractAbi: contract.abi,
+ *   contractName: "MultiStakePledge"
+ * });
+ * ```
+ */
+export function createViemContractWrapper(
+  config: ViemContractWrapperConfig
+): ViemContractWrapper {
+  return new ViemContractWrapper(config);
+}
+
+// ==================== 导出增强版服务 ====================
+
+export const EnhancedViemContract = ViemContractService;

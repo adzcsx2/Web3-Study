@@ -17,6 +17,8 @@ error PoolAlreadyEnded(uint256 poolId);                 // 池子已经结束
 error InvalidPoolParameters();                          // 无效的池子参数
 error PoolNameEmpty();                                  // 池子名称为空
 error MaxPoolsReached(uint256 maxPools);                // 达到最大池子数量限制
+error PoolAlreadyActive(uint256 poolId);                // 池子已经激活
+error CannotDeactivatePoolWithStakes(uint256 poolId, uint256 totalStaked); // 无法停用有质押的池子
 
 // ========================================
 // 代币相关错误

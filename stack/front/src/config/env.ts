@@ -33,6 +33,17 @@ export const env = {
   // 是否启用测试网
   enableTestnets: process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true",
 
+  // ==================== RPC 配置 ====================
+  // RPC URLs 配置（必需）
+  rpcUrls: {
+    mainnet: process.env.NEXT_PUBLIC_RPC_URL_1_MAINNET,
+    polygon: process.env.NEXT_PUBLIC_RPC_URL_137_POLYGON,
+    optimism: process.env.NEXT_PUBLIC_RPC_URL_10_OPTIMISM,
+    arbitrum: process.env.NEXT_PUBLIC_RPC_URL_42161_ARBITRUM,
+    sepolia: process.env.NEXT_PUBLIC_RPC_URL_11155111_SEPOLIA,
+    base: process.env.NEXT_PUBLIC_RPC_URL_8453_BASE,
+  },
+
   // ==================== 国际化配置 ====================
   // 默认语言
   defaultLanguage: process.env.NEXT_PUBLIC_DEFAULT_LANGUAGE || "zh",

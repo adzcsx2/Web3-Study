@@ -51,6 +51,20 @@ event PoolUpdated(
 event PoolActivated(uint256 indexed poolId, bool isActive);
 
 /**
+ * @notice 池子停用事件
+ * @param poolId 池子ID
+ * @param timestamp 停用时间戳
+ */
+event PoolDeactivated(uint256 indexed poolId, uint256 timestamp);
+
+/**
+ * @notice 池子重新激活事件
+ * @param poolId 池子ID
+ * @param timestamp 重新激活时间戳
+ */
+event PoolReactivated(uint256 indexed poolId, uint256 timestamp);
+
+/**
  * @notice 池子启动事件
  * @param poolId 池子ID
  * @param startTime 开始时间戳

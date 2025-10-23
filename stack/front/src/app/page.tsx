@@ -1,10 +1,18 @@
 "use client";
 import { WalletConnectComponent } from "@/components/WalletConnectComponent";
-import { Layout as AntdLayout, Divider, Image, Typography, Button } from "antd";
+import { Layout as AntdLayout, Divider, Typography, Button } from "antd";
 import React from "react";
-import { useContractData, useContractDataWrite } from "@/hooks/useContract";
-import contract from "./abi/MultiStakePledgeContract.json";
-
+// 旧的 Hook 已被移除，请使用新的 useEthersContract Hook
+import MultiStakePledgeContract from "@/app/abi/MultiStakePledgeContract.json";
+import { useState, useEffect } from "react";
+import { ethers } from "ethers";
+import { useConnectedWalletClient, useWallet } from "@/hooks/useWalletClient";
+import {
+  readViemContract,
+  readViemContractBatch,
+  writeViemContract,
+} from "@/utils/viemContractUtils";
+import { type Abi } from "viem";
 // 主页面头部
 function MainHeaderComponent(): React.ReactNode {
   return (
@@ -27,12 +35,161 @@ function MainHeaderComponent(): React.ReactNode {
   );
 }
 
-function useContractVersion(): React.ReactNode {
-  const { data: version, isLoading } = useContractData("getVersion");
+// 池数量显示组件 - 使用 Viem 工具
+function PoolCountDisplay(): React.ReactNode {
+  const [isLoading, setIsLoading] = useState(true);
+  const [poolCount, setPoolCount] = useState<number>(0);
+     const CONTRACT_ADDRESS =
+          MultiStakePledgeContract.address as `0x${string}`;
+        const CONTRACT_ABI = MultiStakePledgeContract.abi as Abi;
+
+  const connectedWalletClient = useConnectedWalletClient();
+
+  useEffect(() => {
+    const fetchPoolCount = async () => {
+      try {
+        setIsLoading(true);
+
+        //使用 Viem 读取合约   
+        const count = await readViemContract<bigint>(
+          CONTRACT_ADDRESS,
+          CONTRACT_ABI,
+          "poolCounter"
+        );
+
+        //使用 Viem 设置池子数量
+        await writeViemContract(
+          CONTRACT_ADDRESS,
+          CONTRACT_ABI,
+          "setPoolCount",
+          [count]
+        );
+
+        setPoolCount(count ? Number(count) : 0);
+      } catch (error) {
+        console.error("获取池子数量失败:", error);
+        setPoolCount(0);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPoolCount();
+  }, []);
 
   if (isLoading) return <>加载中...</>;
 
-  return <>v{version || "未知"}</>;
+  return <>{poolCount}</>;
+}
+
+// 总锁仓量显示组件 - 使用 Viem 工具
+function TotalStakedDisplay(): React.ReactNode {
+  const [totalStakedData, setTotalStakedData] = React.useState<{
+    wethTotal: string;
+    usdcTotal: string;
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const wallet = useWallet();
+
+  // 定义 PoolInfo 类型
+  interface PoolInfo {
+    rewardToken: string;
+    totalRewards: bigint;
+    // 添加其他需要的属性
+  }
+
+  // 使用 useEffect 来处理异步操作
+  useEffect(() => {
+    const fetchTotalStaked = async () => {
+      // 合约配置
+      const CONTRACT_ADDRESS =
+        MultiStakePledgeContract.address as `0x${string}`;
+      const CONTRACT_ABI = MultiStakePledgeContract.abi as Abi;
+      if (!wallet.isConnected) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+
+        // 1. 获取池子数量
+        const allPools = await readViemContract<bigint>(
+          CONTRACT_ADDRESS,
+          CONTRACT_ABI,
+          "poolCounter"
+        );
+        console.log("allPools:", allPools);
+
+        if (!allPools || allPools === 0n) {
+          console.log("没有池子或获取池子数量失败");
+          setTotalStakedData({ wethTotal: "0", usdcTotal: "0" });
+          return;
+        }
+
+        // 2. 批量获取所有池子信息
+        const calls = [];
+        for (let i = 0; i < Number(allPools); i++) {
+          calls.push({
+            functionName: "getPoolInfo",
+            args: [BigInt(i)],
+          });
+        }
+
+        const poolInfos = (await readViemContractBatch(
+          CONTRACT_ADDRESS,
+          CONTRACT_ABI,
+          calls
+        )) as PoolInfo[];
+
+        poolInfos.forEach((info: PoolInfo, index: number) => {
+          console.log(`池子 ${index} 信息:`, info);
+        });
+
+        // 3. 计算总质押量
+        let wethTotal = BigInt(0);
+        let usdcTotal = BigInt(0);
+
+        poolInfos.forEach((poolInfo: PoolInfo) => {
+          if (poolInfo && poolInfo.rewardToken && poolInfo.totalRewards) {
+            const tokenType = poolInfo.rewardToken;
+            if (tokenType === "WETH") {
+              wethTotal += poolInfo.totalRewards;
+            } else if (tokenType === "USDC") {
+              usdcTotal += poolInfo.totalRewards;
+            }
+          }
+        });
+
+        console.log(
+          `✅ 计算总质押量成功: WETH=${wethTotal}, USDC=${usdcTotal}`
+        );
+
+        setTotalStakedData({
+          wethTotal: ethers.formatEther(wethTotal),
+          usdcTotal: ethers.formatEther(usdcTotal),
+        });
+      } catch (error) {
+        console.error("获取总质押量失败:", error);
+        setTotalStakedData(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTotalStaked();
+  }, [wallet.isConnected]);
+
+  if (isLoading) return <>加载中...</>;
+  if (!wallet.isConnected) return <>请连接钱包</>;
+  if (!totalStakedData) return <>数据加载失败</>;
+
+  return (
+    <>
+      {totalStakedData.wethTotal} WETH + {totalStakedData.usdcTotal} USDC
+    </>
+  );
 }
 
 // 平台统计组件
@@ -50,23 +207,11 @@ function StatisticsComponent(): React.ReactNode {
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 mt-6">
           <div className="text-center">
             <Typography.Title
-              className="!text-blue-500 !mb-2"
-              level={4}
-              style={{ fontSize: "1.5rem", fontWeight: "bold" }}
-            >
-              1%+{useContractVersion()} ETH
-            </Typography.Title>
-            <Typography.Text type="secondary" className="text-sm sm:text-base">
-              平均APY
-            </Typography.Text>
-          </div>
-          <div className="text-center">
-            <Typography.Title
               className="!text-green-700 !mb-2"
               level={4}
               style={{ fontSize: "1.5rem", fontWeight: "bold" }}
             >
-              1234
+              <TotalStakedDisplay />
             </Typography.Title>
             <Typography.Text type="secondary" className="text-sm sm:text-base">
               总锁仓量
@@ -90,7 +235,7 @@ function StatisticsComponent(): React.ReactNode {
               level={4}
               style={{ fontSize: "1.5rem", fontWeight: "bold" }}
             >
-              3
+              <PoolCountDisplay />
             </Typography.Title>
             <Typography.Text type="secondary" className="text-sm sm:text-base">
               质押池数量
@@ -148,15 +293,17 @@ function WelComeComponent(): React.ReactNode {
 
 // 质押示例组件 - 演示写合约Hook的使用
 function StakeExampleComponent(): React.ReactNode {
-  // 这里假设有一个stake函数，参数为(amount)
-  const { write, isPending, isSuccess, hash, error } = useContractDataWrite("stake", {
-    onSuccess: (txHash) => {
-      console.log("质押成功，交易哈希:", txHash);
-    },
-    onError: (err) => {
-      console.error("质押失败:", err);
-    }
-  });
+  // TODO: 迁移到新的 useEthersContract Hook
+  // const { write, isPending, isSuccess, hash, error } = useContractDataWrite("stake", {...});
+
+  // 临时占位变量
+  const write = (args?: unknown[]) => {
+    console.log("请迁移到新的 useEthersContract Hook", args);
+  };
+  const isPending = false;
+  const isSuccess = false;
+  const hash = undefined as string | undefined;
+  const error = null as Error | null;
 
   const handleStake = () => {
     // 质押 0.1 ETH (转换为 wei: 100000000000000000)
@@ -197,7 +344,8 @@ function StakeExampleComponent(): React.ReactNode {
               ✅ 质押成功！
             </Typography.Text>
             <Typography.Text className="text-xs text-gray-500 block mt-2">
-              交易哈希: {hash?.slice(0, 10)}...{hash?.slice(-8)}
+              交易哈希:{" "}
+              {hash ? `${hash.slice(0, 10)}...${hash.slice(-8)}` : "N/A"}
             </Typography.Text>
           </div>
         )}
@@ -205,7 +353,7 @@ function StakeExampleComponent(): React.ReactNode {
         {error && (
           <div className="text-center">
             <Typography.Text className="text-red-600">
-              ❌ 质押失败: {error.message}
+              ❌ 质押失败: {error?.message || "未知错误"}
             </Typography.Text>
           </div>
         )}
