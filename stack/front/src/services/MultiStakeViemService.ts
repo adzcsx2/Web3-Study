@@ -172,11 +172,13 @@ export class MultiStakeViemService {
 
   /**
    * 获取池子总数
+   * @param isForce 是否强制刷新缓存
    * @returns 池子数量
    */
-  async getPoolCount(): Promise<number> {
+  async getPoolCount(isForce: boolean = false): Promise<number> {
     const result = await this.wrapper.read<bigint>("poolCounter", [], {
       cacheType: "static", // 池子数量变化不频繁，使用长缓存（5分钟）
+      forceRefresh: isForce,
     });
     if (result === null) {
       throw new Error("Failed to get pool count");
@@ -187,9 +189,13 @@ export class MultiStakeViemService {
   /**
    * 获取池子信息
    * @param poolId 池子ID
+   * @param isForce 是否强制刷新缓存
    * @returns 池子信息
    */
-  async getPoolInfo(poolId: number): Promise<PoolInfo> {
+  async getPoolInfo(
+    poolId: number,
+    isForce: boolean = false
+  ): Promise<PoolInfo> {
     if (poolId < 0) {
       throw new Error(
         `Invalid pool ID: ${poolId}. Pool ID must be non-negative.`
@@ -198,6 +204,7 @@ export class MultiStakeViemService {
 
     const result = await this.wrapper.read<PoolInfo>("getPoolInfo", [poolId], {
       cacheType: "semiStatic", // 池子信息偶尔变化，缓存1分钟
+      forceRefresh: isForce,
     });
     if (result === null) {
       throw new Error(`Failed to get pool info for pool ${poolId}`);
@@ -207,9 +214,18 @@ export class MultiStakeViemService {
 
   /**
    * 获取所有用户的质押事件 event->StakedInPool
+   * 🔥 带缓存支持 - 缓存5分钟（事件数据相对稳定）
+   * @param isForce 是否强制刷新缓存
    */
-  async getAllStakedInPoolEvents(): Promise<ContractEvent[]> {
-    const result = await this.wrapper.getEvents("StakedInPool");
+  async getAllStakedInPoolEvents(
+    isForce: boolean = false
+  ): Promise<ContractEvent[]> {
+    const result = await this.wrapper.getEventsWithCache("StakedInPool", {
+      cacheType: "semiStatic", // 事件数据相对稳定，缓存5分钟
+      fromBlock: "earliest",
+      toBlock: "latest",
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error("Failed to get all staked in pool events");
     }
@@ -217,9 +233,18 @@ export class MultiStakeViemService {
   }
   /**
    * 获取所有用户的取消质押事件 event->UnstakedFromPool
+   * 🔥 带缓存支持 - 缓存5分钟（事件数据相对稳定）
+   * @param isForce 是否强制刷新缓存
    */
-  async getAllUnstakedFromPoolEvents(): Promise<ContractEvent[]> {
-    const result = await this.wrapper.getEvents("UnstakedFromPool");
+  async getAllUnstakedFromPoolEvents(
+    isForce: boolean = false
+  ): Promise<ContractEvent[]> {
+    const result = await this.wrapper.getEventsWithCache("UnstakedFromPool", {
+      cacheType: "semiStatic", // 事件数据相对稳定，缓存5分钟
+      fromBlock: "earliest",
+      toBlock: "latest",
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error("Failed to get all unstaked from pool events");
     }
@@ -227,10 +252,12 @@ export class MultiStakeViemService {
   }
   /**
    * 获取合约活跃用户  getAllStakedInPoolEvents-getAllUnstakedFromPoolEvents
+   * 🔥 结果会自动继承上述方法的缓存
+   * @param isForce 是否强制刷新缓存
    */
-  async getActiveUsers(): Promise<string[]> {
-    const stakedEvents = await this.getAllStakedInPoolEvents();
-    const unstakedEvents = await this.getAllUnstakedFromPoolEvents();
+  async getActiveUsers(isForce: boolean = false): Promise<string[]> {
+    const stakedEvents = await this.getAllStakedInPoolEvents(isForce);
+    const unstakedEvents = await this.getAllUnstakedFromPoolEvents(isForce);
 
     const stakedUsers = stakedEvents.map((event) => event.address);
     const unstakedUsers = unstakedEvents.map((event) => event.address);
@@ -244,13 +271,21 @@ export class MultiStakeViemService {
    * 获取用户在指定池子的质押信息
    * @param poolId 池子ID
    * @param user 用户地址
+   * @param isForce 是否强制刷新缓存
    * @returns 用户池子信息
    */
-  async getUserPoolInfo(poolId: number, user: string): Promise<UserPoolInfo> {
-    const result = await this.wrapper.read<UserPoolInfo>("getUserPoolInfo", [
-      poolId,
-      user,
-    ]);
+  async getUserPoolInfo(
+    poolId: number,
+    user: string,
+    isForce: boolean = false
+  ): Promise<UserPoolInfo> {
+    const result = await this.wrapper.read<UserPoolInfo>(
+      "getUserPoolInfo",
+      [poolId, user],
+      {
+        forceRefresh: isForce,
+      }
+    );
     if (result === null) {
       throw new Error(
         `Failed to get user pool info for pool ${poolId} and user ${user}`
@@ -262,10 +297,16 @@ export class MultiStakeViemService {
   /**
    * 获取用户的奖励余额
    * @param user 用户地址
+   * @param isForce 是否强制刷新缓存
    * @returns 奖励余额
    */
-  async getRewardBalance(user: string): Promise<bigint> {
-    const result = await this.wrapper.read<bigint>("getRewardBalance", [user]);
+  async getRewardBalance(
+    user: string,
+    isForce: boolean = false
+  ): Promise<bigint> {
+    const result = await this.wrapper.read<bigint>("getRewardBalance", [user], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error(`Failed to get reward balance for user ${user}`);
     }
@@ -275,11 +316,12 @@ export class MultiStakeViemService {
   /**
    * 检查池子是否存在
    * @param poolId 池子ID
+   * @param isForce 是否强制刷新缓存
    * @returns 是否存在
    */
-  async poolExists(poolId: number): Promise<boolean> {
+  async poolExists(poolId: number, isForce: boolean = false): Promise<boolean> {
     try {
-      await this.getPoolInfo(poolId);
+      await this.getPoolInfo(poolId, isForce);
       return true;
     } catch {
       return false;
@@ -288,10 +330,13 @@ export class MultiStakeViemService {
 
   /**
    * 获取活跃池子数量
+   * @param isForce 是否强制刷新缓存
    * @returns 活跃池子数量
    */
-  async getActivePoolCount(): Promise<number> {
-    const result = await this.wrapper.read<bigint>("getActivePoolCount");
+  async getActivePoolCount(isForce: boolean = false): Promise<number> {
+    const result = await this.wrapper.read<bigint>("getActivePoolCount", [], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error("Failed to get active pool count");
     }
@@ -300,10 +345,13 @@ export class MultiStakeViemService {
 
   /**
    * 获取合约版本
+   * @param isForce 是否强制刷新缓存
    * @returns 合约版本
    */
-  async getVersion(): Promise<string> {
-    const result = await this.wrapper.read<string>("getVersion");
+  async getVersion(isForce: boolean = false): Promise<string> {
+    const result = await this.wrapper.read<string>("getVersion", [], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error("Failed to get contract version");
     }
@@ -312,10 +360,13 @@ export class MultiStakeViemService {
 
   /**
    * 获取合约版本常量
+   * @param isForce 是否强制刷新缓存
    * @returns 合约版本常量
    */
-  async getContractVersion(): Promise<string> {
-    const result = await this.wrapper.read<string>("CONTRACT_VERSION");
+  async getContractVersion(isForce: boolean = false): Promise<string> {
+    const result = await this.wrapper.read<string>("CONTRACT_VERSION", [], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error("Failed to get contract version constant");
     }
@@ -324,10 +375,13 @@ export class MultiStakeViemService {
 
   /**
    * 获取最大池子数量
+   * @param isForce 是否强制刷新缓存
    * @returns 最大池子数量
    */
-  async getMaxPools(): Promise<number> {
-    const result = await this.wrapper.read<bigint>("MAX_POOLS");
+  async getMaxPools(isForce: boolean = false): Promise<number> {
+    const result = await this.wrapper.read<bigint>("MAX_POOLS", [], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error("Failed to get max pools");
     }
@@ -338,10 +392,13 @@ export class MultiStakeViemService {
 
   /**
    * 获取池子计数器（public 变量）
+   * @param isForce 是否强制刷新缓存
    * @returns 池子计数器
    */
-  async getPoolCounter(): Promise<number> {
-    const result = await this.wrapper.read<bigint>("poolCounter");
+  async getPoolCounter(isForce: boolean = false): Promise<number> {
+    const result = await this.wrapper.read<bigint>("poolCounter", [], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error("Failed to get pool counter");
     }
@@ -351,10 +408,16 @@ export class MultiStakeViemService {
   /**
    * 获取指定池子的详细信息（通过 pools mapping）
    * @param poolId 池子ID
+   * @param isForce 是否强制刷新缓存
    * @returns 池子详细信息
    */
-  async getPoolsMapping(poolId: number): Promise<PoolInfo> {
-    const result = await this.wrapper.read<PoolInfo>("pools", [poolId]);
+  async getPoolsMapping(
+    poolId: number,
+    isForce: boolean = false
+  ): Promise<PoolInfo> {
+    const result = await this.wrapper.read<PoolInfo>("pools", [poolId], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error(`Failed to get pools mapping for pool ${poolId}`);
     }
@@ -363,10 +426,17 @@ export class MultiStakeViemService {
 
   /**
    * 获取升级接口版本（public 常量）
+   * @param isForce 是否强制刷新缓存
    * @returns 升级接口版本
    */
-  async getUpgradeInterfaceVersion(): Promise<string> {
-    const result = await this.wrapper.read<string>("UPGRADE_INTERFACE_VERSION");
+  async getUpgradeInterfaceVersion(isForce: boolean = false): Promise<string> {
+    const result = await this.wrapper.read<string>(
+      "UPGRADE_INTERFACE_VERSION",
+      [],
+      {
+        forceRefresh: isForce,
+      }
+    );
     if (result === null) {
       throw new Error("Failed to get upgrade interface version");
     }
@@ -375,10 +445,13 @@ export class MultiStakeViemService {
 
   /**
    * 获取合约版本号（public 常量 - V2 返回 uint16）
+   * @param isForce 是否强制刷新缓存
    * @returns 合约版本号
    */
-  async getContractVersionNumber(): Promise<number> {
-    const result = await this.wrapper.read<number>("CONTRACT_VERSION");
+  async getContractVersionNumber(isForce: boolean = false): Promise<number> {
+    const result = await this.wrapper.read<number>("CONTRACT_VERSION", [], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error("Failed to get contract version number");
     }
@@ -389,10 +462,13 @@ export class MultiStakeViemService {
 
   /**
    * 获取所有活跃的池子列表（V2 新增）
+   * @param isForce 是否强制刷新缓存
    * @returns 活跃池子信息数组
    */
-  async getActivePools(): Promise<PoolInfo[]> {
-    const result = await this.wrapper.read<PoolInfo[]>("getActivePools");
+  async getActivePools(isForce: boolean = false): Promise<PoolInfo[]> {
+    const result = await this.wrapper.read<PoolInfo[]>("getActivePools", [], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error("Failed to get active pools");
     }
@@ -402,12 +478,20 @@ export class MultiStakeViemService {
   /**
    * 批量获取多个池子信息（V2 新增优化）
    * @param poolIds 池子ID数组
+   * @param isForce 是否强制刷新缓存
    * @returns 池子信息数组
    */
-  async getPoolsBatch(poolIds: number[]): Promise<PoolInfo[]> {
-    const result = await this.wrapper.read<PoolInfo[]>("getPoolsBatch", [
-      poolIds,
-    ]);
+  async getPoolsBatch(
+    poolIds: number[],
+    isForce: boolean = false
+  ): Promise<PoolInfo[]> {
+    const result = await this.wrapper.read<PoolInfo[]>(
+      "getPoolsBatch",
+      [poolIds],
+      {
+        forceRefresh: isForce,
+      }
+    );
     if (result === null) {
       throw new Error("Failed to get pools batch");
     }
@@ -416,9 +500,10 @@ export class MultiStakeViemService {
 
   /**
    * 获取池子概览信息（V2 新增）
+   * @param isForce 是否强制刷新缓存
    * @returns 池子概览信息
    */
-  async getPoolsOverview(): Promise<{
+  async getPoolsOverview(isForce: boolean = false): Promise<{
     totalPools: bigint;
     activePools: bigint;
     availableSlots: bigint;
@@ -427,7 +512,9 @@ export class MultiStakeViemService {
       totalPools: bigint;
       activePools: bigint;
       availableSlots: bigint;
-    }>("getPoolsOverview");
+    }>("getPoolsOverview", [], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error("Failed to get pools overview");
     }
@@ -436,10 +523,13 @@ export class MultiStakeViemService {
 
   /**
    * 检查是否可以创建新池子（V2 新增）
+   * @param isForce 是否强制刷新缓存
    * @returns 是否可以创建新池子
    */
-  async canCreateNewPool(): Promise<boolean> {
-    const result = await this.wrapper.read<boolean>("canCreateNewPool");
+  async canCreateNewPool(isForce: boolean = false): Promise<boolean> {
+    const result = await this.wrapper.read<boolean>("canCreateNewPool", [], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error("Failed to check if can create new pool");
     }
@@ -448,10 +538,13 @@ export class MultiStakeViemService {
 
   /**
    * 获取 MetaNodeToken 地址
+   * @param isForce 是否强制刷新缓存
    * @returns MetaNodeToken 地址
    */
-  async getMetaNodeToken(): Promise<string> {
-    const result = await this.wrapper.read<string>("metaNodeToken");
+  async getMetaNodeToken(isForce: boolean = false): Promise<string> {
+    const result = await this.wrapper.read<string>("metaNodeToken", [], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error("Failed to get meta node token address");
     }
@@ -460,10 +553,13 @@ export class MultiStakeViemService {
 
   /**
    * 检查合约是否暂停
+   * @param isForce 是否强制刷新缓存
    * @returns 是否暂停
    */
-  async isPaused(): Promise<boolean> {
-    const result = await this.wrapper.read<boolean>("paused");
+  async isPaused(isForce: boolean = false): Promise<boolean> {
+    const result = await this.wrapper.read<boolean>("paused", [], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error("Failed to check if contract is paused");
     }
@@ -473,10 +569,16 @@ export class MultiStakeViemService {
   /**
    * 检查地址是否在黑名单中
    * @param address 要检查的地址
+   * @param isForce 是否强制刷新缓存
    * @returns 是否在黑名单中
    */
-  async isBlacklisted(address: string): Promise<boolean> {
-    const result = await this.wrapper.read<boolean>("blacklist", [address]);
+  async isBlacklisted(
+    address: string,
+    isForce: boolean = false
+  ): Promise<boolean> {
+    const result = await this.wrapper.read<boolean>("blacklist", [address], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error(
         `Failed to check blacklist status for address ${address}`
@@ -489,10 +591,21 @@ export class MultiStakeViemService {
    * 检查是否有指定角色
    * @param role 角色哈希
    * @param account 账户地址
+   * @param isForce 是否强制刷新缓存
    * @returns 是否有角色
    */
-  async hasRole(role: string, account: string): Promise<boolean> {
-    const result = await this.wrapper.read<boolean>("hasRole", [role, account]);
+  async hasRole(
+    role: string,
+    account: string,
+    isForce: boolean = false
+  ): Promise<boolean> {
+    const result = await this.wrapper.read<boolean>(
+      "hasRole",
+      [role, account],
+      {
+        forceRefresh: isForce,
+      }
+    );
     if (result === null) {
       throw new Error(`Failed to check role for account ${account}`);
     }
@@ -502,10 +615,13 @@ export class MultiStakeViemService {
   /**
    * 获取角色管理员
    * @param role 角色哈希
+   * @param isForce 是否强制刷新缓存
    * @returns 管理员地址
    */
-  async getRoleAdmin(role: string): Promise<string> {
-    const result = await this.wrapper.read<string>("getRoleAdmin", [role]);
+  async getRoleAdmin(role: string, isForce: boolean = false): Promise<string> {
+    const result = await this.wrapper.read<string>("getRoleAdmin", [role], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error(`Failed to get role admin for role ${role}`);
     }
@@ -514,10 +630,13 @@ export class MultiStakeViemService {
 
   /**
    * 获取默认管理员角色
+   * @param isForce 是否强制刷新缓存
    * @returns 默认管理员角色
    */
-  async getDefaultAdminRole(): Promise<string> {
-    const result = await this.wrapper.read<string>("DEFAULT_ADMIN_ROLE");
+  async getDefaultAdminRole(isForce: boolean = false): Promise<string> {
+    const result = await this.wrapper.read<string>("DEFAULT_ADMIN_ROLE", [], {
+      forceRefresh: isForce,
+    });
     if (result === null) {
       throw new Error("Failed to get default admin role");
     }
@@ -527,12 +646,20 @@ export class MultiStakeViemService {
   /**
    * 检查接口支持
    * @param interfaceId 接口ID
+   * @param isForce 是否强制刷新缓存
    * @returns 是否支持接口
    */
-  async supportsInterface(interfaceId: string): Promise<boolean> {
-    const result = await this.wrapper.read<boolean>("supportsInterface", [
-      interfaceId,
-    ]);
+  async supportsInterface(
+    interfaceId: string,
+    isForce: boolean = false
+  ): Promise<boolean> {
+    const result = await this.wrapper.read<boolean>(
+      "supportsInterface",
+      [interfaceId],
+      {
+        forceRefresh: isForce,
+      }
+    );
     if (result === null) {
       throw new Error(`Failed to check interface support for ${interfaceId}`);
     }
@@ -1331,10 +1458,14 @@ export class MultiStakeViemService {
   /**
    * 检查池子是否处于活跃期间
    * @param poolId 池子ID
+   * @param isForce 是否强制刷新缓存
    * @returns 是否活跃
    */
-  async isPoolActive(poolId: number): Promise<boolean> {
-    const poolInfo = await this.getPoolInfo(poolId);
+  async isPoolActive(
+    poolId: number,
+    isForce: boolean = false
+  ): Promise<boolean> {
+    const poolInfo = await this.getPoolInfo(poolId, isForce);
     const currentTime = Math.floor(Date.now() / 1000);
     return (
       poolInfo.isActive &&
@@ -1346,15 +1477,19 @@ export class MultiStakeViemService {
   /**
    * 验证池子是否可以进行质押
    * @param poolId 池子ID
+   * @param isForce 是否强制刷新缓存
    * @returns 验证结果，包含是否可以质押和错误信息
    */
-  async validatePoolForStaking(poolId: number): Promise<{
+  async validatePoolForStaking(
+    poolId: number,
+    isForce: boolean = false
+  ): Promise<{
     canStake: boolean;
     error?: string;
     errorType?: "NOT_ACTIVE" | "NOT_STARTED" | "ENDED" | "NOT_EXISTS";
   }> {
     try {
-      const poolInfo = await this.getPoolInfo(poolId);
+      const poolInfo = await this.getPoolInfo(poolId, isForce);
       const currentTime = Math.floor(Date.now() / 1000);
 
       // 检查池子是否存在（getPoolInfo会抛出异常如果池子不存在）
@@ -1396,7 +1531,7 @@ export class MultiStakeViemService {
       }
 
       return { canStake: true };
-    } catch (error) {
+    } catch {
       return {
         canStake: false,
         error: `池子 ${poolId} 不存在或获取信息失败`,
@@ -1408,10 +1543,14 @@ export class MultiStakeViemService {
   /**
    * 计算池子剩余时间（秒）
    * @param poolId 池子ID
+   * @param isForce 是否强制刷新缓存
    * @returns 剩余时间（秒）
    */
-  async getPoolRemainingTime(poolId: number): Promise<number> {
-    const poolInfo = await this.getPoolInfo(poolId);
+  async getPoolRemainingTime(
+    poolId: number,
+    isForce: boolean = false
+  ): Promise<number> {
+    const poolInfo = await this.getPoolInfo(poolId, isForce);
     const currentTime = Math.floor(Date.now() / 1000);
     const endTime = Number(poolInfo.endTime);
     return Math.max(0, endTime - currentTime);
@@ -1420,10 +1559,14 @@ export class MultiStakeViemService {
   /**
    * 计算池子的年化收益率（APY）
    * @param poolId 池子ID
+   * @param isForce 是否强制刷新缓存
    * @returns APY 百分比
    */
-  async calculatePoolAPY(poolId: number): Promise<number> {
-    const poolInfo = await this.getPoolInfo(poolId);
+  async calculatePoolAPY(
+    poolId: number,
+    isForce: boolean = false
+  ): Promise<number> {
+    const poolInfo = await this.getPoolInfo(poolId, isForce);
 
     if (poolInfo.totalStaked === BigInt(0)) {
       return 0;
@@ -1443,17 +1586,19 @@ export class MultiStakeViemService {
    * 检查用户是否可以质押指定金额
    * @param poolId 池子ID
    * @param amount 质押金额
+   * @param isForce 是否强制刷新缓存
    * @returns 检查结果
    */
   async canUserStake(
     poolId: number,
-    amount: bigint
+    amount: bigint,
+    isForce: boolean = false
   ): Promise<{
     canStake: boolean;
     reason?: string;
   }> {
     try {
-      const poolInfo = await this.getPoolInfo(poolId);
+      const poolInfo = await this.getPoolInfo(poolId, isForce);
 
       // 检查池子是否激活
       if (!poolInfo.isActive) {
@@ -1488,13 +1633,15 @@ export class MultiStakeViemService {
    * 获取用户总的待解质押金额
    * @param poolId 池子ID
    * @param user 用户地址
+   * @param isForce 是否强制刷新缓存
    * @returns 总待解质押金额
    */
   async getUserTotalUnstakeAmount(
     poolId: number,
-    user: string
+    user: string,
+    isForce: boolean = false
   ): Promise<bigint> {
-    const userPoolInfo = await this.getUserPoolInfo(poolId, user);
+    const userPoolInfo = await this.getUserPoolInfo(poolId, user, isForce);
     return userPoolInfo.unstakeRequests.reduce(
       (total, request) => total + request.amount,
       BigInt(0)
@@ -1506,14 +1653,16 @@ export class MultiStakeViemService {
    * @param poolId 池子ID
    * @param user 用户地址
    * @param currentBlock 当前区块号（可选，默认获取最新）
+   * @param isForce 是否强制刷新缓存
    * @returns 可执行的解质押请求数组
    */
   async getExecutableUnstakeRequests(
     poolId: number,
     user: string,
-    currentBlock?: bigint
+    currentBlock?: bigint,
+    isForce: boolean = false
   ): Promise<UnstakeRequest[]> {
-    const userPoolInfo = await this.getUserPoolInfo(poolId, user);
+    const userPoolInfo = await this.getUserPoolInfo(poolId, user, isForce);
 
     // 如果没有提供当前区块号，需要获取（这里简化处理，实际应该通过provider获取）
     if (!currentBlock) {

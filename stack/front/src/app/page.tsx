@@ -8,7 +8,6 @@ import {
   notification,
   Modal,
   Select,
-  Input,
   InputNumber,
 } from "antd";
 import React, {
@@ -18,11 +17,13 @@ import React, {
   useContext,
   useMemo,
 } from "react";
-import { useConnectedWalletClient } from "@/hooks/useWalletClient";
+import { useWagmiWalletClient } from "@/hooks/useWalletClient";
 import { formatEther, formatUnits, parseEther } from "viem";
 import { multiStakeViemContract } from "@/services/MultiStakeViemService";
 import { USDC_ADDRESS, WETH_ADDRESS } from "@/utils/constants";
 import { useBalance } from "wagmi";
+import { useApproveAndStake } from "@/hooks/useApproveAndStake";
+import deploymentInfo from "@/app/abi/deployment-info.json";
 
 // 定义 Pool 数据类型
 interface PoolInfo {
@@ -38,7 +39,7 @@ interface PoolContextType {
   poolCount: number;
   poolInfos: (PoolInfo | null)[];
   isLoading: boolean;
-  refreshPools: () => Promise<void>;
+  refreshPools: (isForce?: boolean) => Promise<void>;
   totalStaked: {
     wethTotal: string;
     usdcTotal: string;
@@ -71,12 +72,12 @@ function PoolProvider({
     usdcTotal: string;
   }>({ wethTotal: "0", usdcTotal: "0" });
 
-  const fetchPoolData = async () => {
+  const fetchPoolData = async (isForce: boolean = false) => {
     try {
       setIsLoading(true);
 
       // 获取池子数量
-      const count = await multiStakeViemContract.getPoolCount();
+      const count = await multiStakeViemContract.getPoolCount(isForce);
       const countNumber = Number(count);
       setPoolCount(countNumber);
 
@@ -88,7 +89,10 @@ function PoolProvider({
 
       // 批量获取所有池子信息
       const pools: number[] = Array.from({ length: countNumber }, (_, i) => i);
-      const infos = await multiStakeViemContract.batchGetPoolInfo(pools);
+      const infos = await multiStakeViemContract.batchGetPoolInfo(
+        pools,
+        isForce
+      );
       setPoolInfos(infos);
 
       // 一次性计算总质押量
@@ -339,14 +343,17 @@ function StakeModal({
     address: string;
   }
 
-  const { poolInfos, isLoading: poolsLoading } = usePoolContext();
+  const { poolInfos, isLoading: poolsLoading, refreshPools } = usePoolContext();
   const [poolOptions, setPoolOptions] = useState<ItemProps[]>([]);
   const [currentSelectOption, setCurrentSelectOption] =
     useState<ItemProps | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [inputStakeAmount, setInputStakeAmount] = useState<string>("0");
 
-  const wallet = useConnectedWalletClient();
+  const wallet = useWagmiWalletClient();
+  const { executeStake, isProcessing: isStakeProcessing } =
+    useApproveAndStake();
+
   const balance = useBalance({
     address: wallet.address as `0x${string}`,
     token: currentSelectOption?.address as `0x${string}`,
@@ -419,45 +426,65 @@ function StakeModal({
     }
 
     // 检查钱包连接状态
-    if (!wallet.isConnected) {
+    if (!wallet.isConnected || !wallet.data) {
       onNotification("错误", "请先连接钱包");
       return;
     }
 
     console.log("质押池信息:", currentSelectOption);
 
+    // 检查余额
+    const stakeAmountBigInt = parseEther(inputStakeAmount);
+    if (balance.data && balance.data.value < stakeAmountBigInt) {
+      onNotification("错误", "余额不足，无法完成质押");
+      return;
+    }
+
     try {
-      // 在质押前验证池子状态
       const poolId = parseInt(currentSelectOption.value);
-      const validation =
-        await multiStakeViemContract.validatePoolForStaking(poolId);
+      const contractAddress = deploymentInfo.contracts
+        .MultiStakePledgeContractV2.address as `0x${string}`;
+      const tokenAddress = currentSelectOption.address as `0x${string}`;
 
-      if (!validation.canStake) {
-        onNotification("错误", validation.error || "池子状态验证失败");
-        return;
-      }
-
-      console.log("质押个数:", parseEther(inputStakeAmount));
-      const result = await multiStakeViemContract.stakeInPool(
-        poolId,
-        parseEther(inputStakeAmount),
+      // 使用 Hook 执行授权和质押
+      await executeStake(
         {
-          account: wallet.data?.account,
-          walletClient: wallet.data,
-          estimateGas: true,
+          poolId,
+          tokenAddress,
+          stakeAmount: inputStakeAmount,
+          contractAddress,
+        },
+        {
+          onApprovalStart: () => {
+            onNotification(
+              "授权提示",
+              "需要先授权代币使用权限，请在钱包中确认授权交易"
+            );
+          },
+          onApprovalSuccess: (hash) => {
+            onNotification("授权成功", `授权交易已提交: ${hash}`);
+          },
+          onApprovalError: (error) => {
+            onNotification("授权失败", `请确认授权交易: ${error.message}`);
+          },
+          onStakeStart: () => {
+            console.log("开始质押...");
+          },
+          onStakeSuccess: (hash) => {
+            onNotification("质押成功", `质押交易已提交，交易哈希: ${hash}`);
+            // 还原质押状态
+            setCurrentSelectOption(null);
+            setInputStakeAmount("0");
+            //主页数据重新强制请求
+            refreshPools(true);
+
+            onClose();
+          },
+          onStakeError: (error) => {
+            onNotification("质押失败", `质押交易失败: ${error.message}`);
+          },
         }
       );
-
-      console.log("质押结果:", result);
-      if (result.isSuccess) {
-        onNotification("质押成功", `质押交易已提交，交易哈希: ${result.hash}`);
-        onClose();
-      } else {
-        onNotification(
-          "质押失败",
-          `质押交易失败: ${result.error?.message || "未知错误"}`
-        );
-      }
     } catch (error) {
       console.error("质押操作失败:", error);
       onNotification(
@@ -472,17 +499,28 @@ function StakeModal({
       title={<Typography.Title level={4}>新建质押</Typography.Title>}
       footer={
         <div>
-          <Button type="default" className="mr-3" onClick={onClose}>
+          <Button
+            type="default"
+            className="mr-3"
+            onClick={onClose}
+            disabled={isStakeProcessing}
+          >
             取消
           </Button>
-          <Button type="primary" onClick={handleStake} disabled={isProcessing}>
-            确定
+          <Button
+            type="primary"
+            onClick={handleStake}
+            disabled={isProcessing || isStakeProcessing}
+            loading={isStakeProcessing}
+          >
+            {isStakeProcessing ? "处理中..." : "确定"}
           </Button>
         </div>
       }
-      // loading={poolsLoading || isProcessing}
       open={visible}
       onCancel={onClose}
+      closable={!isStakeProcessing}
+      maskClosable={!isStakeProcessing}
     >
       <div className="grid grid-cols-12 items-center">
         <Typography.Text className="col-span-4">
@@ -550,7 +588,7 @@ function StakeModal({
 
 //用户操作仪表盘组件
 function UserDashboardComponent(): React.ReactNode {
-  const wallet = useConnectedWalletClient();
+  const wallet = useWagmiWalletClient();
   const [api, contextHolder] = notification.useNotification();
   const [stakeModalVisible, setStakeModalVisible] = useState(false);
 

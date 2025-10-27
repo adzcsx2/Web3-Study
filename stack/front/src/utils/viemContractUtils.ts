@@ -1797,6 +1797,88 @@ export class ViemContractWrapper {
   }
 
   /**
+   * 📡 获取历史事件（带缓存支持）
+   *
+   * @param eventName 事件名称
+   * @param options 查询选项（包含缓存配置）
+   * @returns 事件数组
+   */
+  async getEventsWithCache(
+    eventName: string,
+    options?: {
+      args?: Record<string, unknown>;
+      fromBlock?: bigint | "latest" | "earliest" | "pending";
+      toBlock?: bigint | "latest" | "earliest" | "pending";
+      useCache?: boolean;
+      cacheTTL?: number;
+      cacheType?: "static" | "semiStatic" | "dynamic" | "realtime";
+      forceRefresh?: boolean;
+    }
+  ): Promise<Log[]> {
+    // 默认启用缓存
+    const useCache = options?.useCache !== false;
+    const cacheType = options?.cacheType || "semiStatic";
+    const fromBlock = options?.fromBlock || "earliest";
+    const toBlock = options?.toBlock || "latest";
+
+    // 生成缓存键
+    const cacheKey = `events:${this.config.contractAddress}:${eventName}:${fromBlock}:${toBlock}:${JSON.stringify(options?.args || {})}`;
+
+    // 根据配置选择缓存存储
+    const cacheStore =
+      VIEM_CONFIG.cache.storageType === "hybrid" ? hybridCache : cache;
+
+    // 如果不使用缓存或强制刷新，直接查询
+    if (!useCache || options?.forceRefresh) {
+      const events = await this.getEvents(
+        eventName,
+        options?.args,
+        fromBlock,
+        toBlock
+      );
+      if (useCache) {
+        // 根据 cacheType 设置 TTL
+        const ttl = options?.cacheTTL || this.getCacheTTL(cacheType);
+        cacheStore.set(cacheKey, events, ttl);
+      }
+      return events;
+    }
+
+    // 尝试从缓存获取
+    const cached = cacheStore.get<Log[]>(cacheKey);
+    if (cached !== null) {
+      console.log(
+        `🔥 从缓存获取事件: ${eventName} [${VIEM_CONFIG.cache.storageType}]`
+      );
+      return cached;
+    }
+
+    // 缓存未命中，查询并缓存
+    console.log(`🌐 查询事件 (无缓存): ${eventName}`);
+    const events = await this.getEvents(
+      eventName,
+      options?.args,
+      fromBlock,
+      toBlock
+    );
+
+    // 缓存结果
+    const ttl = options?.cacheTTL || this.getCacheTTL(cacheType);
+    cacheStore.set(cacheKey, events, ttl);
+
+    return events;
+  }
+
+  /**
+   * 根据缓存类型获取 TTL
+   */
+  private getCacheTTL(
+    cacheType: "static" | "semiStatic" | "dynamic" | "realtime"
+  ): number {
+    return VIEM_CONFIG.cache.ttlByType[cacheType];
+  }
+
+  /**
    * 🔄 批量读取合约数据（自动使用内置 publicClient）
    *
    * @param calls 批量调用配置数组
