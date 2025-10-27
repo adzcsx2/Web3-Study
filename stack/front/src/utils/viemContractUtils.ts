@@ -1,5 +1,5 @@
 /**
- * 基于 Viem 的智能合约交互工具集（增强版 v3.0）
+ * 基于 Viem 的智能合约交互工具集（增强版 v3.2）
  *
  * 提供了一系列用于与智能合约进行读写操作的工具类。
  * 基于 Viem 库封装，提供类型安全、错误处理、统一写方法和状态跟踪功能。
@@ -12,7 +12,6 @@
  *   └─ executeWriteWithStatus: 完整的状态跟踪，支持 7 种生命周期回调
  * - 交易状态回调系统（onPending, onSent, onConfirming, onConfirmed, onSuccess, onReverted, onError）
  * - 批量操作支持
- * - 自动重试机制
  * - 交易超时处理
  * - Gas 费用估算
  * - 事件监听支持
@@ -30,6 +29,14 @@
  * ✨ 便捷函数自动化 - 所有便捷函数自动创建 publicClient，开箱即用
  * ✨ 性能优化 - 合约包装器复用同一 publicClient 实例，减少连接开销
  * ✨ 网络状态访问 - 直接访问内置 publicClient 和链配置信息
+ *
+ * 🚀 v3.2 重大更新（RPC 频率控制 + 统一重试机制）：
+ * ✨ RequestQueue 集成 - 所有 RPC 请求自动进入队列（200ms 间隔）
+ * ✨ 统一重试机制 - 所有错误在 RequestQueue 中统一处理（最多 3 次）
+ *   └─ 429 错误：指数退避（600ms → 1200ms → 1800ms）
+ *   └─ 其他错误：固定延迟（1000ms）
+ * ✨ 智能错误处理 - 自动识别 429、网络超时、节点故障等错误
+ * ✨ 无缝集成 - 对业务代码透明，无需修改现有调用
  *
  * 优势对比 React Hooks：
  * ✅ 可以在循环中调用
@@ -95,8 +102,8 @@
  * ```
  *
  * @author Hoyn
- * @version 3.1.0
- * @lastModified 2025-10-24
+ * @version 3.2.0
+ * @lastModified 2025-10-28
  */
 
 import {
@@ -124,6 +131,7 @@ import {
 import { sepolia } from "viem/chains";
 import { config as wagmiConfig, CONTRACT_CONFIG } from "@/config/wagmi";
 import { RPC_URLS } from "@/config/rpc";
+import { RequestQueue } from "@/http/requestQueue";
 
 /**
  * 从共享 RPC 配置获取 wagmi 配置中链的 RPC URLs
@@ -217,10 +225,6 @@ export interface ViemContractReadOptions {
   blockNumber?: bigint | "latest" | "earliest" | "pending";
   /** 是否跳过日志输出，默认为 false */
   skipLogging?: boolean;
-  /** 重试次数，默认为 3 */
-  retryCount?: number;
-  /** 重试间隔（毫秒），默认为 1000 */
-  retryDelay?: number;
   /** 可选的 PublicClient */
   publicClient?: PublicClient;
   /** 链配置 */
@@ -437,13 +441,6 @@ function getWalletClient(
 }
 
 /**
- * 延迟函数
- */
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
  * 合约包装器配置接口
  */
 export interface ViemContractWrapperConfig {
@@ -461,6 +458,22 @@ export interface ViemContractWrapperConfig {
  * 基于 Viem 的合约服务类
  */
 export class ViemContractService {
+  /**
+   * 用于控制 RPC 请求频率的队列（200ms 间隔）
+   * 防止 429 Too Many Requests 错误
+   *
+   * Infura 免费版限制: 100 rps (滑动窗口)
+   * 推荐间隔: 150-200ms（考虑突发请求和滑动窗口特性）
+   */
+  private static readonly requestQueue = new RequestQueue(200);
+
+  /**
+   * 获取全局请求队列实例（仅供内部管理使用）
+   */
+  static getRequestQueue(): RequestQueue {
+    return this.requestQueue;
+  }
+
   /**
    * 读取合约数据的基础方法
    *
@@ -481,6 +494,18 @@ export class ViemContractService {
   static async read<T = unknown>(
     options: ViemContractReadOptions
   ): Promise<ViemContractReadResult<T>> {
+    // 使用请求队列进行请求，以控制频率
+    return this.requestQueue.add(() => this.readInternal<T>(options));
+  }
+
+  /**
+   * 内部读取方法（由请求队列调用）
+   *
+   * 注意：重试逻辑已移至 RequestQueue，此方法只执行一次实际调用
+   */
+  private static async readInternal<T = unknown>(
+    options: ViemContractReadOptions
+  ): Promise<ViemContractReadResult<T>> {
     const {
       contractAddress,
       contractAbi,
@@ -488,8 +513,6 @@ export class ViemContractService {
       args = [],
       blockNumber,
       skipLogging = !VIEM_CONFIG.contract.enableLogging,
-      retryCount = VIEM_CONFIG.contract.defaultRetryCount,
-      retryDelay = VIEM_CONFIG.contract.defaultRetryDelay,
       publicClient,
       chain = VIEM_CONFIG.defaultChain,
     } = options;
@@ -500,81 +523,62 @@ export class ViemContractService {
       return { data: null, error, isError: true, isSuccess: false };
     }
 
-    let lastError: Error | null = null;
-
-    // 重试机制
-    for (let attempt = 0; attempt <= retryCount; attempt++) {
-      try {
-        if (!skipLogging) {
-          console.log(
-            `=== Viem Contract ${functionName} Call (Attempt ${attempt + 1}) ===`
-          );
-          console.log("Contract Address:", contractAddress);
-          console.log("Function Name:", functionName);
-          console.log("Arguments:", args);
-          console.log("Chain:", chain.name);
-        }
-
-        const client = getPublicClient(publicClient, chain);
-
-        const contract = getContract({
-          address: contractAddress,
-          abi: contractAbi,
-          client,
-        });
-
-        const readOptions = {
-          blockNumber,
-        };
-
-        // 执行合约读取
-        const data = (await (
-          contract.read as Record<
-            string,
-            (...args: unknown[]) => Promise<unknown>
-          >
-        )[functionName](args.length > 0 ? args : undefined, readOptions)) as T;
-
-        if (!skipLogging) {
-          console.log("✅ Call Success");
-          console.log("Data:", data);
-          console.log("===============================");
-        }
-
-        return {
-          data,
-          error: null,
-          isError: false,
-          isSuccess: true,
-        };
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-
-        if (!skipLogging) {
-          console.error(`❌ Call Failed (Attempt ${attempt + 1}):`, lastError);
-        }
-
-        // 如果不是最后一次尝试，等待后重试
-        if (attempt < retryCount) {
-          await delay(retryDelay);
-        }
+    try {
+      if (!skipLogging) {
+        console.log(`=== Viem Contract ${functionName} Call ===`);
+        console.log("Contract Address:", contractAddress);
+        console.log("Function Name:", functionName);
+        console.log("Arguments:", args);
+        console.log("Chain:", chain.name);
       }
-    }
 
-    if (!skipLogging) {
-      console.error(
-        `💥 All ${retryCount + 1} attempts failed for ${functionName}`
-      );
-      console.error("Final Error:", lastError);
-      console.log("===============================");
-    }
+      const client = getPublicClient(publicClient, chain);
 
-    return {
-      data: null,
-      error: lastError,
-      isError: true,
-      isSuccess: false,
-    };
+      const contract = getContract({
+        address: contractAddress,
+        abi: contractAbi,
+        client,
+      });
+
+      const readOptions = {
+        blockNumber,
+      };
+
+      // 执行合约读取
+      const data = (await (
+        contract.read as Record<
+          string,
+          (...args: unknown[]) => Promise<unknown>
+        >
+      )[functionName](args.length > 0 ? args : undefined, readOptions)) as T;
+
+      if (!skipLogging) {
+        console.log("✅ Call Success");
+        console.log("Data:", data);
+        console.log("===============================");
+      }
+
+      return {
+        data,
+        error: null,
+        isError: false,
+        isSuccess: true,
+      };
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+
+      if (!skipLogging) {
+        console.error(`❌ Call Failed:`, err);
+        console.log("===============================");
+      }
+
+      return {
+        data: null,
+        error: err,
+        isError: true,
+        isSuccess: false,
+      };
+    }
   }
 
   /**
@@ -675,6 +679,16 @@ export class ViemContractService {
   static async estimateGas(
     options: Omit<ViemContractWriteOptions, "account" | "walletClient">
   ): Promise<ViemGasEstimation> {
+    // 使用请求队列进行请求，以控制频率
+    return this.requestQueue.add(() => this.estimateGasInternal(options));
+  }
+
+  /**
+   * 内部 Gas 估算方法（由请求队列调用）
+   */
+  private static async estimateGasInternal(
+    options: Omit<ViemContractWriteOptions, "account" | "walletClient">
+  ): Promise<ViemGasEstimation> {
     const {
       contractAddress,
       contractAbi,
@@ -754,6 +768,16 @@ export class ViemContractService {
   static async write(
     options: ViemContractWriteOptions
   ): Promise<ViemContractWriteResult> {
+    // 使用请求队列进行请求，以控制频率
+    return this.requestQueue.add(() => this.writeInternal(options));
+  }
+
+  /**
+   * 内部写入方法（由请求队列调用）
+   */
+  private static async writeInternal(
+    options: ViemContractWriteOptions
+  ): Promise<ViemContractWriteResult> {
     const {
       contractAddress,
       contractAbi,
@@ -800,7 +824,7 @@ export class ViemContractService {
       // 如果启用了 Gas 估算
       if (estimateGas) {
         try {
-          gasEstimation = await this.estimateGas({
+          gasEstimation = await this.estimateGasInternal({
             contractAddress,
             contractAbi,
             functionName,
@@ -1842,3 +1866,69 @@ export function createViemContractWrapper(
 // ==================== 导出增强版服务 ====================
 
 export const EnhancedViemContract = ViemContractService;
+
+// ==================== 全局队列管理（高级功能） ====================
+
+/**
+ * 获取全局请求队列的统计信息
+ *
+ * @returns 队列统计信息
+ *
+ * @example
+ * ```typescript
+ * const stats = getViemContractQueueStats();
+ * console.log(`队列中有 ${stats.pending} 个待处理任务`);
+ * console.log(`已完成 ${stats.completed} 个任务`);
+ * ```
+ */
+export function getViemContractQueueStats() {
+  return ViemContractService.getRequestQueue().getStats();
+}
+
+/**
+ * 设置全局请求队列的间隔时间
+ *
+ * ⚠️ 注意：这会影响所有使用 viemContractUtils 的请求
+ *
+ * @param intervalMs 新的间隔时间（毫秒）
+ *
+ * @example
+ * ```typescript
+ * // 在应用启动时调整
+ * setViemContractQueueInterval(150); // 改为 150ms
+ * ```
+ */
+export function setViemContractQueueInterval(intervalMs: number) {
+  ViemContractService.getRequestQueue().setInterval(intervalMs);
+  console.log(`✅ Global queue interval updated to ${intervalMs}ms`);
+}
+
+/**
+ * 清空全局请求队列
+ *
+ * ⚠️ 警告：这会拒绝所有待处理的请求！
+ * 通常不需要手动调用，仅用于特殊场景（如切换网络）
+ *
+ * @param reason 清空原因
+ *
+ * @example
+ * ```typescript
+ * clearViemContractQueue("Network switched");
+ * ```
+ */
+export function clearViemContractQueue(reason: string = "Queue cleared") {
+  ViemContractService.getRequestQueue().clear(reason);
+  console.warn(`⚠️ Global queue cleared: ${reason}`);
+}
+
+/**
+ * 重置全局请求队列的统计信息
+ *
+ * @example
+ * ```typescript
+ * resetViemContractQueueStats();
+ * ```
+ */
+export function resetViemContractQueueStats() {
+  ViemContractService.getRequestQueue().resetStats();
+}

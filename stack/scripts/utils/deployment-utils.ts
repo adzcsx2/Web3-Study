@@ -133,7 +133,8 @@ export function getLatestDeploymentAddresses(network: string = "sepolia"): {
 
   return {
     MetaNodeToken: deploymentInfo.contracts?.MetaNodeToken?.address,
-    MultiStakePledgeContract: deploymentInfo.contracts?.MultiStakePledgeContract?.address,
+    MultiStakePledgeContract:
+      deploymentInfo.contracts?.MultiStakePledgeContract?.address,
     USDC: deploymentInfo.tokens?.USDC?.address,
     WETH: deploymentInfo.tokens?.WETH?.address,
   };
@@ -192,4 +193,72 @@ export async function connectToDeployedContract(
     console.log(`🔗 通过 ABI 连接到 ${contractName}:`, contractAddress);
     return new ethers.Contract(contractAddress, abi, ethers.provider);
   }
+}
+
+/**
+ * 保存单个合约的部署信息和 ABI
+ */
+export async function saveDeploymentInfo(
+  contractName: string,
+  contractAddress: string,
+  networkName: string,
+  deploymentInfo?: { transactionHash: string; blockNumber: number }
+) {
+  // 创建部署目录
+  const deploymentDir = createDeploymentDir(networkName);
+
+  // 获取合约 ABI
+  const contractArtifact = await ethers.getContractFactory(contractName);
+
+  // 保存合约 ABI 和地址
+  const contractInfo = {
+    address: contractAddress,
+    abi: JSON.parse(contractArtifact.interface.formatJson()),
+    contractName: contractName,
+    network: networkName,
+    deployedAt: new Date().toISOString(),
+    transactionHash: deploymentInfo?.transactionHash || "",
+    blockNumber: deploymentInfo?.blockNumber || 0,
+  };
+
+  // 写入单个合约的 ABI 文件
+  fs.writeFileSync(
+    path.join(deploymentDir, `${contractName}.json`),
+    JSON.stringify(contractInfo, null, 2)
+  );
+
+  // 更新或创建综合部署信息文件
+  const deploymentInfoPath = path.join(deploymentDir, "deployment-info.json");
+  let allDeploymentInfo: any = {
+    network: networkName,
+    deployedAt: new Date().toISOString(),
+    contracts: {},
+  };
+
+  // 如果已存在部署信息文件，读取并合并
+  if (fs.existsSync(deploymentInfoPath)) {
+    try {
+      const existingData = fs.readFileSync(deploymentInfoPath, "utf-8");
+      allDeploymentInfo = JSON.parse(existingData);
+      allDeploymentInfo.deployedAt = new Date().toISOString(); // 更新时间
+    } catch (error) {
+      console.warn("读取现有部署信息失败，将创建新文件:", error);
+    }
+  }
+
+  // 添加或更新当前合约信息
+  allDeploymentInfo.contracts[contractName] = {
+    address: contractAddress,
+    contractName: contractName,
+    transactionHash: deploymentInfo?.transactionHash || "",
+    blockNumber: deploymentInfo?.blockNumber || 0,
+  };
+
+  // 写入综合部署信息
+  fs.writeFileSync(
+    deploymentInfoPath,
+    JSON.stringify(allDeploymentInfo, null, 2)
+  );
+
+  console.log(`📁 ${contractName} 部署信息已保存到:`, deploymentDir);
 }

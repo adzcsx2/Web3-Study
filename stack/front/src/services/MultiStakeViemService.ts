@@ -1,5 +1,5 @@
 /**
- * MultiStakePledgeContract Viem 专用服务类
+ * MultiStakePledgeContractV2 Viem 专用服务类
  *
  * 基于 viemContractUtils.ts 的 ViemContractWrapper 类创建
  * 预配置了合约地址和 ABI，提供类型安全的合约交互
@@ -13,6 +13,7 @@
  * - Gas 费用估算
  * - 事件监听和历史查询
  * - 错误处理和重试机制
+ * - V2 新功能：池子激活/停用、批量查询优化等
  *
  * 使用方式：
  * ```typescript
@@ -52,8 +53,8 @@
  * ```
  *
  * @author Hoyn
- * @version 2.0.0
- * @lastModified 2025-10-24
+ * @version 3.0.0 (V2 Contract)
+ * @lastModified 2025-10-28
  */
 
 import {
@@ -67,7 +68,7 @@ import {
   VIEM_CONFIG,
 } from "../utils/viemContractUtils";
 import type { Address, Log, Chain, Abi } from "viem";
-import contract from "@/app/abi/MultiStakePledgeContract.json";
+import contract from "@/app/abi/MultiStakePledgeContractV2.json";
 import {
   PoolInfo,
   UserPoolInfo,
@@ -188,14 +189,51 @@ export class MultiStakeViemService {
    */
   async getPoolInfo(poolId: number): Promise<PoolInfo> {
     if (poolId < 0) {
-      throw new Error(`Invalid pool ID: ${poolId}. Pool ID must be non-negative.`);
+      throw new Error(
+        `Invalid pool ID: ${poolId}. Pool ID must be non-negative.`
+      );
     }
-    
+
     const result = await this.wrapper.read<PoolInfo>("getPoolInfo", [poolId]);
     if (result === null) {
       throw new Error(`Failed to get pool info for pool ${poolId}`);
     }
     return result;
+  }
+
+  /**
+   * 获取所有用户的质押事件 event->StakedInPool
+   */
+  async getAllStakedInPoolEvents(): Promise<ContractEvent[]> {
+    const result = await this.wrapper.getEvents("StakedInPool");
+    if (result === null) {
+      throw new Error("Failed to get all staked in pool events");
+    }
+    return result;
+  }
+  /**
+   * 获取所有用户的取消质押事件 event->UnstakedFromPool
+   */
+  async getAllUnstakedFromPoolEvents(): Promise<ContractEvent[]> {
+    const result = await this.wrapper.getEvents("UnstakedFromPool");
+    if (result === null) {
+      throw new Error("Failed to get all unstaked from pool events");
+    }
+    return result;
+  }
+  /**
+   * 获取合约活跃用户  getAllStakedInPoolEvents-getAllUnstakedFromPoolEvents
+   */
+  async getActiveUsers(): Promise<string[]> {
+    const stakedEvents = await this.getAllStakedInPoolEvents();
+    const unstakedEvents = await this.getAllUnstakedFromPoolEvents();
+
+    const stakedUsers = stakedEvents.map((event) => event.address);
+    const unstakedUsers = unstakedEvents.map((event) => event.address);
+
+    // 活跃用户是指在某个时间段内有过质押或取消质押行为的用户
+    const activeUsers = Array.from(new Set([...stakedUsers, ...unstakedUsers]));
+    return activeUsers;
   }
 
   /**
@@ -290,6 +328,118 @@ export class MultiStakeViemService {
       throw new Error("Failed to get max pools");
     }
     return Number(result);
+  }
+
+  // ==================== V2 新增：Public 成员变量访问方法 ====================
+
+  /**
+   * 获取池子计数器（public 变量）
+   * @returns 池子计数器
+   */
+  async getPoolCounter(): Promise<number> {
+    const result = await this.wrapper.read<bigint>("poolCounter");
+    if (result === null) {
+      throw new Error("Failed to get pool counter");
+    }
+    return Number(result);
+  }
+
+  /**
+   * 获取指定池子的详细信息（通过 pools mapping）
+   * @param poolId 池子ID
+   * @returns 池子详细信息
+   */
+  async getPoolsMapping(poolId: number): Promise<PoolInfo> {
+    const result = await this.wrapper.read<PoolInfo>("pools", [poolId]);
+    if (result === null) {
+      throw new Error(`Failed to get pools mapping for pool ${poolId}`);
+    }
+    return result;
+  }
+
+  /**
+   * 获取升级接口版本（public 常量）
+   * @returns 升级接口版本
+   */
+  async getUpgradeInterfaceVersion(): Promise<string> {
+    const result = await this.wrapper.read<string>("UPGRADE_INTERFACE_VERSION");
+    if (result === null) {
+      throw new Error("Failed to get upgrade interface version");
+    }
+    return result;
+  }
+
+  /**
+   * 获取合约版本号（public 常量 - V2 返回 uint16）
+   * @returns 合约版本号
+   */
+  async getContractVersionNumber(): Promise<number> {
+    const result = await this.wrapper.read<number>("CONTRACT_VERSION");
+    if (result === null) {
+      throw new Error("Failed to get contract version number");
+    }
+    return result;
+  }
+
+  // ==================== V2 新增：批量查询和概览方法 ====================
+
+  /**
+   * 获取所有活跃的池子列表（V2 新增）
+   * @returns 活跃池子信息数组
+   */
+  async getActivePools(): Promise<PoolInfo[]> {
+    const result = await this.wrapper.read<PoolInfo[]>("getActivePools");
+    if (result === null) {
+      throw new Error("Failed to get active pools");
+    }
+    return result;
+  }
+
+  /**
+   * 批量获取多个池子信息（V2 新增优化）
+   * @param poolIds 池子ID数组
+   * @returns 池子信息数组
+   */
+  async getPoolsBatch(poolIds: number[]): Promise<PoolInfo[]> {
+    const result = await this.wrapper.read<PoolInfo[]>("getPoolsBatch", [
+      poolIds,
+    ]);
+    if (result === null) {
+      throw new Error("Failed to get pools batch");
+    }
+    return result;
+  }
+
+  /**
+   * 获取池子概览信息（V2 新增）
+   * @returns 池子概览信息
+   */
+  async getPoolsOverview(): Promise<{
+    totalPools: bigint;
+    activePools: bigint;
+    availableSlots: bigint;
+  }> {
+    const result = await this.wrapper.read<{
+      totalPools: bigint;
+      activePools: bigint;
+      availableSlots: bigint;
+    }>("getPoolsOverview");
+    if (result === null) {
+      throw new Error("Failed to get pools overview");
+    }
+    return result;
+  }
+
+  /**
+   * 检查是否可以创建新池子（V2 新增）
+   * @returns 是否可以创建新池子
+   */
+  async canCreateNewPool(): Promise<boolean> {
+    const result = await this.wrapper.read<boolean>("canCreateNewPool");
+    if (result === null) {
+      throw new Error("Failed to check if can create new pool");
+    }
+    return result;
   }
 
   /**
@@ -400,12 +550,16 @@ export class MultiStakeViemService {
     options: TransactionOptions
   ): Promise<ViemContractWriteResult> {
     if (poolId < 0) {
-      throw new Error(`Invalid pool ID: ${poolId}. Pool ID must be non-negative.`);
+      throw new Error(
+        `Invalid pool ID: ${poolId}. Pool ID must be non-negative.`
+      );
     }
     if (amount <= 0n) {
-      throw new Error(`Invalid stake amount: ${amount}. Amount must be positive.`);
+      throw new Error(
+        `Invalid stake amount: ${amount}. Amount must be positive.`
+      );
     }
-    
+
     return this.wrapper.executeWrite("stake", [poolId], {
       estimateGas: true, // 默认启用 gas 估算
       ...options,
@@ -697,6 +851,76 @@ export class MultiStakeViemService {
     return this.wrapper.executeWrite("removeFromBlacklist", [account], options);
   }
 
+  // ============ V2 新增：池子管理方法 ============
+
+  /**
+   * 停用池子（需要管理员权限）- V2新功能
+   * @param poolId 池子ID
+   * @param options 交易配置
+   * @returns 交易结果
+   */
+  async deactivatePool(
+    poolId: number,
+    options: TransactionOptions
+  ): Promise<ViemContractWriteResult> {
+    return this.wrapper.executeWrite(
+      "deactivatePool",
+      [BigInt(poolId)],
+      options
+    );
+  }
+
+  /**
+   * 停用池子并获取状态（需要管理员权限）- V2新功能
+   * @param poolId 池子ID
+   * @param options 交易配置
+   * @returns 交易结果和执行状态
+   */
+  async deactivatePoolWithStatus(
+    poolId: number,
+    options: ExtendedTransactionOptions
+  ): Promise<ViemContractWriteResult> {
+    return this.wrapper.executeWriteWithStatus(
+      "deactivatePool",
+      [BigInt(poolId)],
+      options
+    );
+  }
+
+  /**
+   * 重新激活池子（需要管理员权限）- V2新功能
+   * @param poolId 池子ID
+   * @param options 交易配置
+   * @returns 交易结果
+   */
+  async reactivatePool(
+    poolId: number,
+    options: TransactionOptions
+  ): Promise<ViemContractWriteResult> {
+    return this.wrapper.executeWrite(
+      "reactivatePool",
+      [BigInt(poolId)],
+      options
+    );
+  }
+
+  /**
+   * 重新激活池子并获取状态（需要管理员权限）- V2新功能
+   * @param poolId 池子ID
+   * @param options 交易配置
+   * @returns 交易结果和执行状态
+   */
+  async reactivatePoolWithStatus(
+    poolId: number,
+    options: ExtendedTransactionOptions
+  ): Promise<ViemContractWriteResult> {
+    return this.wrapper.executeWriteWithStatus(
+      "reactivatePool",
+      [BigInt(poolId)],
+      options
+    );
+  }
+
   /**
    * 授予角色（需要管理员权限）
    * @param role 角色哈希
@@ -793,6 +1017,21 @@ export class MultiStakeViemService {
 
   /**
    * 监听请求解除质押事件
+   * @param callback 事件回调
+   * @param userFilter 可选的用户地址过滤
+   * @param poolIdFilter 可选的池子ID过滤
+   * @returns 取消监听的函数
+   */
+  onStakedInPool(callback: (logs: Log[]) => void): () => void {
+    const stakedInpool = this.wrapper.addEventListener(
+      "StakedInPool",
+      callback
+    );
+
+    return stakedInpool;
+  }
+  /**
+   * 监听用户质押事件
    * @param callback 事件回调
    * @param userFilter 可选的用户地址过滤
    * @param poolIdFilter 可选的池子ID过滤
@@ -945,6 +1184,48 @@ export class MultiStakeViemService {
     );
   }
 
+  // ============ V2 新增：池子状态变化事件 ============
+
+  /**
+   * 监听池子停用事件 - V2新功能
+   * @param callback 事件回调
+   * @param poolIdFilter 可选的池子ID过滤
+   * @returns 取消监听的函数
+   */
+  onPoolDeactivated(
+    callback: (logs: Log[]) => void,
+    poolIdFilter?: number
+  ): () => void {
+    const filters: Record<string, unknown> = {};
+    if (poolIdFilter !== undefined) filters.poolId = BigInt(poolIdFilter);
+
+    return this.wrapper.addEventListener(
+      "PoolDeactivated",
+      callback,
+      Object.keys(filters).length > 0 ? filters : undefined
+    );
+  }
+
+  /**
+   * 监听池子重新激活事件 - V2新功能
+   * @param callback 事件回调
+   * @param poolIdFilter 可选的池子ID过滤
+   * @returns 取消监听的函数
+   */
+  onPoolReactivated(
+    callback: (logs: Log[]) => void,
+    poolIdFilter?: number
+  ): () => void {
+    const filters: Record<string, unknown> = {};
+    if (poolIdFilter !== undefined) filters.poolId = BigInt(poolIdFilter);
+
+    return this.wrapper.addEventListener(
+      "PoolReactivated",
+      callback,
+      Object.keys(filters).length > 0 ? filters : undefined
+    );
+  }
+
   // ==================== Gas 估算 ====================
 
   /**
@@ -1056,6 +1337,68 @@ export class MultiStakeViemService {
       Number(poolInfo.startTime) <= currentTime &&
       Number(poolInfo.endTime) > currentTime
     );
+  }
+
+  /**
+   * 验证池子是否可以进行质押
+   * @param poolId 池子ID
+   * @returns 验证结果，包含是否可以质押和错误信息
+   */
+  async validatePoolForStaking(poolId: number): Promise<{
+    canStake: boolean;
+    error?: string;
+    errorType?: "NOT_ACTIVE" | "NOT_STARTED" | "ENDED" | "NOT_EXISTS";
+  }> {
+    try {
+      const poolInfo = await this.getPoolInfo(poolId);
+      const currentTime = Math.floor(Date.now() / 1000);
+
+      // 检查池子是否存在（getPoolInfo会抛出异常如果池子不存在）
+
+      // 检查池子是否活跃
+      if (!poolInfo.isActive) {
+        return {
+          canStake: false,
+          error: `池子 ${poolId} 不活跃`,
+          errorType: "NOT_ACTIVE",
+        };
+      }
+
+      // 检查池子是否已启动
+      if (poolInfo.startTime === BigInt(0)) {
+        return {
+          canStake: false,
+          error: `池子 ${poolId} 尚未启动`,
+          errorType: "NOT_STARTED",
+        };
+      }
+
+      // 检查池子是否已结束
+      if (currentTime >= Number(poolInfo.endTime)) {
+        return {
+          canStake: false,
+          error: `池子 ${poolId} 已结束。结束时间: ${new Date(Number(poolInfo.endTime) * 1000).toLocaleString()}`,
+          errorType: "ENDED",
+        };
+      }
+
+      // 检查当前时间是否在质押期间内
+      if (currentTime < Number(poolInfo.startTime)) {
+        return {
+          canStake: false,
+          error: `池子 ${poolId} 尚未开始质押。开始时间: ${new Date(Number(poolInfo.startTime) * 1000).toLocaleString()}`,
+          errorType: "NOT_STARTED",
+        };
+      }
+
+      return { canStake: true };
+    } catch (error) {
+      return {
+        canStake: false,
+        error: `池子 ${poolId} 不存在或获取信息失败`,
+        errorType: "NOT_EXISTS",
+      };
+    }
   }
 
   /**

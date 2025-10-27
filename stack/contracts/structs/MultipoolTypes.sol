@@ -60,8 +60,7 @@ struct CreatePoolParams {
     IERC20 stakeToken;              // 质押代币合约
     IERC20 rewardToken;             // 奖励代币合约
     uint256 totalRewards;           // 总奖励数量
-    uint256 duration;               // 质押持续时间（秒）
-    uint256 minDepositAmount;       // 最小质押金额
-    uint256 cooldownPeriod;         // 冷却期时长（秒）
+    uint256 minDepositAmount;       // 最小质押金额（0 = 使用默认值）
+    uint256 cooldownPeriod;         // 冷却期时长（秒，0 = 使用默认值）
     string name;                    // 池子名称
 }

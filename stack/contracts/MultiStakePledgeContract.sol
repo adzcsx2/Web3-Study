@@ -90,7 +90,6 @@ contract MultiStakePledgeContract is
             revert SameTokenNotAllowed();
         if (params.totalRewards == 0)
             revert InvalidPoolRewards(params.totalRewards);
-        if (params.duration == 0) revert InvalidPoolDuration(params.duration);
         if (bytes(params.name).length == 0) revert PoolNameEmpty();
 
         poolId = poolCounter++;
@@ -121,7 +120,7 @@ contract MultiStakePledgeContract is
             address(params.stakeToken),
             address(params.rewardToken),
             params.totalRewards,
-            params.duration,
+            0, // duration 将在 startPool 时设置
             params.name
         );
     }

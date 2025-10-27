@@ -6,6 +6,7 @@ import {
   waitForTransactionWithTimeout,
   deployWithRetry,
   createDeploymentDir,
+  saveDeploymentInfo,
 } from "./utils/deployment-utils";
 
 // ============================= 配置常量 =============================
@@ -53,123 +54,6 @@ function formatTokenDisplay(amount: number): string {
 }
 
 // ============================= 主要函数 =============================
-
-// 保存部署信息和 ABI 的函数
-async function saveDeploymentInfo(
-  metaNodeTokenAddress: string,
-  multiStakeAddress: string,
-  usdcAddress: string,
-  wethAddress: string,
-  metaNodeDeploymentInfo?: { transactionHash: string; blockNumber: number },
-  multiStakeDeploymentInfo?: { transactionHash: string; blockNumber: number }
-) {
-  // 创建部署目录
-  const deploymentDir = createDeploymentDir(NETWORK_CONFIG.NETWORK_NAME);
-
-  // 获取合约 ABI
-  const metaNodeTokenArtifact = await ethers.getContractFactory(
-    "MetaNodeToken"
-  );
-  const multiStakeArtifact = await ethers.getContractFactory(
-    "MultiStakePledgeContract"
-  );
-
-  // 保存 MetaNodeToken ABI 和地址
-  const metaNodeTokenInfo = {
-    address: metaNodeTokenAddress,
-    abi: JSON.parse(metaNodeTokenArtifact.interface.formatJson()),
-    contractName: "MetaNodeToken",
-    network: NETWORK_CONFIG.NETWORK_NAME,
-    deployedAt: new Date().toISOString(),
-    transactionHash: metaNodeDeploymentInfo?.transactionHash || "",
-    blockNumber: metaNodeDeploymentInfo?.blockNumber || 0,
-  };
-
-  // 保存 MultiStakePledgeContract ABI 和地址
-  const multiStakeInfo = {
-    address: multiStakeAddress,
-    abi: JSON.parse(multiStakeArtifact.interface.formatJson()),
-    contractName: "MultiStakePledgeContract",
-    network: NETWORK_CONFIG.NETWORK_NAME,
-    deployedAt: new Date().toISOString(),
-    transactionHash: multiStakeDeploymentInfo?.transactionHash || "",
-    blockNumber: multiStakeDeploymentInfo?.blockNumber || 0,
-  };
-
-  // 综合部署信息
-  const deploymentInfo = {
-    network: NETWORK_CONFIG.NETWORK_NAME,
-    deployedAt: new Date().toISOString(),
-    contracts: {
-      MetaNodeToken: {
-        address: metaNodeTokenAddress,
-        contractName: "MetaNodeToken",
-      },
-      MultiStakePledgeContract: {
-        address: multiStakeAddress,
-        contractName: "MultiStakePledgeContract",
-      },
-    },
-    tokens: {
-      USDC: {
-        address: usdcAddress,
-        name: "Sepolia USDC",
-        symbol: "USDC",
-        decimals: 6,
-      },
-      WETH: {
-        address: wethAddress,
-        name: "Sepolia Wrapped Ether",
-        symbol: "WETH",
-        decimals: 18,
-      },
-    },
-    pools: [
-      {
-        id: 0,
-        name: "Sepolia USDC Pool",
-        stakeToken: usdcAddress,
-        rewardToken: metaNodeTokenAddress,
-        totalRewards: ethers.formatEther(
-          ethers.parseEther(TOKEN_AMOUNTS.USDC_POOL_REWARD.toString())
-        ),
-        duration: POOL_CONFIG.DURATION,
-        minDepositAmount: POOL_CONFIG.USDC_MIN_DEPOSIT.toString(),
-      },
-      {
-        id: 1,
-        name: "Sepolia WETH Pool",
-        stakeToken: wethAddress,
-        rewardToken: metaNodeTokenAddress,
-        totalRewards: ethers.formatEther(
-          ethers.parseEther(TOKEN_AMOUNTS.WETH_POOL_REWARD.toString())
-        ),
-        duration: POOL_CONFIG.DURATION,
-        minDepositAmount: ethers
-          .parseEther(POOL_CONFIG.WETH_MIN_DEPOSIT)
-          .toString(),
-      },
-    ],
-  };
-
-  // 写入文件
-  fs.writeFileSync(
-    path.join(deploymentDir, "MetaNodeToken.json"),
-    JSON.stringify(metaNodeTokenInfo, null, 2)
-  );
-
-  fs.writeFileSync(
-    path.join(deploymentDir, "MultiStakePledgeContract.json"),
-    JSON.stringify(multiStakeInfo, null, 2)
-  );
-
-  fs.writeFileSync(
-    path.join(deploymentDir, "deployment-info.json"),
-    JSON.stringify(deploymentInfo, null, 2)
-  );
-
-  console.log("📁 ABI 文件已保存到:", deploymentDir);
-}
 
 async function main() {
   console.log("🚀 开始部署多币种质押合约到 Sepolia 测试网...\n");
@@ -425,14 +309,23 @@ async function main() {
 
     // 8. 保存 ABI 和部署信息
     console.log("\n💾 8. 保存 ABI 和部署信息...");
+    
+    // 保存 MetaNodeToken
     await saveDeploymentInfo(
+      "MetaNodeToken",
       metaNodeTokenAddress,
+      NETWORK_CONFIG.NETWORK_NAME,
+      metaNodeDeploymentInfo
+    );
+    
+    // 保存 MultiStakePledgeContract
+    await saveDeploymentInfo(
+      "MultiStakePledgeContract",
       multiStakeAddress,
-      NETWORK_CONFIG.USDC,
-      NETWORK_CONFIG.WETH,
-      metaNodeDeploymentInfo,
+      NETWORK_CONFIG.NETWORK_NAME,
       multiStakeDeploymentInfo
     );
+    
     console.log("✅ ABI 和部署信息已保存");
 
     // 输出部署信息

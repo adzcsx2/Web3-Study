@@ -27,7 +27,8 @@
       "Bash(del:*)",
       "Bash(npx tsc:*)",
       "Bash(npx eslint:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(npm run lint)"
     ],
     "deny": [],
     "ask": []
