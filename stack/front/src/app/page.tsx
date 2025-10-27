@@ -18,7 +18,7 @@ import React, {
   useMemo,
 } from "react";
 import { useWagmiWalletClient } from "@/hooks/useWalletClient";
-import { formatEther, formatUnits, parseEther } from "viem";
+import { formatEther, formatUnits, parseEther, parseUnits } from "viem";
 import { multiStakeViemContract } from "@/services/MultiStakeViemService";
 import { USDC_ADDRESS, WETH_ADDRESS } from "@/utils/constants";
 import { useBalance } from "wagmi";
@@ -433,8 +433,18 @@ function StakeModal({
 
     console.log("质押池信息:", currentSelectOption);
 
-    // 检查余额
-    const stakeAmountBigInt = parseEther(inputStakeAmount);
+    // 检查余额  如果是WETH,parseEther转换，如果是USDC,parseUnits转换
+    let stakeAmountBigInt = 0n;
+    if (currentSelectOption.address === WETH_ADDRESS) {
+      console.log("使用WETH进行质押，数量转换");
+      stakeAmountBigInt = parseEther(inputStakeAmount);
+    } else if (currentSelectOption.address === USDC_ADDRESS) {
+      console.log("使用USDC进行质押，数量转换");
+      stakeAmountBigInt = parseUnits(inputStakeAmount, 6);
+    }
+
+    console.log("质押数量(BigInt):", stakeAmountBigInt);
+
     if (balance.data && balance.data.value < stakeAmountBigInt) {
       onNotification("错误", "余额不足，无法完成质押");
       return;
@@ -451,7 +461,7 @@ function StakeModal({
         {
           poolId,
           tokenAddress,
-          stakeAmount: inputStakeAmount,
+          stakeAmount: stakeAmountBigInt,
           contractAddress,
         },
         {
@@ -473,7 +483,9 @@ function StakeModal({
           onStakeSuccess: (hash) => {
             onNotification("质押成功", `质押交易已提交，交易哈希: ${hash}`);
             // 还原质押状态
+            //将Select选项恢复成未选中
             setCurrentSelectOption(null);
+
             setInputStakeAmount("0");
             //主页数据重新强制请求
             refreshPools(true);
@@ -531,6 +543,7 @@ function StakeModal({
           className=" col-span-8"
           options={poolOptions}
           placeholder="选择可质押池"
+          value={currentSelectOption?.value || undefined}
           filterOption={(input, option) =>
             (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
           }

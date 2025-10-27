@@ -892,7 +892,46 @@ export class ViemContractService {
         estimatedCost,
       };
     } catch (error) {
-      console.error("❌ Gas 估算失败:", error);
+      // 详细的错误诊断
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      // 转换 args 中的 BigInt 为字符串，以便 JSON 序列化
+      const argsForLogging = args.map((arg) =>
+        typeof arg === "bigint" ? arg.toString() : arg
+      );
+
+      const errorDetails = {
+        timestamp: new Date().toISOString(),
+        functionName,
+        contractAddress,
+        args: argsForLogging,
+        error: errorMessage,
+        errorType:
+          error instanceof Error ? error.constructor.name : typeof error,
+      };
+
+      console.error("❌ Gas 估算失败 - 详细信息:");
+      console.error(JSON.stringify(errorDetails, null, 2));
+
+      // 如果是合约 revert，提供额外建议
+      if (
+        errorMessage.includes("reverted") ||
+        errorMessage.includes("revert")
+      ) {
+        console.error("\n💡 诊断建议:");
+        console.error(
+          "  1. 检查池子 ID 是否存在和活跃 (使用 poolExists/isPoolActive)"
+        );
+        console.error(
+          "  2. 检查池子是否在质押期间 (startTime < now < endTime)"
+        );
+        console.error("  3. 验证质押金额是否满足最小要求");
+        console.error("  4. 检查合约是否暂停 (isPaused)");
+        console.error("  5. 检查用户是否被黑名单 (isBlacklisted)");
+        console.error("  6. 检查账户余额是否足够");
+      }
+
       throw error instanceof Error ? error : new Error(String(error));
     }
   }
@@ -992,7 +1031,17 @@ export class ViemContractService {
             console.log("  估算费用:", gasEstimation.estimatedCost, "ETH");
           }
         } catch (error) {
-          console.warn("⚠️ Gas 估算失败，使用默认值:", error);
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
+          console.warn("⚠️ Gas 估算失败，将跳过 Gas 估算:");
+          console.warn(`   错误: ${errorMsg}`);
+          console.warn("   💡 交易会由钱包自动估算 Gas，或请检查以下问题:");
+          console.warn("      • 池子 ID 是否存在？(使用 poolExists 检查)");
+          console.warn("      • 池子是否在活跃期间？(使用 isPoolActive 检查)");
+          console.warn("      • 合约是否暂停？(使用 isPaused 检查)");
+          console.warn("      • 账户是否被黑名单？(使用 isBlacklisted 检查)");
+          // 继续处理，让钱包自动估算
+          gasEstimation = undefined;
         }
       }
 
@@ -1000,6 +1049,18 @@ export class ViemContractService {
       const pubClient = getPublicClient(publicClient, chain);
 
       // 构建写入参数 - 分离 EIP-1559 和 Legacy 参数
+      // 使用合理的 Gas Limit 默认值（300000 对于大多数合约操作足够）
+      let gasLimit: bigint | undefined;
+      if (gas) {
+        gasLimit = gas;
+      } else if (gasEstimation?.gasLimit) {
+        // 如果成功估算了 Gas，增加 20% 的 buffer
+        gasLimit = (gasEstimation.gasLimit * 120n) / 100n;
+      } else {
+        // 如果无法估算，使用保守的默认值（不设置会让钱包自动估算）
+        gasLimit = undefined;
+      }
+
       const baseParams = {
         address: contractAddress,
         abi: contractAbi,
@@ -1007,18 +1068,14 @@ export class ViemContractService {
         args: args.length > 0 ? args : undefined,
         account,
         value,
-        gas:
-          gas ||
-          (gasEstimation?.gasLimit
-            ? (gasEstimation.gasLimit * 120n) / 100n
-            : undefined),
+        gas: gasLimit,
         nonce,
         chain,
       };
 
       // 根据是否有 EIP-1559 参数决定交易类型
       const writeParams: WriteContractParameters = gasPrice
-        ? { ...baseParams, gasPrice, type: "legacy" }
+        ? { ...baseParams, gasPrice, type: "legacy" as const }
         : {
             ...baseParams,
             maxFeePerGas: maxFeePerGas || gasEstimation?.maxFeePerGas,

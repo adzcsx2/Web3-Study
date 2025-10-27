@@ -45,7 +45,7 @@ const ERC20_ABI = [
 interface StakeParams {
   poolId: number;
   tokenAddress: `0x${string}`;
-  stakeAmount: string; // 字符串形式的数量，例如 "1.5"
+  stakeAmount: bigint; // 具体的区块链数量
   contractAddress: `0x${string}`;
 }
 
@@ -254,8 +254,7 @@ export function useApproveAndStake(): UseTokenStakeReturn {
       }
 
       // 转换质押数量
-      const amount = parseEther(stakeAmount);
-      console.log("📊 质押数量:", amount);
+      console.log("📊 质押数量:", stakeAmount);
 
       // // 检查当前授权额度
       // const currentAllowance = await checkAllowance(tokenAddress, contractAddress);
@@ -270,11 +269,16 @@ export function useApproveAndStake(): UseTokenStakeReturn {
       // }
 
       //不检查额度直接申请授权
-      await approveToken(tokenAddress, contractAddress, amount, callbacks);
+      await approveToken(
+        tokenAddress,
+        contractAddress,
+        stakeAmount,
+        callbacks
+      );
 
       // 执行质押
       console.log("🔄 开始质押...");
-      await stake(poolId, amount, callbacks);
+      await stake(poolId, stakeAmount, callbacks);
     },
     [wallet.isConnected, wallet.data, wallet.address, approveToken, stake]
   );
