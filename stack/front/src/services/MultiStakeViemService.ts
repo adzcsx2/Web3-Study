@@ -1412,12 +1412,17 @@ export class MultiStakeViemService {
   /**
    * 批量获取多个池子信息
    * @param poolIds 池子ID数组
+   * @param isForce 是否强制刷新缓存
    * @returns 池子信息数组
    */
-  async batchGetPoolInfo(poolIds: number[]): Promise<(PoolInfo | null)[]> {
+  async batchGetPoolInfo(
+    poolIds: number[],
+    isForce: boolean = false
+  ): Promise<(PoolInfo | null)[]> {
     const calls = poolIds.map((id) => ({
       functionName: "getPoolInfo",
       args: [id] as const,
+      forceRefresh: isForce,
     }));
 
     const results = await this.wrapper.batchRead(calls);

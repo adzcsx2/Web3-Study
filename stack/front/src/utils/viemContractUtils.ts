@@ -1949,6 +1949,7 @@ export class ViemContractWrapper {
     calls: {
       functionName: string;
       args?: readonly unknown[];
+      forceRefresh?: boolean;
     }[]
   ): Promise<ViemContractReadResult<unknown>[]> {
     const batchCalls = calls.map((call) => ({
@@ -1956,6 +1957,7 @@ export class ViemContractWrapper {
       contractAbi: this.config.contractAbi,
       functionName: call.functionName,
       args: call.args || [],
+      forceRefresh: call.forceRefresh,
       publicClient: this._publicClient, // 🔥 自动使用内置 publicClient
       chain: this._chain,
     }));
