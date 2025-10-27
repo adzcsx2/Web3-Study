@@ -344,6 +344,7 @@ function StakeModal({
   const [currentSelectOption, setCurrentSelectOption] =
     useState<ItemProps | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [inputStakeAmount, setInputStakeAmount] = useState<string>("0");
 
   const wallet = useConnectedWalletClient();
   const balance = useBalance({
@@ -436,10 +437,10 @@ function StakeModal({
         return;
       }
 
-      console.log("质押个数:", parseEther("0.01"));
+      console.log("质押个数:", parseEther(inputStakeAmount));
       const result = await multiStakeViemContract.stakeInPool(
-        parseInt(currentSelectOption?.value || "0"),
-        parseEther("0.01"),
+        poolId,
+        parseEther(inputStakeAmount),
         {
           account: wallet.data?.account,
           walletClient: wallet.data,
@@ -505,35 +506,43 @@ function StakeModal({
             setCurrentSelectOption(option);
           }}
         />
-        {/* currentSelectOption && */}
-        {
-          <div className=" grid-cols-12 mt-3 items-center grid !w-full">
-            <Typography.Text className="col-span-4 mt-3">
-              选择质押:
-              {currentSelectOption?.address === WETH_ADDRESS
-                ? "WETH"
-                : currentSelectOption?.address === USDC_ADDRESS
-                  ? "USDC"
-                  : "未知代币"}
-            </Typography.Text>
+        {currentSelectOption && (
+          <div className="col-span-12 grid grid-cols-12  mt-3 items-center">
+            <div className="col-span-4 flex items-center">
+              <Typography.Text>
+                选择质押:
+                {currentSelectOption?.address === WETH_ADDRESS
+                  ? "WETH"
+                  : currentSelectOption?.address === USDC_ADDRESS
+                    ? "USDC"
+                    : "未知代币"}
+              </Typography.Text>
+            </div>
 
-            <InputNumber
-              className="col-span-6"
-              defaultValue={0}
-              onChange={(value) => {
-                console.log("质押数量:", value);
-              }}
-            ></InputNumber>
+            <div className="col-span-8">
+              <InputNumber
+                className="!w-full"
+                defaultValue={0}
+                onChange={(value) => {
+                  setInputStakeAmount(value?.toString() || "0");
+                  console.log("质押数量:", value);
+                }}
+              />
+            </div>
 
-            <Typography.Text className="col-span-2 ">
-              {currentSelectOption?.address === WETH_ADDRESS
-                ? formatEther(balance.data?.value ?? 0n) + " WETH"
-                : currentSelectOption?.address === USDC_ADDRESS
-                  ? formatUnits(balance.data?.value ?? 0n, 6) + " USDC"
-                  : ""}
-            </Typography.Text>
+            <div className="col-span-12 flex items-center justify-end">
+              {" "}
+              总余额 :
+              <Typography.Text className="text-sm">
+                {currentSelectOption?.address === WETH_ADDRESS
+                  ? formatEther(balance.data?.value ?? 0n) + " WETH"
+                  : currentSelectOption?.address === USDC_ADDRESS
+                    ? formatUnits(balance.data?.value ?? 0n, 6) + " USDC"
+                    : ""}
+              </Typography.Text>
+            </div>
           </div>
-        }
+        )}
       </div>
     </Modal>
   );

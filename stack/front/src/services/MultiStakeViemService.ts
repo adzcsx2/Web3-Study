@@ -175,7 +175,9 @@ export class MultiStakeViemService {
    * @returns 池子数量
    */
   async getPoolCount(): Promise<number> {
-    const result = await this.wrapper.read<bigint>("poolCounter");
+    const result = await this.wrapper.read<bigint>("poolCounter", [], {
+      cacheType: "static", // 池子数量变化不频繁，使用长缓存（5分钟）
+    });
     if (result === null) {
       throw new Error("Failed to get pool count");
     }
@@ -194,7 +196,9 @@ export class MultiStakeViemService {
       );
     }
 
-    const result = await this.wrapper.read<PoolInfo>("getPoolInfo", [poolId]);
+    const result = await this.wrapper.read<PoolInfo>("getPoolInfo", [poolId], {
+      cacheType: "semiStatic", // 池子信息偶尔变化，缓存1分钟
+    });
     if (result === null) {
       throw new Error(`Failed to get pool info for pool ${poolId}`);
     }

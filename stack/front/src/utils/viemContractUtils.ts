@@ -132,6 +132,21 @@ import { sepolia } from "viem/chains";
 import { config as wagmiConfig, CONTRACT_CONFIG } from "@/config/wagmi";
 import { RPC_URLS } from "@/config/rpc";
 import { RequestQueue } from "@/http/requestQueue";
+import { cache, hybridCache, jsonStringifyWithBigInt } from "@/utils/cache";
+
+// ==================== 类型导出 ====================
+
+export type {
+  Abi,
+  Address,
+  Hash,
+  PublicClient,
+  WalletClient,
+  Account,
+  TransactionReceipt,
+  Log,
+  Chain,
+} from "viem";
 
 /**
  * 从共享 RPC 配置获取 wagmi 配置中链的 RPC URLs
@@ -207,6 +222,37 @@ export const VIEM_CONFIG = {
     confirmations: CONTRACT_CONFIG.confirmations,
     timeout: CONTRACT_CONFIG.timeout,
   },
+
+  // 🆕 缓存设置
+  cache: {
+    // 是否启用缓存（默认启用）
+    enabled: true,
+
+    // 缓存存储类型
+    // 'memory': 内存缓存（页面刷新后丢失，默认）
+    // 'hybrid': 混合缓存（内存+localStorage，页面刷新后保留）
+    // storageType: "memory" as "memory" | "hybrid",
+    //默认缓存为hybrid
+    storageType: "hybrid",
+
+    // 默认缓存时间（秒）- 300秒
+    defaultTTL: 300,
+
+    // 不同类型数据的缓存时间（秒）
+    ttlByType: {
+      // 静态数据（很少变化）- 5分钟
+      static: 300,
+      // 半静态数据（偶尔变化）- 1分钟
+      semiStatic: 60,
+      // 动态数据（经常变化）- 30秒
+      dynamic: 30,
+      // 实时数据（快速变化）- 10秒
+      realtime: 10,
+    },
+
+    // 缓存键前缀
+    keyPrefix: "viem:contract",
+  },
 };
 
 /**
@@ -229,6 +275,14 @@ export interface ViemContractReadOptions {
   publicClient?: PublicClient;
   /** 链配置 */
   chain?: Chain;
+  /** 🆕 是否启用缓存，默认为 true */
+  useCache?: boolean;
+  /** 🆕 缓存时间（秒），不指定则使用默认值 */
+  cacheTTL?: number;
+  /** 🆕 缓存类型（用于自动选择合适的 TTL） */
+  cacheType?: "static" | "semiStatic" | "dynamic" | "realtime";
+  /** 🆕 强制刷新缓存 */
+  forceRefresh?: boolean;
 }
 
 /**
@@ -475,6 +529,55 @@ export class ViemContractService {
   }
 
   /**
+   * 🔑 生成缓存键
+   *
+   * @param contractAddress 合约地址
+   * @param functionName 函数名
+   * @param args 函数参数
+   * @param chainId 链 ID
+   * @param blockNumber 区块号（可选）
+   * @returns 缓存键
+   */
+  private static generateCacheKey(
+    contractAddress: Address,
+    functionName: string,
+    args: readonly unknown[],
+    chainId: number,
+    blockNumber?: bigint | "latest" | "earliest" | "pending"
+  ): string {
+    const argsKey = args.length > 0 ? jsonStringifyWithBigInt(args) : "noargs";
+    const hasBlockNumber = blockNumber !== undefined;
+    const normalizedBlockNumber = hasBlockNumber
+      ? typeof blockNumber === "bigint"
+        ? `${blockNumber.toString()}n`
+        : blockNumber
+      : "";
+    const blockKey = hasBlockNumber ? `_block:${normalizedBlockNumber}` : "";
+    return `${VIEM_CONFIG.cache.keyPrefix}:${chainId}:${contractAddress}:${functionName}:${argsKey}${blockKey}`;
+  }
+
+  /**
+   * 🕐 获取缓存 TTL
+   *
+   * @param options 读取选项
+   * @returns TTL（秒）
+   */
+  private static getCacheTTL(options: ViemContractReadOptions): number {
+    // 如果指定了 cacheTTL，直接使用
+    if (options.cacheTTL !== undefined) {
+      return options.cacheTTL;
+    }
+
+    // 根据 cacheType 选择对应的 TTL
+    if (options.cacheType) {
+      return VIEM_CONFIG.cache.ttlByType[options.cacheType];
+    }
+
+    // 使用默认 TTL
+    return VIEM_CONFIG.cache.defaultTTL;
+  }
+
+  /**
    * 读取合约数据的基础方法
    *
    * @template T 返回数据的类型
@@ -502,6 +605,7 @@ export class ViemContractService {
    * 内部读取方法（由请求队列调用）
    *
    * 注意：重试逻辑已移至 RequestQueue，此方法只执行一次实际调用
+   * 🆕 现在支持缓存功能
    */
   private static async readInternal<T = unknown>(
     options: ViemContractReadOptions
@@ -515,12 +619,39 @@ export class ViemContractService {
       skipLogging = !VIEM_CONFIG.contract.enableLogging,
       publicClient,
       chain = VIEM_CONFIG.defaultChain,
+      useCache = VIEM_CONFIG.cache.enabled,
+      forceRefresh = false,
     } = options;
 
     // 验证合约地址
     if (!isAddress(contractAddress)) {
       const error = new Error("Invalid contract address");
       return { data: null, error, isError: true, isSuccess: false };
+    }
+
+    // 🔑 生成缓存键
+    const cacheKey = this.generateCacheKey(
+      contractAddress,
+      functionName,
+      args,
+      chain.id,
+      blockNumber
+    );
+
+    // 🔍 尝试从缓存获取（如果启用且非强制刷新）
+    if (useCache && !forceRefresh) {
+      // 根据配置选择缓存存储
+      const cacheStore =
+        VIEM_CONFIG.cache.storageType === "hybrid" ? hybridCache : cache;
+      const cachedResult = cacheStore.get<ViemContractReadResult<T>>(cacheKey);
+      if (cachedResult !== null) {
+        if (!skipLogging) {
+          console.log(
+            `💾 缓存命中: ${functionName} (${contractAddress}) [${VIEM_CONFIG.cache.storageType}]`
+          );
+        }
+        return cachedResult;
+      }
     }
 
     try {
@@ -530,6 +661,10 @@ export class ViemContractService {
         console.log("Function Name:", functionName);
         console.log("Arguments:", args);
         console.log("Chain:", chain.name);
+        console.log(
+          "Cache:",
+          useCache ? `Enabled (TTL: ${this.getCacheTTL(options)}s)` : "Disabled"
+        );
       }
 
       const client = getPublicClient(publicClient, chain);
@@ -552,18 +687,35 @@ export class ViemContractService {
         >
       )[functionName](args.length > 0 ? args : undefined, readOptions)) as T;
 
+      const result: ViemContractReadResult<T> = {
+        data,
+        error: null,
+        isError: false,
+        isSuccess: true,
+      };
+
+      // 💾 存储到缓存（如果启用）
+      if (useCache) {
+        const ttl = this.getCacheTTL(options);
+        // 根据配置选择缓存存储
+        const cacheStore =
+          VIEM_CONFIG.cache.storageType === "hybrid" ? hybridCache : cache;
+        cacheStore.set(cacheKey, result, ttl);
+
+        if (!skipLogging) {
+          console.log(
+            `💾 已缓存结果 (TTL: ${ttl}秒) [${VIEM_CONFIG.cache.storageType}]`
+          );
+        }
+      }
+
       if (!skipLogging) {
         console.log("✅ Call Success");
         console.log("Data:", data);
         console.log("===============================");
       }
 
-      return {
-        data,
-        error: null,
-        isError: false,
-        isSuccess: true,
-      };
+      return result;
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
 
@@ -1135,21 +1287,32 @@ export async function readViemContract<T = unknown>(
   contractAbi: Abi,
   functionName: string,
   args: readonly unknown[] = [],
-  skipLogging = false,
-  publicClient?: PublicClient, // 可选，如果不传入会自动创建
-  chain?: Chain
+  options?: {
+    skipLogging?: boolean;
+    publicClient?: PublicClient;
+    chain?: Chain;
+    useCache?: boolean;
+    cacheTTL?: number;
+    cacheType?: "static" | "semiStatic" | "dynamic" | "realtime";
+    forceRefresh?: boolean;
+  }
 ): Promise<T | null> {
   // 🔥 如果没有传入 publicClient，自动创建一个
-  const clientToUse = publicClient || getPublicClient(undefined, chain);
+  const clientToUse =
+    options?.publicClient || getPublicClient(undefined, options?.chain);
 
   const result = await ViemContractService.read<T>({
     contractAddress,
     contractAbi,
     functionName,
     args,
-    skipLogging,
+    skipLogging: options?.skipLogging ?? false,
     publicClient: clientToUse,
-    chain,
+    chain: options?.chain,
+    useCache: options?.useCache,
+    cacheTTL: options?.cacheTTL,
+    cacheType: options?.cacheType,
+    forceRefresh: options?.forceRefresh,
   });
 
   return result.data;
@@ -1931,4 +2094,218 @@ export function clearViemContractQueue(reason: string = "Queue cleared") {
  */
 export function resetViemContractQueueStats() {
   ViemContractService.getRequestQueue().resetStats();
+}
+
+// ==================== 缓存管理工具函数 ====================
+
+/**
+ * 🗑️ 清除特定合约的所有缓存
+ *
+ * @param contractAddress 合约地址
+ * @param chainId 链 ID（可选，不传则清除所有链上该合约的缓存）
+ *
+ * @example
+ * ```typescript
+ * // 清除特定合约在特定链上的缓存
+ * clearViemContractCache("0x123...", 11155111);
+ *
+ * // 清除特定合约在所有链上的缓存
+ * clearViemContractCache("0x123...");
+ * ```
+ */
+export function clearViemContractCache(
+  contractAddress: Address,
+  chainId?: number
+): number {
+  const pattern = chainId
+    ? `^${VIEM_CONFIG.cache.keyPrefix}:${chainId}:${contractAddress}:`
+    : `^${VIEM_CONFIG.cache.keyPrefix}:\\d+:${contractAddress}:`;
+
+  const stats = cache.getStats();
+  const regex = new RegExp(pattern);
+  let deletedCount = 0;
+
+  for (const key of stats.keys) {
+    if (regex.test(key)) {
+      cache.delete(key);
+      deletedCount++;
+    }
+  }
+
+  console.log(`🗑️ 已清除 ${deletedCount} 个合约缓存项 (${contractAddress})`);
+  return deletedCount;
+}
+
+/**
+ * 🗑️ 清除特定合约函数的缓存
+ *
+ * @param contractAddress 合约地址
+ * @param functionName 函数名
+ * @param chainId 链 ID（可选）
+ *
+ * @example
+ * ```typescript
+ * clearViemContractFunctionCache("0x123...", "balanceOf", 11155111);
+ * ```
+ */
+export function clearViemContractFunctionCache(
+  contractAddress: Address,
+  functionName: string,
+  chainId?: number
+): number {
+  const pattern = chainId
+    ? `^${VIEM_CONFIG.cache.keyPrefix}:${chainId}:${contractAddress}:${functionName}:`
+    : `^${VIEM_CONFIG.cache.keyPrefix}:\\d+:${contractAddress}:${functionName}:`;
+
+  const stats = cache.getStats();
+  const regex = new RegExp(pattern);
+  let deletedCount = 0;
+
+  for (const key of stats.keys) {
+    if (regex.test(key)) {
+      cache.delete(key);
+      deletedCount++;
+    }
+  }
+
+  console.log(
+    `🗑️ 已清除 ${deletedCount} 个函数缓存项 (${contractAddress}.${functionName})`
+  );
+  return deletedCount;
+}
+
+/**
+ * 🗑️ 清除所有合约缓存
+ *
+ * @example
+ * ```typescript
+ * clearAllViemContractCache();
+ * ```
+ */
+export function clearAllViemContractCache(): number {
+  const pattern = `^${VIEM_CONFIG.cache.keyPrefix}:`;
+  const stats = cache.getStats();
+  const regex = new RegExp(pattern);
+  let deletedCount = 0;
+
+  for (const key of stats.keys) {
+    if (regex.test(key)) {
+      cache.delete(key);
+      deletedCount++;
+    }
+  }
+
+  console.log(`🗑️ 已清除所有合约缓存 (${deletedCount} 项)`);
+  return deletedCount;
+}
+
+/**
+ * 📊 获取合约缓存统计信息
+ *
+ * @param contractAddress 合约地址（可选）
+ * @param chainId 链 ID（可选）
+ * @returns 缓存统计信息
+ *
+ * @example
+ * ```typescript
+ * // 获取所有合约缓存统计
+ * const stats = getViemContractCacheStats();
+ *
+ * // 获取特定合约的缓存统计
+ * const contractStats = getViemContractCacheStats("0x123...", 11155111);
+ * ```
+ */
+export function getViemContractCacheStats(
+  contractAddress?: Address,
+  chainId?: number
+): {
+  totalCacheItems: number;
+  cacheKeys: string[];
+} {
+  const stats = cache.getStats();
+
+  if (!contractAddress) {
+    // 返回所有合约缓存统计
+    const pattern = `^${VIEM_CONFIG.cache.keyPrefix}:`;
+    const regex = new RegExp(pattern);
+    const cacheKeys = stats.keys.filter((key) => regex.test(key));
+
+    return {
+      totalCacheItems: cacheKeys.length,
+      cacheKeys,
+    };
+  }
+
+  // 返回特定合约的缓存统计
+  const pattern = chainId
+    ? `^${VIEM_CONFIG.cache.keyPrefix}:${chainId}:${contractAddress}:`
+    : `^${VIEM_CONFIG.cache.keyPrefix}:\\d+:${contractAddress}:`;
+
+  const regex = new RegExp(pattern);
+  const cacheKeys = stats.keys.filter((key) => regex.test(key));
+
+  return {
+    totalCacheItems: cacheKeys.length,
+    cacheKeys,
+  };
+}
+
+/**
+ * ⚙️ 配置全局缓存设置
+ *
+ * @param config 缓存配置
+ *
+ * @example
+ * ```typescript
+ * // 在应用启动时配置
+ * configureViemContractCache({
+ *   enabled: true,
+ *   defaultTTL: 60, // 1分钟
+ * });
+ * ```
+ */
+export function configureViemContractCache(config: {
+  enabled?: boolean;
+  storageType?: "memory" | "hybrid";
+  defaultTTL?: number;
+  ttlByType?: {
+    static?: number;
+    semiStatic?: number;
+    dynamic?: number;
+    realtime?: number;
+  };
+}): void {
+  if (config.enabled !== undefined) {
+    VIEM_CONFIG.cache.enabled = config.enabled;
+  }
+
+  if (config.storageType !== undefined) {
+    VIEM_CONFIG.cache.storageType = config.storageType;
+  }
+
+  if (config.defaultTTL !== undefined) {
+    VIEM_CONFIG.cache.defaultTTL = config.defaultTTL;
+  }
+
+  if (config.ttlByType) {
+    if (config.ttlByType.static !== undefined) {
+      VIEM_CONFIG.cache.ttlByType.static = config.ttlByType.static;
+    }
+    if (config.ttlByType.semiStatic !== undefined) {
+      VIEM_CONFIG.cache.ttlByType.semiStatic = config.ttlByType.semiStatic;
+    }
+    if (config.ttlByType.dynamic !== undefined) {
+      VIEM_CONFIG.cache.ttlByType.dynamic = config.ttlByType.dynamic;
+    }
+    if (config.ttlByType.realtime !== undefined) {
+      VIEM_CONFIG.cache.ttlByType.realtime = config.ttlByType.realtime;
+    }
+  }
+
+  console.log("✅ 合约缓存配置已更新:", {
+    enabled: VIEM_CONFIG.cache.enabled,
+    storageType: VIEM_CONFIG.cache.storageType,
+    defaultTTL: VIEM_CONFIG.cache.defaultTTL,
+    ttlByType: VIEM_CONFIG.cache.ttlByType,
+  });
 }
