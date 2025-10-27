@@ -9,14 +9,10 @@
  */
 
 import { useState, useCallback } from "react";
-import { parseEther } from "viem";
 import { usePublicClient, useWriteContract } from "wagmi";
 import { sepolia } from "wagmi/chains";
 import { multiStakeViemContract } from "@/services/MultiStakeViemService";
-import {
-  useConnectedWalletClient,
-  useWagmiWalletClient,
-} from "./useWalletClient";
+import { useWagmiWalletClient } from "./useWalletClient";
 
 // ERC20 approve 函数的 ABI
 const ERC20_ABI = [
@@ -173,8 +169,28 @@ export function useApproveAndStake(): UseTokenStakeReturn {
         console.log("✅ 授权交易哈希:", approveTx);
         callbacks?.onApprovalSuccess?.(approveTx);
 
-        // 等待授权交易确认
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        // 等待授权交易确认（增加等待时间确保区块链确认）
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+
+        // 验证授权是否成功
+        if (publicClient) {
+          const confirmedAllowance = await publicClient.readContract({
+            address: tokenAddress,
+            abi: ERC20_ABI,
+            functionName: "allowance",
+            args: [wallet.address as `0x${string}`, spenderAddress],
+          });
+          console.log(
+            "✅ 授权确认 - 新的授权额度:",
+            confirmedAllowance?.toString()
+          );
+
+          if (!confirmedAllowance || confirmedAllowance < amount) {
+            throw new Error(
+              `授权失败：期望 ${amount.toString()}，实际 ${confirmedAllowance?.toString() || "0"}`
+            );
+          }
+        }
 
         return approveTx;
       } catch (error) {
@@ -186,7 +202,7 @@ export function useApproveAndStake(): UseTokenStakeReturn {
         setIsApproving(false);
       }
     },
-    [wallet.address, writeContractAsync]
+    [wallet.address, writeContractAsync, publicClient]
   );
 
   /**
@@ -269,12 +285,7 @@ export function useApproveAndStake(): UseTokenStakeReturn {
       // }
 
       //不检查额度直接申请授权
-      await approveToken(
-        tokenAddress,
-        contractAddress,
-        stakeAmount,
-        callbacks
-      );
+      await approveToken(tokenAddress, contractAddress, stakeAmount, callbacks);
 
       // 执行质押
       console.log("🔄 开始质押...");
