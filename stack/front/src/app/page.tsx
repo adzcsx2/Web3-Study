@@ -44,6 +44,7 @@ interface PoolContextType {
     wethTotal: string;
     usdcTotal: string;
   };
+  totalRewards: bigint;
 }
 
 // 创建 Context
@@ -67,6 +68,7 @@ function PoolProvider({
   const [poolCount, setPoolCount] = useState<number>(0);
   const [poolInfos, setPoolInfos] = useState<(PoolInfo | null)[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [totalRewards, setTotalRewards] = useState<bigint>(0n);
   const [totalStaked, setTotalStaked] = useState<{
     wethTotal: string;
     usdcTotal: string;
@@ -99,6 +101,9 @@ function PoolProvider({
       let wethTotal = BigInt(0);
       let usdcTotal = BigInt(0);
 
+      // 获取总奖励发放量
+      let _totalRewards = BigInt(0);
+
       for (const poolInfo of infos) {
         if (poolInfo) {
           const tokenType = poolInfo.stakeToken;
@@ -107,8 +112,10 @@ function PoolProvider({
           } else if (tokenType === USDC_ADDRESS) {
             usdcTotal += poolInfo.totalStaked;
           }
+          _totalRewards += poolInfo.totalRewardsIssued;
         }
       }
+      setTotalRewards(_totalRewards);
 
       setTotalStaked({
         wethTotal: formatEther(wethTotal),
@@ -138,6 +145,7 @@ function PoolProvider({
     isLoading,
     refreshPools: fetchPoolData,
     totalStaked,
+    totalRewards,
   };
 
   return <PoolContext.Provider value={value}>{children}</PoolContext.Provider>;
@@ -164,13 +172,13 @@ function MainHeaderComponent(): React.ReactNode {
   );
 }
 
-// 池数量显示组件 - 使用全局 Pool Context
-function PoolCountDisplay(): React.ReactNode {
-  const { poolCount, isLoading } = usePoolContext();
+// 总发放奖励显示组件 - 使用全局 Pool Context
+function TotalReward(): React.ReactNode {
+  const { totalRewards, isLoading } = usePoolContext();
 
   if (isLoading) return <>加载中...</>;
 
-  return <>{poolCount}</>;
+  return <>{formatEther(totalRewards)}</>;
 }
 
 // 总锁仓量显示组件 - 使用全局 Pool Context
@@ -269,10 +277,10 @@ function StatisticsComponent(): React.ReactNode {
               level={4}
               style={{ fontSize: "1.5rem", fontWeight: "bold" }}
             >
-              <PoolCountDisplay />
+              <TotalReward />
             </Typography.Title>
             <Typography.Text type="secondary" className="text-sm sm:text-base">
-              质押池数量
+              已发放奖励
             </Typography.Text>
           </div>
         </div>
