@@ -112,11 +112,11 @@ function PoolProvider({
 
       setTotalStaked({
         wethTotal: formatEther(wethTotal),
-        usdcTotal: formatEther(usdcTotal),
+        usdcTotal: formatUnits(usdcTotal, 6),
       });
 
       console.log(
-        `✅ 全局加载池子数据成功: 共 ${countNumber} 个池子, WETH=${formatEther(wethTotal)}, USDC=${formatEther(usdcTotal)}`
+        `✅ 全局加载池子数据成功: 共 ${countNumber} 个池子, WETH=${formatEther(wethTotal)}, USDC=${formatUnits(usdcTotal, 6)}`
       );
     } catch (error) {
       console.error("获取池子数据失败:", error);

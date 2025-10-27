@@ -829,7 +829,7 @@ export class ViemContractService {
    * ```
    */
   static async estimateGas(
-    options: Omit<ViemContractWriteOptions, "account" | "walletClient">
+    options: Omit<ViemContractWriteOptions, "walletClient">
   ): Promise<ViemGasEstimation> {
     // 使用请求队列进行请求，以控制频率
     return this.requestQueue.add(() => this.estimateGasInternal(options));
@@ -839,7 +839,7 @@ export class ViemContractService {
    * 内部 Gas 估算方法（由请求队列调用）
    */
   private static async estimateGasInternal(
-    options: Omit<ViemContractWriteOptions, "account" | "walletClient">
+    options: Omit<ViemContractWriteOptions, "walletClient">
   ): Promise<ViemGasEstimation> {
     const {
       contractAddress,
@@ -849,6 +849,7 @@ export class ViemContractService {
       value,
       publicClient,
       chain = VIEM_CONFIG.defaultChain,
+      account,
     } = options;
 
     try {
@@ -861,6 +862,7 @@ export class ViemContractService {
         functionName,
         args: args.length > 0 ? args : undefined,
         value,
+        account,
       });
 
       // 获取当前费用数据
@@ -1023,6 +1025,7 @@ export class ViemContractService {
             value,
             publicClient,
             chain,
+            account,
           });
 
           if (!skipLogging) {
@@ -1442,7 +1445,8 @@ export async function estimateViemContractGas(
   args: readonly unknown[] = [],
   value?: bigint,
   publicClient?: PublicClient,
-  chain?: Chain
+  chain?: Chain,
+  account?: Account
 ): Promise<ViemGasEstimation> {
   // 🔥 如果没有传入 publicClient，自动创建一个
   const clientToUse = publicClient || getPublicClient(undefined, chain);
@@ -1455,6 +1459,7 @@ export async function estimateViemContractGas(
     value,
     publicClient: clientToUse,
     chain,
+    account,
   });
 }
 
@@ -1769,7 +1774,7 @@ export class ViemContractWrapper {
    *
    * @param functionName 函数名称
    * @param args 函数参数（可选）
-   * @param options 额外配置（可选）
+   * @param options 额外配置（可选，可包含 account 参数用于准确的 gas 估算）
    * @returns Gas 估算结果
    */
   async estimateGas(
@@ -1782,7 +1787,6 @@ export class ViemContractWrapper {
         | "contractAbi"
         | "functionName"
         | "args"
-        | "account"
         | "walletClient"
         | "publicClient"
         | "chain"
