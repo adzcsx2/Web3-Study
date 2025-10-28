@@ -109,7 +109,7 @@ contract MultiStakePledgeContractV2 is
             ? params.minDepositAmount 
             : 1; // 默认 1 wei
             
-        // 设置冷却期：如果为 0 则使用默认值 10 分钟
+        // 设置冷却期：如果为 0 则使用默认值 1 分钟
         uint256 finalCooldown = params.cooldownPeriod > 0 
             ? params.cooldownPeriod 
             : 1 minutes; // 默认 1 分钟

@@ -1276,7 +1276,9 @@ export class ViemContractService {
   static async getEvents(options: ViemEventListenerOptions): Promise<Log[]> {
     const {
       contractAddress,
+      contractAbi,
       eventName,
+      args,
       fromBlock = "latest",
       toBlock = "latest",
       publicClient,
@@ -1286,9 +1288,20 @@ export class ViemContractService {
     try {
       const client = getPublicClient(publicClient, chain);
 
-      // 简化的事件查询 - 获取指定地址的所有日志
+      // 从 ABI 中查找事件定义
+      const eventAbi = contractAbi.find(
+        (item) => item.type === "event" && item.name === eventName
+      );
+
+      if (!eventAbi || eventAbi.type !== "event") {
+        throw new Error(`Event ${eventName} not found in ABI`);
+      }
+
+      // 使用事件过滤器查询 - 只获取特定事件
       const logs = await client.getLogs({
         address: contractAddress,
+        event: eventAbi,
+        args: args as Record<string, unknown> | undefined,
         fromBlock,
         toBlock,
       });

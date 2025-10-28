@@ -30,18 +30,28 @@ export interface UnstakeRequest {
 
 /**
  * 用户在特定池子中的信息
+ *
+ * 注意：这些字段名必须与合约 ABI 中的返回值匹配
+ * 合约实际返回: stakedBalance, pendingRewards, totalRewardsEarned, totalRewardsClaimed, pendingUnstakeRequests
  */
 export interface UserPoolInfo {
-  userRewardPerTokenPaid: bigint; // 用户已领取的每代币奖励记录
-  rewards: bigint; // 用户当前可领取的奖励
-  balances: bigint; // 用户在该池子中的质押余额
-  stakeTimestamps: bigint; // 用户首次质押的时间戳
-  lastStakeTimes: bigint; // 用户最后一次质押的时间
-  lastClaimTimes: bigint; // 用户最后一次领取奖励的时间
-  lastUnstakeTimes: bigint; // 用户最后一次解质押的时间
-  totalRewardsByUser: bigint; // 用户在该池子中获得的总奖励
-  totalClaimedByUser: bigint; // 用户在该池子中已领取的总奖励
-  unstakeRequests: UnstakeRequest[]; // 用户的解质押请求队列
+  stakedBalance: bigint; // 用户在该池子中的质押余额
+  pendingRewards: bigint; // 用户当前可领取的奖励（待领取）
+  totalRewardsEarned: bigint; // 用户在该池子中获得的总奖励
+  totalRewardsClaimed: bigint; // 用户在该池子中已领取的总奖励
+  pendingUnstakeRequests: UnstakeRequest[]; // 用户的解质押请求队列
+
+  // 以下为旧版本字段，保留以兼容旧代码
+  userRewardPerTokenPaid?: bigint;
+  rewards?: bigint; // 已废弃，使用 pendingRewards
+  balances?: bigint; // 已废弃，使用 stakedBalance
+  stakeTimestamps?: bigint;
+  lastStakeTimes?: bigint;
+  lastClaimTimes?: bigint;
+  lastUnstakeTimes?: bigint;
+  totalRewardsByUser?: bigint; // 已废弃，使用 totalRewardsEarned
+  totalClaimedByUser?: bigint; // 已废弃，使用 totalRewardsClaimed
+  unstakeRequests?: UnstakeRequest[]; // 已废弃，使用 pendingUnstakeRequests
 }
 
 /**

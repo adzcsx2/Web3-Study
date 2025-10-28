@@ -109,7 +109,7 @@ export class RequestQueue {
   private readonly RETRY_BASE_DELAY = 1000;
 
   /** 默认任务超时时间（毫秒） */
-  private readonly DEFAULT_TASK_TIMEOUT = 30000; // 30 秒
+  private readonly DEFAULT_TASK_TIMEOUT = 60000; // 60 秒
 
   /** 是否已销毁 */
   private destroyed = false;

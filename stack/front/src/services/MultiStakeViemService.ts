@@ -232,6 +232,31 @@ export class MultiStakeViemService {
     return result;
   }
   /**
+   * 获取单个用户的质押事件 event->StakedInPool
+   * 🔥 带缓存支持 - 缓存5分钟（事件数据相对稳定）
+   * @param isForce 是否强制刷新缓存
+   */
+  async getUserStakedInPoolEvents(
+    userAddress: string,
+    isForce: boolean = false
+  ): Promise<ContractEvent[]> {
+    const filter: Record<string, unknown> = {
+      user: userAddress,
+    };
+
+    const result = await this.wrapper.getEventsWithCache("StakedInPool", {
+      cacheType: "semiStatic", // 事件数据相对稳定，缓存5分钟
+      fromBlock: "earliest",
+      toBlock: "latest",
+      forceRefresh: isForce,
+      args: filter,
+    });
+    if (result === null) {
+      throw new Error("Failed to get all staked in pool events");
+    }
+    return result;
+  }
+  /**
    * 获取所有用户的取消质押事件 event->UnstakedFromPool
    * 🔥 带缓存支持 - 缓存5分钟（事件数据相对稳定）
    * @param isForce 是否强制刷新缓存
@@ -279,8 +304,46 @@ export class MultiStakeViemService {
     user: string,
     isForce: boolean = false
   ): Promise<UserPoolInfo> {
+    const result = await this.wrapper.read<
+      UserPoolInfo | [bigint, bigint, bigint, bigint, UnstakeRequest[]]
+    >("getUserPoolInfo", [poolId, user], {
+      forceRefresh: isForce,
+    });
+    if (result === null) {
+      throw new Error(
+        `Failed to get user pool info for pool ${poolId} and user ${user}`
+      );
+    }
+
+    // 处理 Viem 返回的数组格式，转换为对象格式
+    if (Array.isArray(result)) {
+      return {
+        stakedBalance: result[0],
+        pendingRewards: result[1],
+        totalRewardsEarned: result[2],
+        totalRewardsClaimed: result[3],
+        pendingUnstakeRequests: result[4] || [],
+      };
+    }
+
+    return result;
+  }
+
+  /**
+   * 直接访问 userPoolInfo mapping 获取完整的用户池子信息
+   * 包含 rewards 字段和完整的结构体数据
+   * @param poolId 池子ID
+   * @param user 用户地址
+   * @param isForce 是否强制刷新缓存
+   * @returns 完整的用户池子信息
+   */
+  async getUserPoolInfoFromMapping(
+    poolId: number,
+    user: string,
+    isForce: boolean = false
+  ): Promise<UserPoolInfo> {
     const result = await this.wrapper.read<UserPoolInfo>(
-      "getUserPoolInfo",
+      "userPoolInfo",
       [poolId, user],
       {
         forceRefresh: isForce,
@@ -288,7 +351,7 @@ export class MultiStakeViemService {
     );
     if (result === null) {
       throw new Error(
-        `Failed to get user pool info for pool ${poolId} and user ${user}`
+        `Failed to get user pool info from mapping for pool ${poolId} and user ${user}`
       );
     }
     return result;
@@ -784,14 +847,20 @@ export class MultiStakeViemService {
   /**
    * 从指定池子解除质押（执行已请求的解除质押）
    * @param poolId 池子ID
+   * @param amount 解除质押金额（wei）
    * @param options 交易配置
    * @returns 交易结果
    */
   async unstakeFromPool(
     poolId: number,
+    amount: bigint,
     options: TransactionOptions
   ): Promise<ViemContractWriteResult> {
-    return this.wrapper.executeWrite("unstakeFromPool", [poolId], options);
+    return this.wrapper.executeWrite(
+      "unstakeFromPool",
+      [poolId, amount],
+      options
+    );
   }
 
   /**
@@ -1545,6 +1614,28 @@ export class MultiStakeViemService {
     }
   }
 
+  /**验证池子是否可以进行解质押 */
+  async validatePoolForUnstaking(
+    poolId: number,
+    isForce: boolean = false
+  ): Promise<{
+    canUnstake: boolean;
+    error?: string;
+    errorType?: "NOT_EXISTS";
+  }> {
+    try {
+      const poolInfo = await this.getPoolInfo(poolId, isForce);
+      // 只需要检查池子是否存在（getPoolInfo会抛出异常如果池子不存在）
+      return { canUnstake: true };
+    } catch {
+      return {
+        canUnstake: false,
+        error: `池子 ${poolId} 不存在或获取信息失败`,
+        errorType: "NOT_EXISTS",
+      };
+    }
+  }
+
   /**
    * 计算池子剩余时间（秒）
    * @param poolId 池子ID
@@ -1647,7 +1738,9 @@ export class MultiStakeViemService {
     isForce: boolean = false
   ): Promise<bigint> {
     const userPoolInfo = await this.getUserPoolInfo(poolId, user, isForce);
-    return userPoolInfo.unstakeRequests.reduce(
+    const unstakeRequests = userPoolInfo.pendingUnstakeRequests || [];
+
+    return unstakeRequests.reduce(
       (total, request) => total + request.amount,
       BigInt(0)
     );
@@ -1657,7 +1750,7 @@ export class MultiStakeViemService {
    * 检查用户的解质押请求是否可以执行
    * @param poolId 池子ID
    * @param user 用户地址
-   * @param currentBlock 当前区块号（可选，默认获取最新）
+   * @param currentBlock 当前区块号（可选，默认自动获取最新区块号）
    * @param isForce 是否强制刷新缓存
    * @returns 可执行的解质押请求数组
    */
@@ -1669,15 +1762,27 @@ export class MultiStakeViemService {
   ): Promise<UnstakeRequest[]> {
     const userPoolInfo = await this.getUserPoolInfo(poolId, user, isForce);
 
-    // 如果没有提供当前区块号，需要获取（这里简化处理，实际应该通过provider获取）
-    if (!currentBlock) {
-      // 简化处理：假设所有请求都可执行，实际应用中需要获取当前区块号
-      return userPoolInfo.unstakeRequests;
+    // 如果没有提供当前区块号，从区块链获取最新区块号
+    let blockNumber = currentBlock;
+    if (!blockNumber) {
+      const publicClient = this.wrapper.publicClient;
+      blockNumber = await publicClient.getBlockNumber();
+      console.log(`📦 当前区块号: ${blockNumber}`);
     }
 
-    return userPoolInfo.unstakeRequests.filter(
-      (request) => request.unlockBlock <= currentBlock
+    // 获取解质押请求列表
+    const unstakeRequests = userPoolInfo.pendingUnstakeRequests || [];
+
+    // 过滤出已解锁的请求（解锁区块 <= 当前区块）
+    const executableRequests = unstakeRequests.filter(
+      (request) => request.unlockBlock <= blockNumber!
     );
+
+    console.log(
+      `🔍 用户 ${user} 在池子 ${poolId} 的解质押请求: 总共 ${unstakeRequests.length} 个，可执行 ${executableRequests.length} 个`
+    );
+
+    return executableRequests;
   }
 
   // ==================== 格式化工具 ====================
