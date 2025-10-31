@@ -9,6 +9,8 @@ import {
   Modal,
   Select,
   InputNumber,
+  List,
+  Skeleton,
 } from "antd";
 import React, {
   useState,
@@ -17,30 +19,39 @@ import React, {
   useContext,
   useMemo,
   useCallback,
+  useRef,
 } from "react";
 import { useWagmiWalletClient } from "@/hooks/useWalletClient";
 import { formatEther, formatUnits, parseEther, parseUnits } from "viem";
-import { multiStakeViemContract } from "@/services/MultiStakeViemService";
+import type { Abi } from "viem";
 import { USDC_ADDRESS, WETH_ADDRESS } from "@/utils/constants";
-import { useBalance, usePublicClient } from "wagmi";
+import { useBalance, usePublicClient, useReadContracts } from "wagmi";
 import { useStakeContract } from "@/hooks/useStakeContract";
 import deploymentInfo from "@/app/abi/deployment-info.json";
+import contract from "@/app/abi/MultiStakePledgeContractV2.json";
 import { useSmartWithdraw } from "@/hooks/useSmartWithdraw";
+import { useStakeExchangeHistory } from "@/hooks/useStakeExchangeHistory";
 import { clearAllViemContractCache } from "@/utils/viemContractUtils";
+import { TransactionType, TransactionStatus } from "@/types/TransactionHistory";
+import { useStatistics } from "@/hooks/useStatistics";
+import type { PoolInfo } from "@/types/StakePledgeContractStructs";
+import type { UserPoolData } from "@/types/UserPoolData";
 
-// 定义 Pool 数据类型
-interface PoolInfo {
+// 定义 Pool 数据类型（本地使用）
+interface LocalPoolInfo {
   stakeToken: string;
   totalStaked: bigint;
-  isActive: boolean;
+  isOpenForStaking: boolean;
+  endTime: bigint; // 池子结束时间戳
   rewardToken?: string;
   minStake?: bigint;
   maxStake?: bigint;
+  totalRewardsIssued?: bigint;
 }
 
 interface PoolContextType {
   poolCount: number;
-  poolInfos: (PoolInfo | null)[];
+  poolInfos: (LocalPoolInfo | null)[];
   isLoading: boolean;
   refreshPools: (isForce?: boolean) => Promise<void>;
   totalStaked: {
@@ -48,6 +59,7 @@ interface PoolContextType {
     usdcTotal: string;
   };
   totalRewards: bigint;
+  activeUsers: number;
   openNotification: (title: string, description: string) => void;
 }
 
@@ -63,23 +75,18 @@ function usePoolContext() {
   return context;
 }
 
-// Pool Provider 组件
+// Pool Provider 组件 - 复用 useStatistics Hook
 function PoolProvider({
   children,
 }: {
   children: React.ReactNode;
 }): React.ReactNode {
-  const [poolCount, setPoolCount] = useState<number>(0);
-  const [poolInfos, setPoolInfos] = useState<(PoolInfo | null)[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [totalRewards, setTotalRewards] = useState<bigint>(0n);
+  const [poolInfos, setPoolInfos] = useState<(LocalPoolInfo | null)[]>([]);
 
   const [api, contextHolder] = notification.useNotification();
 
-  const [totalStaked, setTotalStaked] = useState<{
-    wethTotal: string;
-    usdcTotal: string;
-  }>({ wethTotal: "0", usdcTotal: "0" });
+  // 复用 useStatistics Hook 获取统计数据和池子详情
+  const { statistics, poolsData, isLoading, refetch } = useStatistics();
 
   const openNotification = useCallback(
     (title: string, description: string) => {
@@ -94,88 +101,84 @@ function PoolProvider({
     [api]
   );
 
-  const fetchPoolData = useCallback(async (isForce: boolean = false) => {
+  // 处理池子数据，转换为本地格式
+  useEffect(() => {
+    if (statistics.poolCount === 0) {
+      setPoolInfos([]);
+      return;
+    }
+
+    if (isLoading || !poolsData) {
+      return;
+    }
+
     try {
-      setIsLoading(true);
+      const infos: (LocalPoolInfo | null)[] = [];
 
-      // 获取池子数量
-      const count = await multiStakeViemContract.getPoolCount(isForce);
-      const countNumber = Number(count);
-      setPoolCount(countNumber);
+      poolsData.forEach((pool) => {
+        if (pool.status === "success" && pool.result) {
+          const poolInfo = pool.result as PoolInfo;
 
-      if (countNumber === 0) {
-        setPoolInfos([]);
-        setTotalStaked({ wethTotal: "0", usdcTotal: "0" });
-        return;
-      }
+          // 转换为本地格式
+          const localPoolInfo: LocalPoolInfo = {
+            stakeToken: poolInfo.stakeToken,
+            totalStaked: poolInfo.totalStaked,
+            isOpenForStaking: poolInfo.isOpenForStaking,
+            endTime: poolInfo.endTime, // 添加结束时间
+            rewardToken: poolInfo.rewardToken,
+            minStake: poolInfo.minDepositAmount,
+            totalRewardsIssued: poolInfo.totalRewardsIssued,
+          };
 
-      // 批量获取所有池子信息
-      const pools: number[] = Array.from({ length: countNumber }, (_, i) => i);
-      const infos = await multiStakeViemContract.batchGetPoolInfo(
-        pools,
-        isForce
-      );
+          infos.push(localPoolInfo);
+        } else {
+          infos.push(null);
+        }
+      });
+      console.log("转换后的池子详情:", infos);
       setPoolInfos(infos);
 
-      // 一次性计算总质押量
-      let wethTotal = BigInt(0);
-      let usdcTotal = BigInt(0);
-
-      // 获取总奖励发放量
-      let _totalRewards = BigInt(0);
-
-      for (const poolInfo of infos) {
-        if (poolInfo) {
-          const tokenType = poolInfo.stakeToken;
-          if (tokenType === WETH_ADDRESS) {
-            wethTotal += poolInfo.totalStaked;
-          } else if (tokenType === USDC_ADDRESS) {
-            usdcTotal += poolInfo.totalStaked;
-          }
-          _totalRewards += poolInfo.totalRewardsIssued;
-        }
-      }
-      setTotalRewards(_totalRewards);
-
-      setTotalStaked({
-        wethTotal: formatEther(wethTotal),
-        usdcTotal: formatUnits(usdcTotal, 6),
-      });
-
       console.log(
-        `✅ 全局加载池子数据成功: 共 ${countNumber} 个池子, WETH=${formatEther(wethTotal)}, USDC=${formatUnits(usdcTotal, 6)}`
+        `✅ PoolProvider 加载池子详情成功: 共 ${statistics.poolCount} 个池子`
       );
     } catch (error) {
-      console.error("获取池子数据失败:", error);
-      setPoolCount(0);
+      console.error("处理池子数据失败:", error);
       setPoolInfos([]);
-      setTotalStaked({ wethTotal: "0", usdcTotal: "0" });
-    } finally {
-      setIsLoading(false);
     }
-  }, []);
+  }, [statistics.poolCount, poolsData, isLoading]);
 
-  useEffect(() => {
-    fetchPoolData();
-  }, [fetchPoolData]);
+  const fetchPoolData = useCallback(
+    async (isForce: boolean = false) => {
+      if (isForce) {
+        await refetch();
+      }
+    },
+    [refetch]
+  );
 
   const value: PoolContextType = useMemo(
     () => ({
-      poolCount,
+      poolCount: statistics.poolCount,
       poolInfos,
       isLoading,
       refreshPools: fetchPoolData,
-      totalStaked,
-      totalRewards,
+      totalStaked: {
+        wethTotal: statistics.wethTotal,
+        usdcTotal: statistics.usdcTotal,
+      },
+      totalRewards: BigInt(parseFloat(statistics.totalRewards) * 1e18), // 将字符串转回 bigint
+      activeUsers: statistics.activeUsers,
       openNotification,
     }),
     [
-      poolCount,
+      statistics.poolCount,
+      statistics.wethTotal,
+      statistics.usdcTotal,
+      statistics.totalRewards,
+      statistics.activeUsers,
       poolInfos,
       isLoading,
       fetchPoolData,
-      totalStaked,
-      totalRewards,
       openNotification,
     ]
   );
@@ -209,76 +212,34 @@ function MainHeaderComponent(): React.ReactNode {
   );
 }
 
-// 总发放奖励显示组件 - 使用全局 Pool Context
-function TotalReward(): React.ReactNode {
-  const { totalRewards, isLoading } = usePoolContext();
-
-  if (isLoading) return <>加载中...</>;
-
-  return <>{formatEther(totalRewards)}</>;
-}
-
-// 总锁仓量显示组件 - 使用全局 Pool Context
-function TotalStakedDisplay({
-  stakeType,
-}: {
-  stakeType: string;
-}): React.ReactNode {
-  const { totalStaked, isLoading } = usePoolContext();
-
-  if (isLoading) return <>加载中...</>;
-
-  if (stakeType === "WETH") {
-    return <>{totalStaked.wethTotal} WETH</>;
-  } else if (stakeType === "USDC") {
-    return <>{totalStaked.usdcTotal} USDC</>;
-  }
-
-  return <>0</>;
-}
-
-//获取活跃用户显示组件
-function GetActiveUsersDisplay(): React.ReactNode {
-  const [activeUsers, setActiveUsers] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchActiveUsers = async () => {
-      const users = await multiStakeViemContract.getActiveUsers();
-      setActiveUsers(users.length);
-      console.log("活跃用户列表:", users);
-      setIsLoading(false);
-    };
-
-    fetchActiveUsers();
-  }, []);
-
-  if (isLoading) return <>加载中...</>;
-  if (activeUsers === null) return <>数据加载失败</>;
-
-  return <>{activeUsers}</>;
-}
-
-// 平台统计组件
+// 平台统计组件 - 使用全局 Pool Context 数据
 function StatisticsComponent(): React.ReactNode {
+  const { totalStaked, totalRewards, poolCount, isLoading, refreshPools } =
+    usePoolContext();
+
+  const handleRefresh = async () => {
+    await refreshPools(true);
+  };
+
   return (
     <main>
       <div className="w-full bg-white rounded-lg p-4 sm:p-6 lg:p-7 shadow-sm">
-        <Typography.Title
-          level={3}
-          className="text-center !mb-4 sm:!mb-6 lg:!mb-7 text-xl sm:text-2xl"
-        >
-          平台统计
-        </Typography.Title>
-        <Divider />
+        <div className="flex justify-between items-center mb-4 sm:mb-6 lg:mb-7">
+          <Typography.Title
+            level={3}
+            className="text-center !mb-0 text-xl sm:text-2xl flex-1"
+          >
+            平台统计
+          </Typography.Title>
+        </div>
+        <Divider className="!mt-0" />
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 mt-6">
           <div className="text-center">
             <Typography.Title
-              className="!text-green-700 !mb-2"
+              className="!text-green-700 !mb-2 text-2xl font-bold"
               level={4}
-              style={{ fontSize: "1.5rem", fontWeight: "bold" }}
             >
-              <TotalStakedDisplay stakeType="WETH" />
+              {isLoading ? "加载中..." : `${totalStaked.wethTotal} WETH`}
             </Typography.Title>
             <Typography.Text type="secondary" className="text-sm sm:text-base">
               总锁仓量(WETH)
@@ -286,11 +247,10 @@ function StatisticsComponent(): React.ReactNode {
           </div>
           <div className="text-center">
             <Typography.Title
-              className="!text-green-700 !mb-2"
+              className="!text-green-700 !mb-2 text-2xl font-bold"
               level={4}
-              style={{ fontSize: "1.5rem", fontWeight: "bold" }}
             >
-              <TotalStakedDisplay stakeType="USDC" />
+              {isLoading ? "加载中..." : `${totalStaked.usdcTotal} USDC`}
             </Typography.Title>
             <Typography.Text type="secondary" className="text-sm sm:text-base">
               总锁仓量(USDC)
@@ -298,23 +258,21 @@ function StatisticsComponent(): React.ReactNode {
           </div>
           <div className="text-center">
             <Typography.Title
-              className="!text-purple-500 !mb-2"
+              className="!text-purple-500 !mb-2 text-2xl font-bold"
               level={4}
-              style={{ fontSize: "1.5rem", fontWeight: "bold" }}
             >
-              <GetActiveUsersDisplay />
+              {isLoading ? "加载中..." : poolCount}
             </Typography.Title>
             <Typography.Text type="secondary" className="text-sm sm:text-base">
-              活跃用户
+              可用质押池
             </Typography.Text>
           </div>
           <div className="text-center">
             <Typography.Title
-              className="!text-red-400 !mb-2"
+              className="!text-red-400 !mb-2 text-2xl font-bold"
               level={4}
-              style={{ fontSize: "1.5rem", fontWeight: "bold" }}
             >
-              <TotalReward />
+              {isLoading ? "加载中..." : formatEther(totalRewards)}
             </Typography.Title>
             <Typography.Text type="secondary" className="text-sm sm:text-base">
               已发放奖励
@@ -427,13 +385,27 @@ function StakeModal({
         setIsProcessing(true); // 开始处理，显示加载状态
         const newPoolOptions = [];
 
+        // 获取当前时间戳（秒）
+        const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
+
         for (const [index, poolInfo] of poolInfos.entries()) {
           if (!poolInfo) continue;
 
-          const validation =
-            await multiStakeViemContract.validatePoolForStaking(index);
-          if (!validation.canStake) {
-            console.log(`池子 ${index} 跳过: ${validation.error}`);
+          console.log(`池子 ${index} 判断条件:`, {
+            isOpenForStaking: poolInfo.isOpenForStaking,
+            endTime: poolInfo.endTime.toString(),
+            currentTime: currentTimestamp.toString(),
+            未过期: currentTimestamp < poolInfo.endTime,
+          });
+
+          // 质押 Modal: 需要判断 isOpenForStaking 和当前时间是否 < endTime
+          if (!poolInfo.isOpenForStaking) {
+            console.log(`池子 ${index} 跳过: 池子未激活`);
+            continue;
+          }
+
+          if (currentTimestamp >= poolInfo.endTime) {
+            console.log(`池子 ${index} 跳过: 池子已过期`);
             continue;
           }
 
@@ -652,7 +624,7 @@ function WithdrawModal({
   visible,
   onClose,
 }: Omit<ModalProps, "onNotification">): React.ReactNode {
-  const { openNotification, refreshPools } = usePoolContext(); // 确保 PoolContext 可用
+  const { openNotification, refreshPools, poolInfos } = usePoolContext();
   const { poolCount } = useContext(PoolContext)!;
   const wallet = useWagmiWalletClient();
   const publicClient = usePublicClient({ chainId: 11155111 });
@@ -660,28 +632,38 @@ function WithdrawModal({
   const { isProcessing, isRequesting, isWithdrawing, smartWithdraw } =
     useSmartWithdraw();
 
+  const contractAddress = deploymentInfo.contracts.MultiStakePledgeContractV2
+    .address as `0x${string}`;
+  const contractAbi = contract.abi as Abi;
+
   // 存储用户在各个池子的实际余额和奖励
-  const [userPoolsData, setUserPoolsData] = useState<
-    Map<
-      string,
-      {
-        stakedBalance: bigint; // 总质押量
-        availableBalance: bigint; // 可提取（未申请解质押的部分）
-        frozenBalance: bigint; // 已冻结（已申请但还在冷却期的部分）
-        unfrozenBalance: bigint; // 已解冻（可立即提取的部分）
-        pendingRewards: bigint; // 可领取奖励（当前累积的奖励）
-        totalRewardsEarned: bigint; // 总共可领取奖励（历史总奖励）
-        frozenRewards: bigint; // 已冻结奖励（与冻结质押对应的奖励）
-        totalRewardsClaimed: bigint; // 已领取奖励（历史已领取的奖励）
-        stakeToken: string;
-        hasUnstakeRequest: boolean;
-        canWithdraw: boolean;
-        remainingBlocks?: bigint;
-        estimatedTime?: string;
-      }
-    >
-  >(new Map());
+  const [userPoolsData, setUserPoolsData] = useState<Map<string, UserPoolData>>(
+    new Map()
+  );
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const processedDataRef = useRef<string>("");
+  const isInitialLoadRef = useRef<boolean>(true); // 标记是否是初始加载
+
+  // 生成所有池子的读取合约配置
+  const poolIds = useMemo(() => {
+    return Array.from({ length: poolCount }, (_, i) => i);
+  }, [poolCount]);
+
+  // 只读取用户池子信息，池子基本信息从 Context 获取
+  const { data: userPoolsReadData, refetch: refetchUserPools } =
+    useReadContracts({
+      contracts: poolIds.map((poolId) => ({
+        address: contractAddress,
+        abi: contractAbi,
+        functionName: "getUserPoolInfo",
+        args: [poolId, wallet.address],
+        chainId: 11155111,
+      })),
+      query: {
+        enabled: visible && !!wallet.address && poolCount > 0,
+        refetchInterval: 3000, // 每3秒自动刷新一次，使 pendingRewards 实时更新
+      },
+    });
 
   // 格式化代币信息的辅助函数
   const formatTokenInfo = useCallback(
@@ -696,172 +678,227 @@ function WithdrawModal({
     []
   );
 
-  // 获取用户在所有池子的真实余额和奖励
+  // 处理读取到的用户池子数据
   useEffect(() => {
-    if (!visible || !wallet.address || poolCount === 0) {
+    if (!visible || !wallet.address || poolCount === 0 || !userPoolsReadData) {
       return;
     }
 
-    const fetchUserPoolsData = async () => {
-      setIsLoadingData(true);
-      const dataMap = new Map<
-        string,
-        {
-          stakedBalance: bigint; // 总质押量
-          availableBalance: bigint; // 可提取（未申请解质押的部分）
-          frozenBalance: bigint; // 已冻结（已申请但还在冷却期的部分）
-          unfrozenBalance: bigint; // 已解冻（可立即提取的部分）
-          pendingRewards: bigint; // 可领取奖励（当前累积的奖励）
-          totalRewardsEarned: bigint; // 总共可领取奖励（历史总奖励）
-          frozenRewards: bigint; // 已冻结奖励（与冻结质押对应的奖励）
-          totalRewardsClaimed: bigint; // 已领取奖励（历史已领取的奖励）
-          stakeToken: string;
-          hasUnstakeRequest: boolean;
-          canWithdraw: boolean;
-          remainingBlocks?: bigint;
-          estimatedTime?: string;
-        }
-      >();
+    // 生成数据指纹，避免重复处理相同数据
+    const dataFingerprint = JSON.stringify(
+      userPoolsReadData.map((d) => ({
+        status: d?.status,
+        result: d?.result?.toString(),
+      }))
+    );
+
+    // 如果数据没有变化，跳过处理
+    if (processedDataRef.current === dataFingerprint) {
+      return;
+    }
+
+    processedDataRef.current = dataFingerprint;
+
+    const processUserPoolsData = async () => {
+      // 只在初始加载时显示 Loading
+      if (isInitialLoadRef.current) {
+        setIsLoadingData(true);
+      }
+
+      const dataMap = new Map<string, UserPoolData>();
 
       try {
-        // 遍历所有池子，获取用户的实际质押信息
-        for (let poolId = 0; poolId < poolCount; poolId++) {
-          const userPoolInfo = await multiStakeViemContract.getUserPoolInfo(
-            poolId,
-            wallet.address!,
-            true // 强制刷新获取最新数据
-          );
+        const currentBlock = await publicClient?.getBlockNumber();
+        // 获取当前时间戳（秒）
+        const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
 
-          // 只添加有质押余额的池子
-          if (userPoolInfo.stakedBalance > 0n) {
-            // 获取池子信息以获取 stakeToken
-            const poolInfo = await multiStakeViemContract.getPoolInfo(
-              poolId,
-              true
+        for (let i = 0; i < poolCount; i++) {
+          const userData = userPoolsReadData[i];
+          const poolInfo = poolInfos[i]; // 从 Context 获取池子信息
+          if (userData?.status !== "success" || !poolInfo) {
+            continue;
+          }
+
+          // 提取 Modal: 只判断当前时间是否 < endTime，不判断 isOpenForStaking
+          if (currentTimestamp >= poolInfo.endTime) {
+            continue;
+          }
+
+          // userData.result 是数组格式: [stakedBalance, pendingRewards, totalRewardsEarned, totalRewardsClaimed, pendingUnstakeRequests]
+          const [
+            stakedBalance,
+            pendingRewards,
+            totalRewardsEarned,
+            totalRewardsClaimed,
+            pendingUnstakeRequests,
+          ] = userData.result as [
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            Array<{ amount: bigint; unlockBlock: bigint }>,
+          ];
+
+          // 检查是否有解质押请求和状态
+          const pendingRequests = pendingUnstakeRequests || [];
+          const hasUnstakeRequest = pendingRequests.length > 0;
+
+          // 🔧 修复：只在既没有活跃质押，也没有解质押请求时才跳过
+          // 因为用户可能已经把所有余额都申请解质押了（stakedBalance=0），但还有冻结或已解冻的余额
+          if (stakedBalance === 0n && !hasUnstakeRequest) {
+            continue;
+          }
+
+          let canWithdraw = false;
+          let remainingBlocks: bigint | undefined;
+          let estimatedTime: string | undefined;
+          let frozenBalance: bigint = 0n;
+          let unfrozenBalance: bigint = 0n;
+
+          if (hasUnstakeRequest && currentBlock) {
+            // 分离已解冻和冷却期中的请求
+            const executableRequests = pendingRequests.filter(
+              (req) => req.unlockBlock <= currentBlock
+            );
+            const cooldownRequests = pendingRequests.filter(
+              (req) => req.unlockBlock > currentBlock
             );
 
-            // 检查是否有解质押请求和状态
-            const pendingRequests = userPoolInfo.pendingUnstakeRequests || [];
-            const hasUnstakeRequest = pendingRequests.length > 0;
+            canWithdraw = executableRequests.length > 0;
 
-            let canWithdraw = false;
-            let remainingBlocks: bigint | undefined;
-            let estimatedTime: string | undefined;
-            let frozenBalance = 0n; // 已冻结（冷却期中）
-            let unfrozenBalance = 0n; // 已解冻（可立即提取）
+            // 计算已解冻总额
+            unfrozenBalance = executableRequests.reduce(
+              (sum, req) => sum + req.amount,
+              0n
+            );
 
-            if (hasUnstakeRequest) {
-              // 获取当前区块号
-              const currentBlock = await publicClient?.getBlockNumber();
+            // 计算冷却期中总额
+            frozenBalance = cooldownRequests.reduce(
+              (sum, req) => sum + req.amount,
+              0n
+            );
 
-              if (currentBlock) {
-                // 分离已解冻和冷却期中的请求
-                const executableRequests = pendingRequests.filter(
-                  (req) => req.unlockBlock <= currentBlock
-                );
-                const cooldownRequests = pendingRequests.filter(
-                  (req) => req.unlockBlock > currentBlock
-                );
+            // 如果有冷却期中的请求，计算最近的解锁时间
+            if (cooldownRequests.length > 0) {
+              const nearestUnlock = cooldownRequests.reduce((min, req) =>
+                req.unlockBlock < min.unlockBlock ? req : min
+              );
+              remainingBlocks = nearestUnlock.unlockBlock - currentBlock;
 
-                canWithdraw = executableRequests.length > 0;
-
-                // 计算已解冻总额
-                unfrozenBalance = executableRequests.reduce(
-                  (sum, req) => sum + req.amount,
-                  0n
-                );
-
-                // 计算冷却期中总额
-                frozenBalance = cooldownRequests.reduce(
-                  (sum, req) => sum + req.amount,
-                  0n
-                );
-
-                // 如果有冷却期中的请求，计算最近的解锁时间
-                if (cooldownRequests.length > 0) {
-                  const nearestUnlock = cooldownRequests.reduce((min, req) =>
-                    req.unlockBlock < min.unlockBlock ? req : min
-                  );
-                  remainingBlocks = nearestUnlock.unlockBlock - currentBlock;
-
-                  // 计算预估时间（Sepolia 约 12 秒一个块）
-                  const blocks = Number(remainingBlocks);
-                  const seconds = blocks * 12;
-                  if (seconds < 60) {
-                    estimatedTime = `${seconds} 秒`;
-                  } else if (seconds < 3600) {
-                    estimatedTime = `${Math.ceil(seconds / 60)} 分钟`;
-                  } else {
-                    estimatedTime = `${Math.ceil(seconds / 3600)} 小时`;
-                  }
-                }
+              // 计算预估时间（Sepolia 约 12 秒一个块）
+              const blocks = Number(remainingBlocks);
+              const seconds = blocks * 12;
+              if (seconds < 60) {
+                estimatedTime = `${seconds} 秒`;
+              } else if (seconds < 3600) {
+                estimatedTime = `${Math.ceil(seconds / 60)} 分钟`;
+              } else {
+                estimatedTime = `${Math.ceil(seconds / 3600)} 小时`;
               }
             }
+          }
 
-            // 计算可提取余额（未申请解质押的部分）
-            const totalRequestedAmount = frozenBalance + unfrozenBalance;
-            const availableBalance =
-              userPoolInfo.stakedBalance - totalRequestedAmount;
+          // 🔧 修复：合约中的 stakedBalance 已经是扣除了申请解质押后的余额
+          // stakedBalance (balances) = 活跃质押余额（可以继续申请解质押的部分）
+          // 不需要再减去 frozenBalance 和 unfrozenBalance
+          const availableBalance: bigint = stakedBalance;
 
-            // 计算已冻结奖励（按冻结质押占总质押的比例计算）
-            let frozenRewards = 0n;
-            if (frozenBalance > 0n && userPoolInfo.stakedBalance > 0n) {
-              // frozenRewards = pendingRewards * frozenBalance / stakedBalance
-              frozenRewards =
-                (userPoolInfo.pendingRewards * frozenBalance) /
-                userPoolInfo.stakedBalance;
+          // 计算用户的总质押（包括活跃 + 冻结 + 已解冻）
+          const totalUserStaked: bigint =
+            stakedBalance + frozenBalance + unfrozenBalance;
+
+          // 计算已冻结奖励（按冻结质押占总质押的比例计算）
+          let frozenRewards = 0n;
+          if (frozenBalance > 0n && stakedBalance > 0n) {
+            frozenRewards = (pendingRewards * frozenBalance) / stakedBalance;
+          }
+
+          dataMap.set(i.toString(), {
+            stakedBalance,
+            availableBalance,
+            frozenBalance,
+            unfrozenBalance,
+            pendingRewards,
+            totalRewardsEarned,
+            frozenRewards,
+            totalRewardsClaimed,
+            stakeToken: poolInfo.stakeToken,
+            hasUnstakeRequest,
+            canWithdraw,
+            remainingBlocks,
+            estimatedTime,
+          });
+
+          console.log(`池子 ${i} 用户实际数据:`, {
+            活跃质押余额: formatEther(stakedBalance),
+            可再次申请解质押: formatEther(availableBalance),
+            冻结中: formatEther(frozenBalance),
+            已解冻可提取: formatEther(unfrozenBalance),
+            总质押: formatEther(totalUserStaked),
+            可领取奖励: formatEther(pendingRewards),
+            历史累计总奖励: formatEther(totalRewardsEarned),
+            已冻结奖励: formatEther(frozenRewards),
+            已领取奖励: formatEther(totalRewardsClaimed),
+            有解质押请求: hasUnstakeRequest,
+            可以提取: canWithdraw,
+            剩余区块: remainingBlocks?.toString(),
+            预估时间: estimatedTime,
+          });
+
+          // 添加数据一致性检查
+          const calculatedTotal = totalRewardsClaimed + pendingRewards;
+          if (totalRewardsEarned > 0n && calculatedTotal > 0n) {
+            const difference = totalRewardsEarned - calculatedTotal;
+            const percentDiff =
+              (Number(difference) / Number(calculatedTotal)) * 100;
+
+            if (Math.abs(percentDiff) > 1) {
+              // 差异超过1%
+              console.warn(
+                `⚠️ 池子 ${i} 奖励数据不一致:`,
+                `历史累计总奖励(${formatEther(totalRewardsEarned)}) ≠ `,
+                `已领取(${formatEther(totalRewardsClaimed)}) + `,
+                `待领取(${formatEther(pendingRewards)}) = ${formatEther(calculatedTotal)}`
+              );
             }
-
-            dataMap.set(poolId.toString(), {
-              stakedBalance: userPoolInfo.stakedBalance, // 总质押量
-              availableBalance, // 可提取（未申请解质押的部分）
-              frozenBalance, // 已冻结（已申请但还在冷却期的部分）
-              unfrozenBalance, // 已解冻（可立即提取的部分）
-              pendingRewards: userPoolInfo.pendingRewards, // 可领取奖励（当前累积的奖励）
-              totalRewardsEarned: userPoolInfo.totalRewardsEarned, // 总共可领取奖励（历史总奖励）
-              frozenRewards, // 已冻结奖励（与冻结质押对应的奖励）
-              totalRewardsClaimed: userPoolInfo.totalRewardsClaimed, // 已领取奖励（历史已领取的奖励）
-              stakeToken: poolInfo.stakeToken,
-              hasUnstakeRequest,
-              canWithdraw,
-              remainingBlocks,
-              estimatedTime,
-            });
-
-            console.log(`池子 ${poolId} 用户实际数据:`, {
-              总质押量: formatEther(userPoolInfo.stakedBalance),
-              可提取: formatEther(availableBalance),
-              已冻结: formatEther(frozenBalance),
-              已解冻: formatEther(unfrozenBalance),
-              可领取奖励: formatEther(userPoolInfo.pendingRewards),
-              总共可领取奖励: formatEther(userPoolInfo.totalRewardsEarned),
-              已冻结奖励: formatEther(frozenRewards),
-              已领取奖励: formatEther(userPoolInfo.totalRewardsClaimed),
-              有解质押请求: hasUnstakeRequest,
-              可以提取: canWithdraw,
-              剩余区块: remainingBlocks?.toString(),
-              预估时间: estimatedTime,
-            });
+          } else if (totalRewardsEarned === 0n && pendingRewards > 0n) {
+            console.warn(
+              `⚠️ 池子 ${i} 合约问题: 历史累计总奖励为0，但有${formatEther(pendingRewards)} MTK待领取`
+            );
+            console.info(
+              `💡 提示: 这可能是合约版本问题，执行一次领取操作后，历史累计总奖励会开始记录`
+            );
           }
         }
 
         setUserPoolsData(dataMap);
       } catch (error) {
-        console.error("获取用户池子数据失败:", error);
+        console.error("处理用户池子数据失败:", error);
       } finally {
-        setIsLoadingData(false);
+        // 处理完成后，关闭 Loading 并标记初始加载已完成
+        if (isInitialLoadRef.current) {
+          setIsLoadingData(false);
+          isInitialLoadRef.current = false;
+        }
       }
     };
 
-    fetchUserPoolsData();
-  }, [visible, wallet.address, poolCount, publicClient]);
+    processUserPoolsData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, wallet.address, poolCount, userPoolsReadData]);
 
   const handleWithdraw = useCallback(
-    async (poolId: string, stakeToken: string, amount: bigint) => {
+    async (
+      poolId: string,
+      stakeToken: string,
+      amount: bigint,
+      isDirectWithdraw: boolean = false
+    ) => {
+      // 🔧 只在开始时记录用户操作，不记录技术细节
       console.log(
-        `准备提取 - 池子ID: ${poolId}, 质押代币: ${stakeToken}, 质押数量: ${
+        `🎯 [用户操作] ${isDirectWithdraw ? "立即提取" : "申请解质押"} - 池子ID: ${poolId}, 数量: ${
           formatTokenInfo(stakeToken, amount).formatted
-        }`
+        } ${formatTokenInfo(stakeToken, amount).symbol}`
       );
 
       try {
@@ -869,100 +906,44 @@ function WithdrawModal({
           {
             poolId: parseInt(poolId),
             amount,
+            forceExecute: isDirectWithdraw, // 🔧 传入 forceExecute 参数
           },
           {
-            // 申请解质押成功
+            // 申请解质押成功（交易已提交）
             onRequestSuccess: (hash) => {
               openNotification(
+                "申请解质押交易已提交",
+                `交易哈希: ${hash}\n正在等待区块确认，请稍候...`
+              );
+            },
+            // 申请解质押确认（交易已上链）
+            onRequestConfirmed: (hash) => {
+              openNotification(
                 "申请解质押成功",
-                `申请解质押交易已提交，交易哈希: ${hash}\n请等待冷却期结束后再次点击提取按钮完成提取`
+                `交易已确认: ${hash}\n请等待冷却期结束后再次点击提取按钮完成提取`
               );
 
-              // 更新本地状态，标记为有解质押请求
-              setTimeout(async () => {
-                try {
-                  const userPoolInfo =
-                    await multiStakeViemContract.getUserPoolInfo(
-                      parseInt(poolId),
-                      wallet.address!,
-                      true
-                    );
-
-                  const pendingRequests =
-                    userPoolInfo.pendingUnstakeRequests || [];
-                  const currentBlock = await publicClient?.getBlockNumber();
-
-                  let remainingBlocks: bigint | undefined;
-                  let estimatedTime: string | undefined;
-
-                  if (pendingRequests.length > 0 && currentBlock) {
-                    const nearestUnlock = pendingRequests.reduce((min, req) =>
-                      req.unlockBlock < min.unlockBlock ? req : min
-                    );
-                    remainingBlocks = nearestUnlock.unlockBlock - currentBlock;
-
-                    const blocks = Number(remainingBlocks);
-                    const seconds = blocks * 12;
-                    if (seconds < 60) {
-                      estimatedTime = `${seconds} 秒`;
-                    } else if (seconds < 3600) {
-                      estimatedTime = `${Math.ceil(seconds / 60)} 分钟`;
-                    } else {
-                      estimatedTime = `${Math.ceil(seconds / 3600)} 小时`;
-                    }
-                  }
-
-                  setUserPoolsData((prev) => {
-                    const newMap = new Map(prev);
-                    const existing = newMap.get(poolId);
-                    if (existing) {
-                      // 重新计算各个余额
-                      const totalRequestedAmount =
-                        remainingBlocks && remainingBlocks > 0n
-                          ? existing.frozenBalance + amount
-                          : existing.frozenBalance;
-                      const newAvailableBalance =
-                        existing.stakedBalance - totalRequestedAmount;
-
-                      // 重新计算已冻结奖励
-                      let newFrozenRewards = 0n;
-                      if (
-                        totalRequestedAmount > 0n &&
-                        existing.stakedBalance > 0n
-                      ) {
-                        newFrozenRewards =
-                          (existing.pendingRewards * totalRequestedAmount) /
-                          existing.stakedBalance;
-                      }
-
-                      newMap.set(poolId, {
-                        ...existing,
-                        availableBalance: newAvailableBalance,
-                        frozenBalance: totalRequestedAmount,
-                        frozenRewards: newFrozenRewards,
-                        hasUnstakeRequest: true,
-                        canWithdraw: false,
-                        remainingBlocks,
-                        estimatedTime,
-                      });
-                    }
-                    return newMap;
-                  });
-                } catch (err) {
-                  console.error("更新申请状态失败:", err);
-                }
-              }, 2000);
+              // 交易确认后刷新数据
+              refetchUserPools();
             },
             // 申请解质押失败 - 静默处理
             onRequestError: () => {
               // 静默处理，不记录日志，错误会被外层 catch 捕获
             },
-            // 执行提取成功
+            // 执行提取成功（交易已提交）
             onWithdrawSuccess: (hash) => {
               openNotification(
-                "提取成功",
-                `提取交易已提交，交易哈希: ${hash}\n资金和奖励已到账！`
+                "提取交易已提交",
+                `交易哈希: ${hash}\n正在等待区块确认，请稍候...`
               );
+            },
+            // 执行提取确认（交易已上链）
+            onWithdrawConfirmed: (hash) => {
+              openNotification(
+                "提取成功",
+                `交易已确认: ${hash}\n资金和奖励已到账！`
+              );
+
               //清空缓存
               clearAllViemContractCache();
               // 提取成功后，重新获取数据
@@ -970,92 +951,8 @@ function WithdrawModal({
 
               refreshPools(true);
 
-              // 重新获取池子数据
-              setTimeout(async () => {
-                try {
-                  const userPoolInfo =
-                    await multiStakeViemContract.getUserPoolInfo(
-                      parseInt(poolId),
-                      wallet.address!,
-                      true
-                    );
-
-                  // 提前获取当前区块号
-                  const currentBlock = await publicClient?.getBlockNumber();
-
-                  setUserPoolsData((prev) => {
-                    const newMap = new Map(prev);
-                    if (userPoolInfo.stakedBalance === 0n) {
-                      // 如果余额为0，移除该池子
-                      newMap.delete(poolId);
-                    } else {
-                      // 否则更新数据
-                      const existing = newMap.get(poolId);
-                      if (existing) {
-                        // 重新计算各个余额
-                        const pendingRequests =
-                          userPoolInfo.pendingUnstakeRequests || [];
-
-                        let frozenBalance = 0n;
-                        let unfrozenBalance = 0n;
-
-                        if (currentBlock) {
-                          const cooldownRequests = pendingRequests.filter(
-                            (req) => req.unlockBlock > currentBlock
-                          );
-                          frozenBalance = cooldownRequests.reduce(
-                            (sum, req) => sum + req.amount,
-                            0n
-                          );
-
-                          const executableRequests = pendingRequests.filter(
-                            (req) => req.unlockBlock <= currentBlock
-                          );
-                          unfrozenBalance = executableRequests.reduce(
-                            (sum, req) => sum + req.amount,
-                            0n
-                          );
-                        }
-
-                        const totalRequestedAmount =
-                          frozenBalance + unfrozenBalance;
-                        const availableBalance =
-                          userPoolInfo.stakedBalance - totalRequestedAmount;
-
-                        // 重新计算已冻结奖励
-                        let frozenRewards = 0n;
-                        if (
-                          frozenBalance > 0n &&
-                          userPoolInfo.stakedBalance > 0n
-                        ) {
-                          frozenRewards =
-                            (userPoolInfo.pendingRewards * frozenBalance) /
-                            userPoolInfo.stakedBalance;
-                        }
-
-                        newMap.set(poolId, {
-                          ...existing,
-                          stakedBalance: userPoolInfo.stakedBalance,
-                          availableBalance,
-                          frozenBalance,
-                          unfrozenBalance,
-                          pendingRewards: userPoolInfo.pendingRewards,
-                          totalRewardsEarned: userPoolInfo.totalRewardsEarned,
-                          frozenRewards,
-                          totalRewardsClaimed: userPoolInfo.totalRewardsClaimed,
-                          hasUnstakeRequest: pendingRequests.length > 0,
-                          canWithdraw: unfrozenBalance > 0n,
-                          remainingBlocks: undefined,
-                          estimatedTime: undefined,
-                        });
-                      }
-                    }
-                    return newMap;
-                  });
-                } catch (err) {
-                  console.error("更新本地数据失败:", err);
-                }
-              }, 2000);
+              // 交易确认后刷新用户池子数据
+              refetchUserPools();
             },
             // 执行提取失败 - 静默处理
             onWithdrawError: () => {
@@ -1064,7 +961,7 @@ function WithdrawModal({
             // 仍在冷却期
             onCooldownRemaining: (remainingBlocks, estimatedTime) => {
               openNotification(
-                "仍在冷却期",
+                "申请成功，等待冷却期",
                 `还需等待约 ${estimatedTime}（${remainingBlocks} 个区块）后才能提取`
               );
             },
@@ -1081,15 +978,14 @@ function WithdrawModal({
             error.message.includes("用户取消");
 
           if (isUserRejection) {
-            // 用户拒绝交易，完全静默处理
-            console.log("用户取消了交易");
-            openNotification("提取失败", `用户取消了交易`);
+            // 用户拒绝交易，静默处理
+            console.log("ℹ️ [用户操作] 用户取消了交易");
+            openNotification("操作取消", "用户取消了交易");
           } else {
-            // 真实的错误才记录和通知
-            console.error("提取操作失败:", error);
+            // ❌ UI 层不再记录错误日志，只显示通知（日志已在 Hook 层记录）
             openNotification(
-              "提取失败",
-              `池子 ${poolId} 提取失败: ${error.message}`
+              `${isDirectWithdraw ? "提取" : "申请解质押"}失败`,
+              error.message
             );
           }
         }
@@ -1101,13 +997,18 @@ function WithdrawModal({
       openNotification,
       refreshPools,
       formatTokenInfo,
-      publicClient,
+      refetchUserPools,
     ]
   );
 
   const poolsContent = useMemo(() => {
+    // 初始加载时显示 Loading
     if (isLoadingData) {
-      return <Typography.Text>加载中...</Typography.Text>;
+      return (
+        <div className="text-center py-8">
+          <Typography.Text type="secondary">正在加载数据...</Typography.Text>
+        </div>
+      );
     }
 
     if (userPoolsData.size === 0) {
@@ -1153,10 +1054,6 @@ function WithdrawModal({
               unfrozenBalance
             );
 
-            // 确定按钮文本和可用性
-            const canRequestUnstake = availableBalance > 0n;
-            const canWithdrawUnfrozen = unfrozenBalance > 0n;
-
             return (
               <div key={poolId} className="mt-3 p-4 border rounded-lg">
                 <div className="mb-3">
@@ -1168,23 +1065,26 @@ function WithdrawModal({
                   </Typography.Text>
                 </div>
 
+                {/* 🔧 移除错误的数据异常警告 */}
+                {/* 在新的逻辑下，stakedBalance 只是活跃质押，unfrozenBalance 可以大于它 */}
+
                 {/* 质押数据展示 */}
                 <div className="space-y-2 mb-3 p-3 bg-gray-50 rounded">
                   <div className="flex justify-between">
-                    <Typography.Text>质押数量（总质押量）:</Typography.Text>
+                    <Typography.Text>活跃质押余额:</Typography.Text>
                     <Typography.Text strong>
                       {formatted} {symbol}
                     </Typography.Text>
                   </div>
                   <div className="flex justify-between">
-                    <Typography.Text>可提取{symbol}:</Typography.Text>
+                    <Typography.Text>可申请解质押:</Typography.Text>
                     <Typography.Text strong className="text-green-600">
                       {availableFormatted.formatted} {symbol}
                     </Typography.Text>
                   </div>
                   {frozenBalance > 0n && (
                     <div className="flex justify-between">
-                      <Typography.Text>已冻结{symbol}:</Typography.Text>
+                      <Typography.Text>冻结中（冷却期）:</Typography.Text>
                       <Typography.Text strong className="text-orange-600">
                         {frozenFormatted.formatted} {symbol}
                       </Typography.Text>
@@ -1192,7 +1092,7 @@ function WithdrawModal({
                   )}
                   {unfrozenBalance > 0n && (
                     <div className="flex justify-between">
-                      <Typography.Text>已解冻{symbol}:</Typography.Text>
+                      <Typography.Text>可提取（已解冻）:</Typography.Text>
                       <Typography.Text strong className="text-blue-600">
                         {unfrozenFormatted.formatted} {symbol}
                       </Typography.Text>
@@ -1203,13 +1103,23 @@ function WithdrawModal({
                 {/* 奖励数据展示 */}
                 <div className="space-y-2 mb-3 p-3 bg-blue-50 rounded">
                   <div className="flex justify-between">
-                    <Typography.Text>总共可领取奖励:</Typography.Text>
+                    <div>
+                      <Typography.Text>历史累计总奖励: </Typography.Text>
+                      <Typography.Text className="text-xs text-gray-400">
+                        (自质押开始)
+                      </Typography.Text>
+                    </div>
                     <Typography.Text strong className="text-blue-600">
                       {formatEther(totalRewardsEarned)} MTK
                     </Typography.Text>
                   </div>
                   <div className="flex justify-between">
-                    <Typography.Text>可领取奖励（当前）:</Typography.Text>
+                    <div>
+                      <Typography.Text>可领取奖励（实时）: </Typography.Text>
+                      <Typography.Text className="text-xs text-gray-400">
+                        (动态更新)
+                      </Typography.Text>
+                    </div>
                     <Typography.Text strong className="text-green-600">
                       {formatEther(pendingRewards)} MTK
                     </Typography.Text>
@@ -1241,37 +1151,62 @@ function WithdrawModal({
                 )}
 
                 {/* 操作按钮 */}
-                <div className="flex gap-2">
-                  {/* 申请提取按钮 - 只针对"可提取"的部分 */}
-                  <Button
-                    type="primary"
-                    onClick={() => {
-                      handleWithdraw(poolId, stakeToken, availableBalance);
-                    }}
-                    disabled={!canRequestUnstake || isProcessing}
-                    loading={isProcessing && isRequesting}
-                    className="flex-1"
-                  >
-                    {isProcessing && isRequesting ? "申请中..." : "申请提取"}
-                  </Button>
+                <div className="flex flex-col gap-2">
+                  {/* 第一行：申请提取按钮 - 只在有可提取余额时显示 */}
+                  {availableBalance > 0n && (
+                    <Button
+                      type="primary"
+                      onClick={() => {
+                        handleWithdraw(
+                          poolId,
+                          stakeToken,
+                          availableBalance,
+                          false
+                        );
+                      }}
+                      disabled={isProcessing}
+                      loading={isProcessing && isRequesting}
+                      className="w-full"
+                    >
+                      {isProcessing && isRequesting
+                        ? "申请中..."
+                        : `申请解质押 ${availableFormatted.formatted} ${symbol}`}
+                    </Button>
+                  )}
 
-                  {/* 立即提取按钮 - 只针对已解冻的部分 */}
-                  <Button
-                    type="primary"
-                    onClick={() => {
-                      handleWithdraw(poolId, stakeToken, unfrozenBalance);
-                    }}
-                    disabled={!canWithdrawUnfrozen || isProcessing}
-                    loading={isProcessing && isWithdrawing}
-                    className="flex-1"
-                    style={{
-                      backgroundColor: canWithdrawUnfrozen
-                        ? "#52c41a"
-                        : undefined,
-                    }}
-                  >
-                    {isProcessing && isWithdrawing ? "提取中..." : "立即提取"}
-                  </Button>
+                  {/* 第二行：立即提取按钮 - 只在有已解冻余额时显示 */}
+                  {unfrozenBalance > 0n && (
+                    <Button
+                      type="primary"
+                      onClick={() => {
+                        handleWithdraw(
+                          poolId,
+                          stakeToken,
+                          unfrozenBalance,
+                          true
+                        );
+                      }}
+                      disabled={isProcessing}
+                      loading={isProcessing && isWithdrawing}
+                      className="w-full"
+                      style={{
+                        backgroundColor: "#52c41a",
+                      }}
+                    >
+                      {isProcessing && isWithdrawing
+                        ? "提取中..."
+                        : `立即提取 ${unfrozenFormatted.formatted} ${symbol} + 奖励`}
+                    </Button>
+                  )}
+
+                  {/* 没有可操作的余额时的提示 */}
+                  {availableBalance === 0n && unfrozenBalance === 0n && (
+                    <div className="text-center p-3 bg-gray-50 rounded text-gray-500 text-sm">
+                      {frozenBalance > 0n
+                        ? "所有余额都在冷却期中，请等待解冻后提取"
+                        : "没有可提取的余额"}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -1312,20 +1247,325 @@ function HistoryModal({
   visible,
   onClose,
 }: Omit<ModalProps, "onNotification">): React.ReactNode {
+  const [initLoading, setInitLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(5);
+  const hasInitialized = useRef(false);
+  const wallet = useWagmiWalletClient();
+  const {
+    transactions,
+    isLoading,
+    hasMoreData,
+    loadMoreData,
+    refreshTransactionHistory,
+    setPageSize: setHookPageSize,
+  } = useStakeExchangeHistory();
+
+  useEffect(() => {
+    // 当 Modal 打开且钱包已连接时，初始化加载
+    if (visible && wallet.address && !hasInitialized.current) {
+      console.log("🚀 Modal 打开，初始化加载交易历史记录，设置页面大小为5");
+      setInitLoading(true);
+      setCurrentPage(1);
+
+      // 设置页面大小并加载第一页数据
+      setHookPageSize(pageSize).then(() => {
+        setInitLoading(false);
+        hasInitialized.current = true;
+      });
+    }
+
+    // Modal 关闭时重置标志
+    if (!visible) {
+      hasInitialized.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, wallet.address]);
+
+  const onLoadMore = async () => {
+    console.log("🔘 点击加载更多按钮");
+    const nextPage = currentPage + 1;
+    const moreTransactions = await loadMoreData(currentPage, pageSize);
+    if (moreTransactions.length > 0) {
+      setCurrentPage(nextPage);
+    }
+    window.dispatchEvent(new Event("resize"));
+  };
+
+  console.log("🎮 渲染加载更多按钮状态:", {
+    initLoading,
+    isLoading,
+    hasMoreData,
+    transactionsLength: transactions.length,
+  });
+
+  const loadMore =
+    !initLoading && !isLoading && hasMoreData ? (
+      <div className="text-center my-4">
+        <Button
+          type="primary"
+          onClick={onLoadMore}
+          loading={isLoading}
+          size="large"
+          className="w-[200px] h-[40px] rounded-lg"
+        >
+          加载更多
+        </Button>
+      </div>
+    ) : !hasMoreData && transactions.length > 0 ? (
+      <div className="text-center my-4 p-3 bg-gray-50 rounded-lg text-gray-600 text-sm">
+        已显示全部 {transactions.length} 条交易记录
+      </div>
+    ) : transactions.length === 0 && !initLoading && !isLoading ? (
+      <div className="text-center my-10 p-10 bg-gray-50 rounded-lg text-gray-400 text-base">
+        暂无交易历史记录
+      </div>
+    ) : (
+      <div className="text-center my-4 p-3 bg-blue-50 rounded-lg text-blue-600 text-sm">
+        加载中...
+      </div>
+    );
+
+  function CheckedExchangeHistory(): React.ReactNode {
+    // 格式化金额
+    const formatAmount = (
+      amount: bigint | undefined,
+      tokenSymbol?: string
+    ): string => {
+      if (!amount) return "N/A";
+
+      if (tokenSymbol === "USDC") {
+        return formatUnits(amount, 6);
+      } else {
+        return formatEther(amount);
+      }
+    };
+
+    // 格式化时间戳
+    const formatTimestamp = (timestamp: number): string => {
+      return new Date(timestamp).toLocaleString();
+    };
+
+    // 交易类型颜色映射
+    const getTypeColor = (type: TransactionType): string => {
+      switch (type) {
+        case "Stake":
+          return "#52c41a";
+        case "Unstake":
+          return "#faad14";
+        case "Withdraw":
+          return "#1890ff";
+        case "ClaimRewards":
+          return "#722ed1";
+        default:
+          return "#666666";
+      }
+    };
+
+    // 交易状态颜色映射
+    const getStatusColor = (status: TransactionStatus): string => {
+      switch (status) {
+        case "Success":
+          return "#52c41a";
+        case "Failed":
+          return "#ff4d4f";
+        case "Pending":
+          return "#faad14";
+        default:
+          return "#666666";
+      }
+    };
+
+    // 交易类型标签映射
+    const getTypeLabel = (type: TransactionType): string => {
+      switch (type) {
+        case "Stake":
+          return "质押";
+        case "Unstake":
+          return "解质押";
+        case "Withdraw":
+          return "提取";
+        case "ClaimRewards":
+          return "领取奖励";
+        default:
+          return "未知";
+      }
+    };
+
+    // 交易状态标签映射
+    const getStatusLabel = (status: TransactionStatus): string => {
+      switch (status) {
+        case "Success":
+          return "成功";
+        case "Failed":
+          return "失败";
+        case "Pending":
+          return "待处理";
+        default:
+          return "未知";
+      }
+    };
+
+    return (
+      <List
+        className="demo-loadmore-list"
+        loading={initLoading}
+        itemLayout="vertical"
+        loadMore={loadMore}
+        dataSource={transactions}
+        renderItem={(item) => (
+          <List.Item key={item.id}>
+            <Skeleton
+              avatar={false}
+              title={false}
+              loading={isLoading}
+              active
+              paragraph={{ rows: 4 }}
+            >
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-2">
+                {/* 头部信息：类型、状态、时间 */}
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex gap-2">
+                    <span
+                      className="px-2 py-0.5 rounded text-xs font-bold text-white"
+                      style={{ backgroundColor: getTypeColor(item.type) }}
+                    >
+                      {getTypeLabel(item.type)}
+                    </span>
+                    <span
+                      className="px-2 py-0.5 rounded text-xs text-white"
+                      style={{ backgroundColor: getStatusColor(item.status) }}
+                    >
+                      {getStatusLabel(item.status)}
+                    </span>
+                    {item.poolId !== undefined && (
+                      <span className="px-2 py-0.5 rounded text-xs text-white bg-gray-600">
+                        池子 #{item.poolId}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-600">
+                    {formatTimestamp(item.timestamp)}
+                  </span>
+                </div>
+
+                {/* 详细信息 */}
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-3 text-sm">
+                  {/* 交易金额 */}
+                  {item.amount && (
+                    <div>
+                      <div className="text-xs text-gray-600 mb-1">金额</div>
+                      <div className="font-bold">
+                        {formatAmount(item.amount, item.tokenSymbol)}{" "}
+                        {item.tokenSymbol}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 奖励金额 */}
+                  {item.rewardAmount && (
+                    <div>
+                      <div className="text-xs text-gray-600 mb-1">奖励</div>
+                      <div className="font-bold text-green-600">
+                        {formatEther(item.rewardAmount)} MTK
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 区块信息 */}
+                  <div>
+                    <div className="text-xs text-gray-600 mb-1">区块</div>
+                    <div className="font-bold">
+                      {Number(item.blockNumber).toLocaleString()}
+                    </div>
+                  </div>
+
+                  {/* 确认数 */}
+                  <div>
+                    <div className="text-xs text-gray-600 mb-1">确认数</div>
+                    <div className="font-bold">{item.confirmations}</div>
+                  </div>
+
+                  {/* 解锁区块（解质押请求） */}
+                  {item.unlockBlock && (
+                    <div>
+                      <div className="text-xs text-gray-600 mb-1">解锁区块</div>
+                      <div className="font-bold">
+                        {Number(item.unlockBlock).toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 交易哈希 */}
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="text-xs text-gray-600 mb-1">交易哈希</div>
+                  <div className="bg-gray-100 p-1 px-2 rounded text-xs font-mono break-all">
+                    {item.transactionHash}
+                  </div>
+                </div>
+
+                {/* 底部信息 */}
+                <div className="mt-2 text-xs text-gray-400 flex justify-between">
+                  <span>事件: {item.eventName}</span>
+                  <span>
+                    合约: {item.contractAddress.slice(0, 6)}...
+                    {item.contractAddress.slice(-4)}
+                  </span>
+                </div>
+              </div>
+            </Skeleton>
+          </List.Item>
+        )}
+      />
+    );
+  }
+
   return (
     <Modal
-      title={<Typography.Title level={4}>查看交易历史</Typography.Title>}
-      open={visible}
-      onCancel={onClose}
-      footer={
-        <div>
-          <Button type="default" className="mr-3" onClick={onClose}>
-            关闭
+      title={
+        <div className="flex justify-between items-center">
+          <Typography.Title level={4} className="m-0">
+            查看交易历史
+          </Typography.Title>
+          <Button
+            type="text"
+            size="small"
+            onClick={() => refreshTransactionHistory()}
+            loading={isLoading}
+            className="text-blue-500"
+          >
+            刷新数据
           </Button>
         </div>
       }
+      open={visible}
+      onCancel={onClose}
+      footer={[
+        <Button
+          key="refresh"
+          type="default"
+          onClick={() => refreshTransactionHistory()}
+          loading={isLoading}
+        >
+          刷新数据
+        </Button>,
+        <Button key="close" type="primary" onClick={onClose}>
+          关闭
+        </Button>,
+      ]}
+      width={800}
+      style={{ top: 20 }}
+      styles={{
+        body: {
+          maxHeight: "calc(100vh - 200px)",
+          overflow: "auto",
+        },
+      }}
     >
-      查看交易历史功能开发中，敬请期待！
+      <div className="min-h-[400px]">
+        <CheckedExchangeHistory />
+      </div>
     </Modal>
   );
 }
@@ -1409,19 +1649,27 @@ function UserDashboardComponent(): React.ReactNode {
         </div>
       </div>
 
-      <StakeModal
-        visible={stakeModalVisible}
-        onClose={() => setStakeModalVisible(false)}
-        onNotification={openNotification}
-      />
-      <WithdrawModal
-        visible={withdrawModalVisible}
-        onClose={() => setWithdrawModalVisible(false)}
-      />
-      <HistoryModal
-        visible={historyModalVisible}
-        onClose={() => setHistoryModalVisible(false)}
-      />
+      {stakeModalVisible && (
+        <StakeModal
+          visible={stakeModalVisible}
+          onClose={() => setStakeModalVisible(false)}
+          onNotification={openNotification}
+        />
+      )}
+
+      {withdrawModalVisible && (
+        <WithdrawModal
+          visible={withdrawModalVisible}
+          onClose={() => setWithdrawModalVisible(false)}
+        />
+      )}
+
+      {historyModalVisible && (
+        <HistoryModal
+          visible={historyModalVisible}
+          onClose={() => setHistoryModalVisible(false)}
+        />
+      )}
     </>
   );
 }

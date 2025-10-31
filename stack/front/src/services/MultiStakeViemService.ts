@@ -748,7 +748,7 @@ export class MultiStakeViemService {
         `Invalid pool ID: ${poolId}. Pool ID must be non-negative.`
       );
     }
-    if (amount <= 0n) {
+    if (amount <= BigInt(0)) {
       throw new Error(
         `Invalid stake amount: ${amount}. Amount must be positive.`
       );
@@ -1542,7 +1542,7 @@ export class MultiStakeViemService {
     const poolInfo = await this.getPoolInfo(poolId, isForce);
     const currentTime = Math.floor(Date.now() / 1000);
     return (
-      poolInfo.isActive &&
+      poolInfo.isOpenForStaking &&
       Number(poolInfo.startTime) <= currentTime &&
       Number(poolInfo.endTime) > currentTime
     );
@@ -1569,7 +1569,7 @@ export class MultiStakeViemService {
       // 检查池子是否存在（getPoolInfo会抛出异常如果池子不存在）
 
       // 检查池子是否活跃
-      if (!poolInfo.isActive) {
+      if (!poolInfo.isOpenForStaking) {
         return {
           canStake: false,
           error: `池子 ${poolId} 不活跃`,
@@ -1697,7 +1697,7 @@ export class MultiStakeViemService {
       const poolInfo = await this.getPoolInfo(poolId, isForce);
 
       // 检查池子是否激活
-      if (!poolInfo.isActive) {
+      if (!poolInfo.isOpenForStaking) {
         return { canStake: false, reason: "池子未激活" };
       }
 
@@ -1840,11 +1840,109 @@ export class MultiStakeViemService {
         userPoolInfo.totalClaimedByUser
       ),
       unclaimedRewards:
-        userPoolInfo.totalRewardsByUser - userPoolInfo.totalClaimedByUser,
+        BigInt((userPoolInfo.totalRewardsByUser || BigInt(0))) - BigInt((userPoolInfo.totalClaimedByUser || BigInt(0))),
       unclaimedRewardsFormatted: formatViemEther(
-        userPoolInfo.totalRewardsByUser - userPoolInfo.totalClaimedByUser
+        BigInt((userPoolInfo.totalRewardsByUser || BigInt(0))) - BigInt((userPoolInfo.totalClaimedByUser || BigInt(0)))
       ),
     };
+  }
+
+  // ==================== 优化后的事件历史方法 ====================
+
+  /**
+   * 使用优化的并行事件查询（保持兼容性）
+   * 🚀 使用现有方法进行优化，避免复杂的过滤器操作
+   *
+   * @param userAddress 用户地址
+   * @param isForce 是否强制刷新缓存
+   * @returns 用户交易事件历史数组
+   */
+  async getUserEventHistoryWithFilter(
+    userAddress: string,
+    isForce: boolean = false
+  ): Promise<ContractEvent[]> {
+    try {
+      console.log(`🌐 批量查询用户事件: ${userAddress}`);
+
+      // 简化版本：只使用现有的用户特定方法
+      const [
+        stakedEvents,
+        unstakedEvents
+      ] = await Promise.all([
+        this.getUserStakedInPoolEvents(userAddress, isForce),
+        this.getAllUnstakedFromPoolEvents(isForce).then(events => {
+          console.log(`📊 获取到 ${events.length} 个 UnstakedFromPool 事件`);
+          const filteredEvents = events.filter(event => {
+            // event.args 是包含事件参数的对象，不是数组
+            // 根据事件签名，user 参数通常是第一个参数 (event.args[0]) 或 event.args.user
+            if (!event.args) {
+              console.log('❌ 事件没有 args 参数');
+              return false;
+            }
+
+            // 调试：打印事件参数结构
+            console.log('🔍 事件 args 结构:', {
+              isArray: Array.isArray(event.args),
+              keys: Object.keys(event.args),
+              values: Object.values(event.args),
+              rawArgs: event.args
+            });
+
+            // 检查 args 的不同可能结构
+            const argsArray = Array.isArray(event.args) ? event.args : Object.values(event.args);
+            const isMatch = argsArray.some(arg =>
+              typeof arg === 'string' && arg.toLowerCase() === userAddress.toLowerCase()
+            );
+
+            if (isMatch) {
+              console.log('✅ 找到匹配的用户事件:', event.transactionHash);
+            }
+
+            return isMatch;
+          });
+          console.log(`📊 过滤后有 ${filteredEvents.length} 个匹配的用户事件`);
+          return filteredEvents;
+        })
+      ]);
+
+      // 合并所有事件
+      const allEvents = [
+        ...stakedEvents,
+        ...unstakedEvents
+      ];
+
+      // 按时间倒序排列（最新的在前）
+      allEvents.sort((a, b) => {
+        if (a.blockNumber && b.blockNumber) {
+          return Number(b.blockNumber) - Number(a.blockNumber);
+        }
+        return 0;
+      });
+
+      console.log(`📡 批量获取到 ${allEvents.length} 个用户事件`);
+
+      return allEvents;
+    } catch (error) {
+      console.error("获取用户事件历史失败（优化版本）:", error);
+      throw new Error(`Failed to get user event history: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }
+  }
+
+  /**
+   * 获取用户完整的交易事件历史（保持向后兼容，默认使用优化版本）
+   * 🔥 整合所有事件类型，按时间倒序排列
+   * 🚀 性能优化：使用批量查询替代4次独立请求
+   *
+   * @param userAddress 用户地址
+   * @param isForce 是否强制刷新缓存
+   * @returns 用户交易事件历史数组
+   */
+  async getUserEventHistory(
+    userAddress: string,
+    isForce: boolean = false
+  ): Promise<ContractEvent[]> {
+    // 使用优化版本进行批量查询
+    return this.getUserEventHistoryWithFilter(userAddress, isForce);
   }
 }
 

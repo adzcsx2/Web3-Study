@@ -15,7 +15,7 @@ export interface PoolInfo {
   lastUpdateTime: bigint; // 奖励计算的最后更新时间
   rewardPerTokenStored: bigint; // 每个质押代币的累计奖励
   minDepositAmount: bigint; // 最小质押金额要求
-  isActive: boolean; // 池子激活状态
+  isOpenForStaking: boolean; // 池子激活状态
   cooldownPeriod: bigint; // 解质押冷却期（秒）
   name: string; // 池子显示名称
 }

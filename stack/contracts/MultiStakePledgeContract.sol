@@ -108,7 +108,7 @@ contract MultiStakePledgeContract is
             minDepositAmount: params.minDepositAmount > 0
                 ? params.minDepositAmount
                 : 0.01 ether,
-            isActive: true,
+            isOpenForStaking: true,
             cooldownPeriod: params.cooldownPeriod > 0
                 ? params.cooldownPeriod
                 : 1 minutes,
@@ -133,7 +133,7 @@ contract MultiStakePledgeContract is
         uint256 duration
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         PoolInfo storage pool = pools[poolId];
-        if (!pool.isActive) revert PoolNotActive(poolId);
+        if (!pool.isOpenForStaking) revert PoolNotActive(poolId);
         if (pool.startTime != 0) revert PoolAlreadyStarted(poolId);
         if (duration == 0) revert InvalidPoolDuration(duration);
 
@@ -157,7 +157,7 @@ contract MultiStakePledgeContract is
         uint256 amount
     ) public whenNotPaused nonReentrant onlyPositiveAmount(amount) {
         PoolInfo storage pool = pools[poolId];
-        if (!pool.isActive) revert PoolNotActive(poolId);
+        if (!pool.isOpenForStaking) revert PoolNotActive(poolId);
         if (pool.startTime == 0) revert PoolNotStarted(poolId);
         if (block.timestamp >= pool.endTime) revert PoolAlreadyEnded(poolId);
         if (blacklist[msg.sender]) revert BlacklistedAddress(msg.sender);
@@ -413,7 +413,7 @@ contract MultiStakePledgeContract is
      */
     function getActivePoolCount() external view returns (uint256 count) {
         for (uint256 i = 0; i < poolCounter; i++) {
-            if (pools[i].isActive) {
+            if (pools[i].isOpenForStaking) {
                 count++;
             }
         }

@@ -10,14 +10,14 @@ pragma solidity ^0.8.26;
 // 池子管理相关错误
 // ========================================
 error PoolNotExists(uint256 poolId);                    // 池子不存在
-error PoolNotActive(uint256 poolId);                    // 池子未激活
+error PoolNotActive(uint256 poolId);                    // 池子未开放质押
 error PoolAlreadyStarted(uint256 poolId);               // 池子已经启动
 error PoolNotStarted(uint256 poolId);                   // 池子尚未启动
 error PoolAlreadyEnded(uint256 poolId);                 // 池子已经结束
 error InvalidPoolParameters();                          // 无效的池子参数
 error PoolNameEmpty();                                  // 池子名称为空
 error MaxPoolsReached(uint256 maxPools);                // 达到最大池子数量限制
-error PoolAlreadyActive(uint256 poolId);                // 池子已经激活
+error PoolAlreadyActive(uint256 poolId);                // 池子已开放质押
 error CannotDeactivatePoolWithStakes(uint256 poolId, uint256 totalStaked); // 无法停用有质押的池子
 
 // ========================================

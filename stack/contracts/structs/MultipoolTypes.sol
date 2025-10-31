@@ -24,7 +24,7 @@ struct PoolInfo {
     uint256 lastUpdateTime;         // 奖励计算的最后更新时间
     uint256 rewardPerTokenStored;   // 每个质押代币的累计奖励
     uint256 minDepositAmount;       // 最小质押金额要求
-    bool isActive;                  // 池子激活状态
+    bool isOpenForStaking;          // 池子是否开放质押
     uint256 cooldownPeriod;         // 解质押冷却期（秒）
     string name;                    // 池子显示名称
 }

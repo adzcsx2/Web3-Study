@@ -221,7 +221,7 @@ describe("MultiStakePledgeContract - Sepolia 测试网 (优化版)", function ()
       console.log(`  - 质押代币: ${poolInfo.stakeToken}`);
       console.log(`  - 奖励代币: ${poolInfo.rewardToken}`);
       console.log(`  - 总奖励: ${ethers.formatEther(poolInfo.totalRewards)}`);
-      console.log(`  - 是否激活: ${poolInfo.isActive}`);
+      console.log(`  - 是否激活: ${poolInfo.isOpenForStaking}`);
       console.log(`  - 开始时间: ${poolInfo.startTime}`);
     }
 

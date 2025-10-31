@@ -46,9 +46,9 @@ event PoolUpdated(
 /**
  * @notice 池子激活状态变更事件
  * @param poolId 池子ID
- * @param isActive 是否激活
+ * @param isOpenForStaking 是否激活
  */
-event PoolActivated(uint256 indexed poolId, bool isActive);
+event PoolActivated(uint256 indexed poolId, bool isOpenForStaking);
 
 /**
  * @notice 池子停用事件

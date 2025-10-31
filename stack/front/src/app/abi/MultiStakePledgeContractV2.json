@@ -238,20 +238,6 @@
     },
     {
       "type": "error",
-      "name": "PoolCooldownNotMet",
-      "inputs": [
-        {
-          "type": "uint256",
-          "name": "poolId"
-        },
-        {
-          "type": "uint256",
-          "name": "remainingTime"
-        }
-      ]
-    },
-    {
-      "type": "error",
       "name": "PoolNameEmpty",
       "inputs": []
     },
@@ -996,7 +982,7 @@
             },
             {
               "type": "bool",
-              "name": "isActive"
+              "name": "isOpenForStaking"
             },
             {
               "type": "uint256",
@@ -1073,7 +1059,7 @@
             },
             {
               "type": "bool",
-              "name": "isActive"
+              "name": "isOpenForStaking"
             },
             {
               "type": "uint256",
@@ -1154,7 +1140,7 @@
             },
             {
               "type": "bool",
-              "name": "isActive"
+              "name": "isOpenForStaking"
             },
             {
               "type": "uint256",
@@ -1214,6 +1200,33 @@
         {
           "type": "bytes32",
           "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getUserFrozenInfo",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "poolId"
+        },
+        {
+          "type": "address",
+          "name": "account"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": "frozenAmount"
+        },
+        {
+          "type": "uint256",
+          "name": "unlockableAmount"
         }
       ]
     },
@@ -1442,7 +1455,7 @@
         },
         {
           "type": "bool",
-          "name": "isActive"
+          "name": "isOpenForStaking"
         },
         {
           "type": "uint256",
@@ -1699,7 +1712,7 @@
   ],
   "contractName": "MultiStakePledgeContractV2",
   "network": "sepolia",
-  "deployedAt": "2025-10-27T09:53:43.306Z",
-  "transactionHash": "0x4bd501372c95c80cc6944dccfad3e16508cca94d621f038f1316f5ecc7e13b17",
-  "blockNumber": 9500735
+  "deployedAt": "2025-10-31T11:35:19.245Z",
+  "transactionHash": "0x287262af1397ae78347c914b0c278cdb1dcce8b13359498a6ae2af4deb0afebb",
+  "blockNumber": 9529755
 }

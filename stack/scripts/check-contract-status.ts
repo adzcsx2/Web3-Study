@@ -67,7 +67,7 @@ async function main() {
         console.log(
           `  冷却期: ${Math.floor(Number(poolInfo.cooldownPeriod) / 60)} 分钟`
         );
-        console.log(`  是否激活: ${poolInfo.isActive ? "✅" : "❌"}`);
+        console.log(`  是否激活: ${poolInfo.isOpenForStaking ? "✅" : "❌"}`);
         console.log(
           `  开始时间: ${
             poolInfo.startTime > 0
