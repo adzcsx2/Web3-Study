@@ -1624,7 +1624,7 @@ export class MultiStakeViemService {
     errorType?: "NOT_EXISTS";
   }> {
     try {
-      const poolInfo = await this.getPoolInfo(poolId, isForce);
+      await this.getPoolInfo(poolId, isForce);
       // 只需要检查池子是否存在（getPoolInfo会抛出异常如果池子不存在）
       return { canUnstake: true };
     } catch {
@@ -1831,18 +1831,20 @@ export class MultiStakeViemService {
       lastUnstakeTimesFormatted: new Date(
         Number(userPoolInfo.lastUnstakeTimes) * 1000
       ).toLocaleString(),
-      balancesFormatted: formatViemEther(userPoolInfo.balances),
-      rewardsFormatted: formatViemEther(userPoolInfo.rewards),
+      balancesFormatted: formatViemEther(userPoolInfo.balances || 0n),
+      rewardsFormatted: formatViemEther(userPoolInfo.rewards || 0n),
       totalRewardsByUserFormatted: formatViemEther(
-        userPoolInfo.totalRewardsByUser
+        userPoolInfo.totalRewardsByUser || 0n
       ),
       totalClaimedByUserFormatted: formatViemEther(
-        userPoolInfo.totalClaimedByUser
+        userPoolInfo.totalClaimedByUser || 0n
       ),
       unclaimedRewards:
-        BigInt((userPoolInfo.totalRewardsByUser || BigInt(0))) - BigInt((userPoolInfo.totalClaimedByUser || BigInt(0))),
+        BigInt(userPoolInfo.totalRewardsByUser || BigInt(0)) -
+        BigInt(userPoolInfo.totalClaimedByUser || BigInt(0)),
       unclaimedRewardsFormatted: formatViemEther(
-        BigInt((userPoolInfo.totalRewardsByUser || BigInt(0))) - BigInt((userPoolInfo.totalClaimedByUser || BigInt(0)))
+        BigInt(userPoolInfo.totalRewardsByUser || BigInt(0)) -
+          BigInt(userPoolInfo.totalClaimedByUser || BigInt(0))
       ),
     };
   }
@@ -1865,51 +1867,49 @@ export class MultiStakeViemService {
       console.log(`🌐 批量查询用户事件: ${userAddress}`);
 
       // 简化版本：只使用现有的用户特定方法
-      const [
-        stakedEvents,
-        unstakedEvents
-      ] = await Promise.all([
+      const [stakedEvents, unstakedEvents] = await Promise.all([
         this.getUserStakedInPoolEvents(userAddress, isForce),
-        this.getAllUnstakedFromPoolEvents(isForce).then(events => {
+        this.getAllUnstakedFromPoolEvents(isForce).then((events) => {
           console.log(`📊 获取到 ${events.length} 个 UnstakedFromPool 事件`);
-          const filteredEvents = events.filter(event => {
+          const filteredEvents = events.filter((event) => {
             // event.args 是包含事件参数的对象，不是数组
             // 根据事件签名，user 参数通常是第一个参数 (event.args[0]) 或 event.args.user
             if (!event.args) {
-              console.log('❌ 事件没有 args 参数');
+              console.log("❌ 事件没有 args 参数");
               return false;
             }
 
             // 调试：打印事件参数结构
-            console.log('🔍 事件 args 结构:', {
+            console.log("🔍 事件 args 结构:", {
               isArray: Array.isArray(event.args),
               keys: Object.keys(event.args),
               values: Object.values(event.args),
-              rawArgs: event.args
+              rawArgs: event.args,
             });
 
             // 检查 args 的不同可能结构
-            const argsArray = Array.isArray(event.args) ? event.args : Object.values(event.args);
-            const isMatch = argsArray.some(arg =>
-              typeof arg === 'string' && arg.toLowerCase() === userAddress.toLowerCase()
+            const argsArray = Array.isArray(event.args)
+              ? event.args
+              : Object.values(event.args);
+            const isMatch = argsArray.some(
+              (arg) =>
+                typeof arg === "string" &&
+                arg.toLowerCase() === userAddress.toLowerCase()
             );
 
             if (isMatch) {
-              console.log('✅ 找到匹配的用户事件:', event.transactionHash);
+              console.log("✅ 找到匹配的用户事件:", event.transactionHash);
             }
 
             return isMatch;
           });
           console.log(`📊 过滤后有 ${filteredEvents.length} 个匹配的用户事件`);
           return filteredEvents;
-        })
+        }),
       ]);
 
       // 合并所有事件
-      const allEvents = [
-        ...stakedEvents,
-        ...unstakedEvents
-      ];
+      const allEvents = [...stakedEvents, ...unstakedEvents];
 
       // 按时间倒序排列（最新的在前）
       allEvents.sort((a, b) => {
@@ -1924,7 +1924,9 @@ export class MultiStakeViemService {
       return allEvents;
     } catch (error) {
       console.error("获取用户事件历史失败（优化版本）:", error);
-      throw new Error(`Failed to get user event history: ${error instanceof Error ? error.message : "Unknown error"}`);
+      throw new Error(
+        `Failed to get user event history: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 

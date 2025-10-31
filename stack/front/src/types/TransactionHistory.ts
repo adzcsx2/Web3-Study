@@ -14,20 +14,17 @@ import { Log } from "viem";
 export interface ContractEvent extends Log {
   args?: unknown[];
   eventName?: string;
-  transactionHash?: string;
-  blockNumber?: bigint;
-  address?: string;
 }
 
 /**
  * 交易类型枚举
  */
-export type TransactionType = 'Stake' | 'Unstake' | 'Withdraw' | 'ClaimRewards';
+export type TransactionType = "Stake" | "Unstake" | "Withdraw" | "ClaimRewards";
 
 /**
  * 交易状态枚举
  */
-export type TransactionStatus = 'Pending' | 'Success' | 'Failed';
+export type TransactionStatus = "Pending" | "Success" | "Failed";
 
 /**
  * 交易历史项目接口
@@ -156,7 +153,9 @@ export interface UseStakeExchangeHistoryReturn {
   /** 是否正在刷新 */
   isRefreshing: boolean;
   /** 获取交易历史 */
-  fetchTransactionHistory: (query?: Partial<TransactionHistoryQuery>) => Promise<TransactionHistoryItem[]>;
+  fetchTransactionHistory: (
+    query?: Partial<TransactionHistoryQuery>
+  ) => Promise<TransactionHistoryItem[]>;
   /** 刷新交易历史 */
   refreshTransactionHistory: () => Promise<void>;
   /** 获取统计信息 */
@@ -168,7 +167,10 @@ export interface UseStakeExchangeHistoryReturn {
   /** 按状态过滤 */
   filterByStatus: (statuses: TransactionStatus[]) => TransactionHistoryItem[];
   /** 按时间范围过滤 */
-  filterByTimeRange: (startTime: number, endTime: number) => TransactionHistoryItem[];
+  filterByTimeRange: (
+    startTime: number,
+    endTime: number
+  ) => TransactionHistoryItem[];
   /** 搜索交易 */
   searchTransactions: (keyword: string) => TransactionHistoryItem[];
   /** 加载更多数据（增量加载） */
@@ -189,10 +191,10 @@ export interface UseStakeExchangeHistoryReturn {
  * 事件到交易类型的映射
  */
 export const EVENT_TYPE_MAPPING: Record<string, TransactionType> = {
-  'StakedInPool': 'Stake',
-  'UnstakedFromPool': 'Withdraw',
-  'RequestUnstakeFromPool': 'Unstake',
-  'RewardsClaimedFromPool': 'ClaimRewards'
+  "StakedInPool": "Stake",
+  "UnstakedFromPool": "Withdraw",
+  "RequestUnstakeFromPool": "Unstake",
+  "RewardsClaimedFromPool": "ClaimRewards",
 };
 
 /**
@@ -201,7 +203,7 @@ export const EVENT_TYPE_MAPPING: Record<string, TransactionType> = {
 export const EVENT_STATUS_MAPPING = {
   // 对于事件日志，通常都是成功状态
   // 失败状态需要通过检查交易receipt来确定
-  default: 'Success' as TransactionStatus
+  default: "Success" as TransactionStatus,
 };
 
 /**
@@ -209,7 +211,7 @@ export const EVENT_STATUS_MAPPING = {
  */
 export const TOKEN_SYMBOL_MAPPING: Record<string, string> = {
   // 需要根据实际项目配置更新
-  '0x4200000000000000000000000000000000000006': 'WETH',
-  '0xA0b86a33E6441b8e8C7C7b0b8e8e8e8e8e8e8e8e': 'USDC',
-  '0x1234567890123456789012345678901234567890': 'MTK'
+  "0x4200000000000000000000000000000000000006": "WETH",
+  "0xA0b86a33E6441b8e8C7C7b0b8e8e8e8e8e8e8e8e": "USDC",
+  "0x1234567890123456789012345678901234567890": "MTK",
 };
