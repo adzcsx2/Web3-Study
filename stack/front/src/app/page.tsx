@@ -204,7 +204,7 @@ function MainHeaderComponent(): React.ReactNode {
           level={2}
           className="!m-0 text-lg sm:text-xl md:text-2xl truncate"
         >
-          Stake质押平台
+          {process.env.NEXT_PUBLIC_APP_TITLE || "标题"}
         </Typography.Title>
         <Typography.Text className="!block !m-0 text-xs sm:text-sm italic truncate">
           安全、透明的以太坊质押服务( Sepolia 测试网 )
