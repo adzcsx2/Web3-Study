@@ -1,6 +1,6 @@
 {
   "network": "sepolia",
-  "deployedAt": "2025-10-31T11:35:19.246Z",
+  "deployedAt": "2025-10-31T12:51:42.042Z",
   "contracts": {
     "MetaNodeToken": {
       "address": "0xeD58F6aB2A8e97903C4155bB00776486510F9f3c",
@@ -13,8 +13,8 @@
     "MultiStakePledgeContractV2": {
       "address": "0xA1e941c8f85A7d73c7EC81f8C562af9cb5E9b2EE",
       "contractName": "MultiStakePledgeContractV2",
-      "transactionHash": "0x287262af1397ae78347c914b0c278cdb1dcce8b13359498a6ae2af4deb0afebb",
-      "blockNumber": 9529755
+      "transactionHash": "0x0a949f03e9774eab37e926ebde42ce123653035abdf6c3ddc56a713b2d265769",
+      "blockNumber": 9530136
     }
   },
   "tokens": {

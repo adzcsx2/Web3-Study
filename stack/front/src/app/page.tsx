@@ -50,7 +50,8 @@ interface LocalPoolInfo {
 }
 
 interface PoolContextType {
-  poolCount: number;
+  poolCount: number; // 活跃池子数量（开放且未过期）
+  totalPoolCount: number; // 🔧 合约中实际存在的总池子数
   poolInfos: (LocalPoolInfo | null)[];
   isLoading: boolean;
   refreshPools: (isForce?: boolean) => Promise<void>;
@@ -102,8 +103,10 @@ function PoolProvider({
   );
 
   // 处理池子数据，转换为本地格式
+  // 🔧 使用 totalPoolCount（合约中实际存在的总池子数）而不是 poolCount（活跃池子数）
+  // 因为用户可能在任何池子中有质押，包括已过期的池子
   useEffect(() => {
-    if (statistics.poolCount === 0) {
+    if (statistics.totalPoolCount === 0) {
       setPoolInfos([]);
       return;
     }
@@ -139,13 +142,13 @@ function PoolProvider({
       setPoolInfos(infos);
 
       console.log(
-        `✅ PoolProvider 加载池子详情成功: 共 ${statistics.poolCount} 个池子`
+        `✅ PoolProvider 加载池子详情成功: 共 ${statistics.totalPoolCount} 个池子（其中 ${statistics.poolCount} 个活跃）`
       );
     } catch (error) {
       console.error("处理池子数据失败:", error);
       setPoolInfos([]);
     }
-  }, [statistics.poolCount, poolsData, isLoading]);
+  }, [statistics.totalPoolCount, statistics.poolCount, poolsData, isLoading]);
 
   const fetchPoolData = useCallback(
     async (isForce: boolean = false) => {
@@ -159,6 +162,7 @@ function PoolProvider({
   const value: PoolContextType = useMemo(
     () => ({
       poolCount: statistics.poolCount,
+      totalPoolCount: statistics.totalPoolCount, // 🔧 添加总池子数
       poolInfos,
       isLoading,
       refreshPools: fetchPoolData,
@@ -172,6 +176,7 @@ function PoolProvider({
     }),
     [
       statistics.poolCount,
+      statistics.totalPoolCount, // 🔧 添加依赖
       statistics.wethTotal,
       statistics.usdcTotal,
       statistics.totalRewards,
@@ -624,10 +629,26 @@ function WithdrawModal({
   visible,
   onClose,
 }: Omit<ModalProps, "onNotification">): React.ReactNode {
-  const { openNotification, refreshPools, poolInfos } = usePoolContext();
-  const { poolCount } = useContext(PoolContext)!;
+  const {
+    openNotification,
+    refreshPools,
+    poolInfos,
+    poolCount,
+    totalPoolCount,
+  } = usePoolContext();
   const wallet = useWagmiWalletClient();
   const publicClient = usePublicClient({ chainId: 11155111 });
+
+  // 添加调试日志
+  useEffect(() => {
+    if (visible) {
+      console.log("🔍 WithdrawModal 打开时的状态:", {
+        poolCount,
+        poolInfosLength: poolInfos.length,
+        poolInfos,
+      });
+    }
+  }, [visible, poolCount, poolInfos]);
 
   const { isProcessing, isRequesting, isWithdrawing, smartWithdraw } =
     useSmartWithdraw();
@@ -644,15 +665,41 @@ function WithdrawModal({
   const processedDataRef = useRef<string>("");
   const isInitialLoadRef = useRef<boolean>(true); // 标记是否是初始加载
 
-  // 生成所有池子的读取合约配置
-  const poolIds = useMemo(() => {
-    return Array.from({ length: poolCount }, (_, i) => i);
-  }, [poolCount]);
+  // 生成所有有效池子的ID列表（提取Modal不应该过滤时间，用户需要能提取已结束池子的资金）
+  const validPoolIds = useMemo(() => {
+    const ids: number[] = [];
 
-  // 只读取用户池子信息，池子基本信息从 Context 获取
+    console.log(`🔍 提取 Modal poolInfos 检查:`, {
+      totalPoolCount,
+      activePoolCount: poolCount,
+      poolInfosLength: poolInfos.length,
+      poolInfos: poolInfos.map((p, i) => ({
+        index: i,
+        exists: !!p,
+        stakeToken: p?.stakeToken,
+        endTime: p?.endTime?.toString(),
+      })),
+    });
+
+    for (let i = 0; i < totalPoolCount; i++) {
+      const poolInfo = poolInfos[i];
+      // 只要池子信息存在就加入列表，不过滤时间
+      if (poolInfo) {
+        ids.push(i);
+      }
+    }
+
+    console.log(
+      `🔍 提取 Modal: 总池子数 ${totalPoolCount}, 活跃池子数 ${poolCount}, 有池子信息的数量 ${ids.length}, 池子ID:`,
+      ids
+    );
+    return ids;
+  }, [totalPoolCount, poolCount, poolInfos]);
+
+  // 只读取有效池子的用户信息
   const { data: userPoolsReadData, refetch: refetchUserPools } =
     useReadContracts({
-      contracts: poolIds.map((poolId) => ({
+      contracts: validPoolIds.map((poolId) => ({
         address: contractAddress,
         abi: contractAbi,
         functionName: "getUserPoolInfo",
@@ -660,7 +707,7 @@ function WithdrawModal({
         chainId: 11155111,
       })),
       query: {
-        enabled: visible && !!wallet.address && poolCount > 0,
+        enabled: visible && !!wallet.address && validPoolIds.length > 0,
         refetchInterval: 3000, // 每3秒自动刷新一次，使 pendingRewards 实时更新
       },
     });
@@ -680,7 +727,12 @@ function WithdrawModal({
 
   // 处理读取到的用户池子数据
   useEffect(() => {
-    if (!visible || !wallet.address || poolCount === 0 || !userPoolsReadData) {
+    if (
+      !visible ||
+      !wallet.address ||
+      validPoolIds.length === 0 ||
+      !userPoolsReadData
+    ) {
       return;
     }
 
@@ -709,20 +761,20 @@ function WithdrawModal({
 
       try {
         const currentBlock = await publicClient?.getBlockNumber();
-        // 获取当前时间戳（秒）
-        const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
 
-        for (let i = 0; i < poolCount; i++) {
-          const userData = userPoolsReadData[i];
-          const poolInfo = poolInfos[i]; // 从 Context 获取池子信息
+        // 遍历有效池子ID
+        for (let idx = 0; idx < validPoolIds.length; idx++) {
+          const poolId = validPoolIds[idx];
+          const userData = userPoolsReadData[idx];
+          const poolInfo = poolInfos[poolId]; // 使用实际的池子ID获取池子信息
+
           if (userData?.status !== "success" || !poolInfo) {
+            console.log(`⏭️ 池子 ${poolId} 跳过: 数据读取失败或池子信息缺失`);
             continue;
           }
 
-          // 提取 Modal: 只判断当前时间是否 < endTime，不判断 isOpenForStaking
-          if (currentTimestamp >= poolInfo.endTime) {
-            continue;
-          }
+          // 提取 Modal: 不过滤时间，只要用户有质押就应该显示
+          // 因为即使池子结束了，用户也需要能够提取资金
 
           // userData.result 是数组格式: [stakedBalance, pendingRewards, totalRewardsEarned, totalRewardsClaimed, pendingUnstakeRequests]
           const [
@@ -742,10 +794,19 @@ function WithdrawModal({
           // 检查是否有解质押请求和状态
           const pendingRequests = pendingUnstakeRequests || [];
           const hasUnstakeRequest = pendingRequests.length > 0;
+          console.log(poolCount);
+          console.log(`🔍 池子 ${poolId} 初步检查:`, {
+            stakedBalance: formatEther(stakedBalance),
+            hasUnstakeRequest,
+            pendingRequestsCount: pendingRequests.length,
+          });
 
           // 🔧 修复：只在既没有活跃质押，也没有解质押请求时才跳过
           // 因为用户可能已经把所有余额都申请解质押了（stakedBalance=0），但还有冻结或已解冻的余额
           if (stakedBalance === 0n && !hasUnstakeRequest) {
+            console.log(
+              `⏭️ 池子 ${poolId} 跳过: 既没有活跃质押也没有解质押请求`
+            );
             continue;
           }
 
@@ -813,7 +874,7 @@ function WithdrawModal({
             frozenRewards = (pendingRewards * frozenBalance) / stakedBalance;
           }
 
-          dataMap.set(i.toString(), {
+          dataMap.set(poolId.toString(), {
             stakedBalance,
             availableBalance,
             frozenBalance,
@@ -829,7 +890,7 @@ function WithdrawModal({
             estimatedTime,
           });
 
-          console.log(`池子 ${i} 用户实际数据:`, {
+          console.log(`池子 ${poolId} 用户实际数据:`, {
             活跃质押余额: formatEther(stakedBalance),
             可再次申请解质押: formatEther(availableBalance),
             冻结中: formatEther(frozenBalance),
@@ -855,7 +916,7 @@ function WithdrawModal({
             if (Math.abs(percentDiff) > 1) {
               // 差异超过1%
               console.warn(
-                `⚠️ 池子 ${i} 奖励数据不一致:`,
+                `⚠️ 池子 ${poolId} 奖励数据不一致:`,
                 `历史累计总奖励(${formatEther(totalRewardsEarned)}) ≠ `,
                 `已领取(${formatEther(totalRewardsClaimed)}) + `,
                 `待领取(${formatEther(pendingRewards)}) = ${formatEther(calculatedTotal)}`
@@ -863,13 +924,20 @@ function WithdrawModal({
             }
           } else if (totalRewardsEarned === 0n && pendingRewards > 0n) {
             console.warn(
-              `⚠️ 池子 ${i} 合约问题: 历史累计总奖励为0，但有${formatEther(pendingRewards)} MTK待领取`
+              `⚠️ 池子 ${poolId} 合约问题: 历史累计总奖励为0，但有${formatEther(pendingRewards)} MTK待领取`
             );
             console.info(
               `💡 提示: 这可能是合约版本问题，执行一次领取操作后，历史累计总奖励会开始记录`
             );
           }
         }
+
+        console.log(`✅ 提取 Modal 数据处理完成:`, {
+          总池子数: poolCount,
+          有效池子数: validPoolIds.length,
+          可显示的池子数: dataMap.size,
+          池子ID列表: Array.from(dataMap.keys()),
+        });
 
         setUserPoolsData(dataMap);
       } catch (error) {
@@ -885,7 +953,7 @@ function WithdrawModal({
 
     processUserPoolsData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, wallet.address, poolCount, userPoolsReadData]);
+  }, [visible, wallet.address, validPoolIds.length, userPoolsReadData]);
 
   const handleWithdraw = useCallback(
     async (

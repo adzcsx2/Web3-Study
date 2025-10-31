@@ -29,7 +29,8 @@ export interface StatisticsData {
   usdcTotal: string;
   totalRewards: string;
   activeUsers: number;
-  poolCount: number;
+  poolCount: number; // 活跃池子数量（开放且未过期）
+  totalPoolCount: number; // 🔧 新增：合约中实际存在的总池子数
 }
 
 /**
@@ -94,20 +95,21 @@ export function useStatistics(
     },
   });
 
-  // 解析基础数据
-  const poolCount =
+  // 解析基础数据 - 这是合约中实际存在的总池子数
+  const totalPoolCount =
     baseData?.[0]?.status === "success"
       ? Number(baseData[0].result as bigint)
       : 0;
-  
+
   // 🔧 暂时设置为 0，因为合约中没有 getActiveStakers 函数
   // 要实现此功能需要在合约中添加相应的函数并重新部署
   const activeUsers = 0;
 
-  // 根据池子数量动态构建池子信息查询
+  // 🔧 重要：使用总池子数来读取所有池子信息，包括已过期的池子
+  // 因为用户可能在任何池子中有质押（包括已过期的池子）
   const poolIds = useMemo(() => {
-    return Array.from({ length: poolCount }, (_, i) => i);
-  }, [poolCount]);
+    return Array.from({ length: totalPoolCount }, (_, i) => i);
+  }, [totalPoolCount]);
 
   // 第二步：读取所有池子的详细信息
   const {
@@ -123,7 +125,7 @@ export function useStatistics(
       chainId: 11155111,
     })),
     query: {
-      enabled: poolCount > 0,
+      enabled: totalPoolCount > 0,
       refetchInterval,
     },
   });
@@ -144,7 +146,10 @@ export function useStatistics(
           const poolInfo = pool.result as PoolInfo;
 
           // 🔧 统计活跃池子：isOpenForStaking = true 且未过期
-          if (poolInfo.isOpenForStaking && currentTimestamp < poolInfo.endTime) {
+          if (
+            poolInfo.isOpenForStaking &&
+            currentTimestamp < poolInfo.endTime
+          ) {
             activePoolCount++;
           }
 
@@ -166,9 +171,10 @@ export function useStatistics(
       usdcTotal: formatUnits(usdcTotal, 6),
       totalRewards: formatEther(totalRewards),
       activeUsers,
-      poolCount: activePoolCount, // 🔧 返回真正活跃的池子数量，而不是总数
+      poolCount: activePoolCount, // 活跃池子数量（开放且未过期）
+      totalPoolCount, // 🔧 合约中实际存在的总池子数
     };
-  }, [poolsData, activeUsers]);
+  }, [poolsData, activeUsers, totalPoolCount]);
 
   // 合并加载状态
   const isLoading = isLoadingBase || isLoadingPools;

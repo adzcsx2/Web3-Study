@@ -1712,7 +1712,7 @@
   ],
   "contractName": "MultiStakePledgeContractV2",
   "network": "sepolia",
-  "deployedAt": "2025-10-31T11:35:19.245Z",
-  "transactionHash": "0x287262af1397ae78347c914b0c278cdb1dcce8b13359498a6ae2af4deb0afebb",
-  "blockNumber": 9529755
+  "deployedAt": "2025-10-31T12:51:42.041Z",
+  "transactionHash": "0x0a949f03e9774eab37e926ebde42ce123653035abdf6c3ddc56a713b2d265769",
+  "blockNumber": 9530136
 }
