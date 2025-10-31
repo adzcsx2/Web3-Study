@@ -9,18 +9,19 @@ export const config = getDefaultConfig({
   appName: env.appTitle,
   projectId: env.walletConnectProjectId,
   chains: [
+    sepolia,
     mainnet,
     polygon,
     optimism,
     arbitrum,
-    ...(env.isDev || env.isTest ? [sepolia] : []),
+    // ...(env.isDev || env.isTest ? [sepolia] : []),
   ],
   transports: {
+    [sepolia.id]: http(RPC_URLS[sepolia.id]),
     [mainnet.id]: http(RPC_URLS[mainnet.id]),
     [polygon.id]: http(RPC_URLS[polygon.id]),
     [optimism.id]: http(RPC_URLS[optimism.id]),
     [arbitrum.id]: http(RPC_URLS[arbitrum.id]),
-    [sepolia.id]: http(RPC_URLS[sepolia.id]),
   },
   ssr: true,
 });
