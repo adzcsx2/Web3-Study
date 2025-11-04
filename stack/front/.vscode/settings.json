@@ -5,9 +5,11 @@
     "prettier.requireConfig": true,
     "prettier.ignorePath": ".prettierignore",
     "editor.foldingStrategy": "indentation",
-  "typescript.preferences.includePackageJsonAutoImports": "off",
-  "editor.showFoldingControls": "mouseover",
-  "editor.foldingHighlight": true,
-  "editor.foldingImportsByDefault": false
-  
+    "typescript.preferences.includePackageJsonAutoImports": "off",
+    "editor.showFoldingControls": "mouseover",
+    "editor.foldingHighlight": true,
+    "editor.foldingImportsByDefault": false,
+    "github.copilot.enable": { "*": true, "yaml": true, "plaintext": true, "markdown": true },
+    "github.copilot.advanced": { "instructions.enabled": true },
+    "[jsonc]": { "editor.defaultFormatter": "GamemodeOne.json-compact-prettier" }
 }
