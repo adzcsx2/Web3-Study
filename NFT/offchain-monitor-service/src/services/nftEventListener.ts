@@ -55,6 +55,10 @@ export class NFTEventListener {
     lastBatchSize: 0,
     queueMaxSize: 0,
     lastStatsOutput: 0, // 🆕 上次输出统计的时间戳
+    // 🆕 记录上次输出时的状态
+    lastOutputEventsReceived: 0,
+    lastOutputEventsProcessed: 0,
+    lastOutputEventsConfirmed: 0,
   };
 
   constructor(eventHandler: EventHandler, supabaseService: SupabaseService) {
@@ -329,15 +333,34 @@ export class NFTEventListener {
         await this.processBatch();
       }
 
-      // 🆕 智能输出统计信息：只在有新活动或队列不为空时输出
+      // 🔧 修复:只在有新活动时输出统计
       const now = Date.now();
-      const hasActivity =
-        this.eventQueue.length > 0 || // 队列中有待处理事件
-        now - this.stats.lastStatsOutput < 60000; // 或者距离上次输出不到1分钟
+      const hasNewActivity =
+        this.stats.eventsReceived > this.stats.lastOutputEventsReceived ||
+        this.stats.eventsProcessed > this.stats.lastOutputEventsProcessed ||
+        this.stats.eventsConfirmed > this.stats.lastOutputEventsConfirmed ||
+        this.eventQueue.length > 0;
 
-      if (this.stats.eventsReceived > 0 && hasActivity) {
-        logger.info("📊 监听器统计", this.stats);
+      // 只在有新活动或距离上次输出超过5分钟时输出
+      const shouldOutput =
+        hasNewActivity || now - this.stats.lastStatsOutput > 300000;
+
+      if (this.stats.eventsReceived > 0 && shouldOutput) {
+        logger.info("📊 监听器统计", {
+          eventsReceived: this.stats.eventsReceived,
+          eventsProcessed: this.stats.eventsProcessed,
+          eventsConfirmed: this.stats.eventsConfirmed,
+          lastBatchSize: this.stats.lastBatchSize,
+          queueMaxSize: this.stats.queueMaxSize,
+          queueSize: this.eventQueue.length,
+          processingCount: this.processingCount,
+        });
+
+        // 更新记录
         this.stats.lastStatsOutput = now;
+        this.stats.lastOutputEventsReceived = this.stats.eventsReceived;
+        this.stats.lastOutputEventsProcessed = this.stats.eventsProcessed;
+        this.stats.lastOutputEventsConfirmed = this.stats.eventsConfirmed;
       }
 
       this.batchProcessTimer = setTimeout(
@@ -414,9 +437,6 @@ export class NFTEventListener {
     if (this.eventQueue.length > this.stats.queueMaxSize) {
       this.stats.queueMaxSize = this.eventQueue.length;
     }
-
-    // 🆕 有新事件时更新时间戳，确保统计信息会输出
-    this.stats.lastStatsOutput = Date.now();
 
     // 如果队列达到批量大小，立即处理
     if (this.eventQueue.length >= this.BATCH_SIZE) {
