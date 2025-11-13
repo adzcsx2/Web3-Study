@@ -1,0 +1,27 @@
+# 忽略JSON文件的格式化
+*.json
+*.jsonc
+.vscode/*.json
+
+# 忽略 i18n 翻译文件的格式化，保持键值对的引号格式
+src/i18n/lang/**/*.ts
+src/i18n/lang/**/*.js
+**/i18n/lang/**/*.ts
+**/i18n/lang/**/*.js
+
+# 忽略构建输出目录
+node_modules/
+.next/
+dist/
+build/
+out/
+
+# 忽略配置文件
+.env*
+*.env
+.*
+# 忽略其他生成的文件
+*.log
+*.lock
+package-lock.json
+yarn.lock

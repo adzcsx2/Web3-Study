@@ -1,0 +1,51 @@
+{
+  "name": "stack",
+  "version": "1.0.0",
+  "scripts": {
+    "slither": "slither . --hardhat-ignore-compile",
+    "slither:high": "slither . --hardhat-ignore-compile --include-detectors reentrancy-eth,reentrancy-no-eth,unchecked-transfer,arbitrary-send-eth,suicidal,unprotected-upgrade",
+    "slither:report": "slither . --hardhat-ignore-compile --json slither-report.json",
+    "security": "npm run slither:high",
+    "deploy:nft": "npx hardhat run script/deploy_NFT_contract_enhanced.ts",
+    "deploy:nft:local": "npx hardhat run script/deploy_NFT_contract_enhanced.ts --network localhost",
+    "deploy:nft:sepolia": "npx hardhat run script/deploy_NFT_contract_enhanced.ts --network sepolia",
+    "deploy:nft:unsafe-demo": "npx hardhat run script/deploy_nft_with_unsafe_options.ts --network localhost",
+    "deploy:all": "npx hardhat run script/deploy_all_contracts.ts",
+    "deploy:all:local": "npx hardhat run script/deploy_all_contracts.ts --network localhost",
+    "deploy:all:sepolia": "npx hardhat run script/deploy_all_contracts.ts --network sepolia",
+    "verify:deployment": "npx hardhat run script/verify_deployment.ts",
+    "verify:deployment:sepolia": "npx hardhat run script/verify_deployment.ts --network sepolia",
+    "copy:abis": "node script/utils/copyArtifacts.js",
+    "post-deploy:copy-abis": "npm run copy:abis"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
+    "@nomicfoundation/hardhat-ethers": "^3.1.0",
+    "@nomicfoundation/hardhat-ignition": "^0.15.13",
+    "@nomicfoundation/hardhat-ignition-ethers": "^0.15.14",
+    "@nomicfoundation/hardhat-network-helpers": "^1.1.0",
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "@nomicfoundation/hardhat-verify": "^2.1.1",
+    "@nomiclabs/hardhat-solhint": "^4.1.0",
+    "@openzeppelin/hardhat-upgrades": "^3.9.1",
+    "@typechain/ethers-v6": "^0.5.1",
+    "@typechain/hardhat": "^9.1.0",
+    "@types/chai": "^4.3.20",
+    "@types/dotenv": "^6.1.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.7.2",
+    "chai": "^4.5.0",
+    "dotenv": "^17.2.3",
+    "ethers": "^6.15.0",
+    "hardhat": "2.27.0",
+    "hardhat-gas-reporter": "^2.3.0",
+    "solidity-coverage": "^0.8.16",
+    "ts-node": "^10.9.2",
+    "typechain": "^8.3.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0",
+    "@openzeppelin/contracts-upgradeable": "^5.4.0"
+  }
+}

@@ -1,0 +1,22 @@
+# Test Directory
+
+This directory contains test files for the smart contracts.
+
+## Test Structure
+
+- Place your Hardhat test files here
+- Use `.ts` extension for TypeScript test files
+- Follow the naming convention: `*.test.ts`
+
+## Example
+
+```typescript
+import { expect } from "chai";
+import { ethers } from "hardhat";
+
+describe("ContractName", function () {
+  it("Should deploy successfully", async function () {
+    // Your test code here
+  });
+});
+```
