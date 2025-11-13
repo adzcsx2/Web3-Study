@@ -13,7 +13,14 @@
       "Bash(npm run copy:abis:*)",
       "Bash(npx tsc:*)",
       "Bash(npm run deploy:nft:local:*)",
-      "Bash(npm run deploy:nft:unsafe-demo:*)"
+      "Bash(npm run deploy:nft:unsafe-demo:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run test)",
+      "Bash(npm ls:*)",
+      "Bash(timeout 10s npm run start:listener:*)",
+      "Bash(npm run test:*)",
+      "Bash(npm run debug:*)"
     ],
     "deny": [],
     "ask": []
