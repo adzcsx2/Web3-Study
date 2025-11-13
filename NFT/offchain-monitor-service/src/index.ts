@@ -3,6 +3,7 @@ import { logger } from "./utils/logger";
 import { SupabaseService } from "./services/supabase";
 import { EventProcessor } from "./services/eventProcessor";
 import { NFTEventListener } from "./services/nftEventListener";
+import express, { Express, Request, Response } from "express";
 
 // 创建日志目录（如果不存在）
 import fs from "fs";
@@ -18,6 +19,9 @@ class NFTListener {
   private eventProcessor: EventProcessor;
   private nftEventListener: NFTEventListener;
   private isShuttingDown: boolean = false;
+  private app: Express;
+  private server: any;
+  private port: number;
 
   constructor() {
     this.supabaseService = new SupabaseService();
@@ -27,6 +31,11 @@ class NFTListener {
       this.supabaseService
     );
 
+    // 初始化 Express 应用
+    this.app = express();
+    this.port = parseInt(process.env.PORT || "3000", 10);
+    this.setupHttpServer();
+
     // 设置优雅关闭
     this.setupGracefulShutdown();
   }
@@ -34,6 +43,9 @@ class NFTListener {
   async start(): Promise<void> {
     try {
       logger.info("🚀 启动 NFT 监听服务");
+
+      // 启动 HTTP 服务器
+      await this.startHttpServer();
 
       // 验证配置
       validateConfig();
@@ -68,6 +80,16 @@ class NFTListener {
     logger.info("🛑 停止 NFT 监听服务");
 
     try {
+      // 停止 HTTP 服务器
+      if (this.server) {
+        await new Promise<void>((resolve) => {
+          this.server.close(() => {
+            logger.info("✅ HTTP 服务器已停止");
+            resolve();
+          });
+        });
+      }
+
       await this.nftEventListener.stop();
       logger.info("✅ NFT 监听服务优雅停止");
     } catch (error) {
@@ -75,6 +97,70 @@ class NFTListener {
     } finally {
       process.exit(0);
     }
+  }
+
+  private setupHttpServer(): void {
+    // 健康检查端点
+    this.app.get("/health", async (req: Request, res: Response) => {
+      try {
+        const supabaseHealthy = await this.supabaseService.healthCheck();
+        const listenerActive = this.nftEventListener.isActive();
+
+        if (supabaseHealthy && listenerActive) {
+          res.status(200).json({
+            status: "healthy",
+            timestamp: new Date().toISOString(),
+            services: {
+              supabase: supabaseHealthy,
+              listener: listenerActive,
+            },
+          });
+        } else {
+          res.status(503).json({
+            status: "unhealthy",
+            timestamp: new Date().toISOString(),
+            services: {
+              supabase: supabaseHealthy,
+              listener: listenerActive,
+            },
+          });
+        }
+      } catch (error) {
+        logger.error("健康检查失败", { error });
+        res.status(503).json({
+          status: "error",
+          timestamp: new Date().toISOString(),
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    });
+
+    // 根路径
+    this.app.get("/", (req: Request, res: Response) => {
+      res.json({
+        service: "NFT Event Listener",
+        version: "1.0.0",
+        status: "running",
+      });
+    });
+  }
+
+  private async startHttpServer(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        this.server = this.app.listen(this.port, () => {
+          logger.info(`🌐 HTTP 服务器启动成功，监听端口: ${this.port}`);
+          resolve();
+        });
+
+        this.server.on("error", (error: Error) => {
+          logger.error("HTTP 服务器启动失败", { error });
+          reject(error);
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
   }
 
   private setupGracefulShutdown(): void {
