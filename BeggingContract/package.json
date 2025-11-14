@@ -16,7 +16,10 @@
     "verify:deployment": "npx hardhat run script/verify_deployment.ts",
     "verify:deployment:sepolia": "npx hardhat run script/verify_deployment.ts --network sepolia",
     "copy:abis": "node script/utils/copyArtifacts.js",
-    "post-deploy:copy-abis": "npm run copy:abis"
+    "post-deploy:copy-abis": "npm run copy:abis",
+    "deploy:sepolia": "npx hardhat run script/verify-sepolia-deployment.ts --network sepolia",
+    "test:sepolia": "npx hardhat run script/test-sepolia-contract.ts --network sepolia",
+    "test:sepolia-full": "npx hardhat test test/BeggingContract.sepolia.test.ts --network sepolia"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",

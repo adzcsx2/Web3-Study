@@ -1,5 +1,4 @@
-import { ethers, network } from "hardhat";
-import { upgrades } from "hardhat";
+import { ethers, network, upgrades } from "hardhat";
 import hre from "hardhat";
 import type {
   ContractTransactionResponse,
@@ -109,6 +108,10 @@ export interface DeployProxyOptions {
 
 export interface UpgradeProxyOptions {
   unsafeAllow?: string[];
+}
+
+export interface DeployContractOptions {
+  tokenMetadata?: TokenMetadata;
 }
 
 /**
@@ -436,7 +439,7 @@ export class DeployHelper {
       contractFactory,
       args,
       deployOptions
-    )) as T;
+    )) as unknown as T;
 
     const deploymentTx = deployedContract.deploymentTransaction();
     await deployedContract.waitForDeployment();
@@ -497,6 +500,104 @@ export class DeployHelper {
 
     return { contract: deployedContract, versionInfo };
   }
+
+  /**
+   * 部署普通合约（非代理合约，自动保存部署信息）
+   * @param contractName 合约名称
+   * @param args 构造函数参数
+   * @param options 部署选项
+   */
+  async deployContract<T extends BaseContract>(
+    contractName: string,
+    args: unknown[] = [],
+    options: DeployContractOptions = {}
+  ): Promise<DeploymentResult> {
+    const [signer] = await ethers.getSigners();
+    const deployerAddress = await signer.getAddress();
+
+    console.log(`🚀 开始部署普通合约: ${contractName}`);
+    console.log(`📍 部署者地址: ${deployerAddress}`);
+    console.log(`🌐 网络: ${network.name}`);
+    if (args.length > 0) {
+      console.log(`📦 构造函数参数:`, args);
+    }
+
+    const contractFactory = await ethers.getContractFactory(
+      contractName,
+      signer
+    );
+
+    // 提前获取 ABI
+    const abiJson = contractFactory.interface.formatJson();
+    const abi: ABIItem[] = JSON.parse(abiJson);
+
+    console.log(`⏳ 正在部署合约...`);
+    const deployedContract = (await contractFactory.deploy(
+      ...args
+    )) as unknown as T;
+
+    const deploymentTx = deployedContract.deploymentTransaction();
+
+    console.log(`⏳ 等待合约部署确认...`);
+    await deployedContract.waitForDeployment();
+    const contractAddress = await deployedContract.getAddress();
+
+    let gasUsed: string | undefined;
+    let blockNumber: number | undefined;
+    let transactionHash: string | undefined;
+
+    if (deploymentTx) {
+      try {
+        const receipt = await deploymentTx.wait();
+        gasUsed = receipt?.gasUsed?.toString();
+        blockNumber = receipt?.blockNumber;
+        transactionHash = receipt?.hash;
+      } catch (error) {
+        console.warn("⚠️  无法获取交易收据:", error);
+      }
+    }
+
+    // 获取版本号
+    let version = "1";
+    try {
+      if (typeof (deployedContract as any).getVersion === "function") {
+        const contractVersion = await (deployedContract as any).getVersion();
+        version = contractVersion.toString();
+      }
+    } catch (error) {
+      // 普通合约可能没有版本号，使用默认值
+    }
+
+    const versionInfo: ContractVersionInfo = {
+      address: contractAddress,
+      transactionHash,
+      blockNumber,
+      gasUsed,
+      version,
+      deployer: deployerAddress,
+      deployedAt: new Date().toISOString(),
+      isProxy: false,
+      isActive: true,
+      abi,
+    };
+
+    console.log(`✅ 普通合约部署成功:`);
+    console.log(`   - 合约地址: ${contractAddress}`);
+    console.log(`   - 交易哈希: ${transactionHash}`);
+    console.log(`   - 区块号: ${blockNumber}`);
+    console.log(`   - Gas 使用: ${gasUsed}`);
+    console.log(`   - 版本: ${version}`);
+
+    // 自动保存部署信息
+    await this.saveContractDeployment(
+      contractName,
+      versionInfo,
+      options.tokenMetadata
+    );
+
+    return { contract: deployedContract, versionInfo };
+  }
+
   /**
    * 升级代理合约（自动保存升级历史）
    * @param proxyAddress 代理合约地址
@@ -539,7 +640,7 @@ export class DeployHelper {
       proxyAddress,
       contractFactory,
       upgradeOptions
-    )) as T;
+    )) as unknown as T;
 
     const newImplementation = await upgrades.erc1967.getImplementationAddress(
       proxyAddress

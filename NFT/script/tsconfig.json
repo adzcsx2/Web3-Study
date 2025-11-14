@@ -9,15 +9,13 @@
     "strict": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "types": ["node", "chai"]
+    "types": [
+      "node",
+      "chai",
+      "@nomicfoundation/hardhat-ethers",
+      "@openzeppelin/hardhat-upgrades"
+    ]
   },
-  "include": [
-    "**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "../artifacts",
-    "../cache",
-    "../typechain"
-  ]
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules", "../artifacts", "../cache", "../typechain"]
 }

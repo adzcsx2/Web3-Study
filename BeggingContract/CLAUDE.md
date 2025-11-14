@@ -29,23 +29,18 @@ npx tsc --noEmit
 
 ### Contract Deployment
 
+⚠️ **Important**: Some deployment scripts referenced in package.json are missing:
+- `deploy_NFT_contract_enhanced.ts` (missing)
+- `deploy_all_contracts.ts` (missing)
+- `verify_deployment.ts` (missing)
+
+Available deployment scripts:
 ```bash
-# Deploy NFT contracts
-npm run deploy:nft                                   # Local network
-npm run deploy:nft:local                           # Explicitly on localhost
-npm run deploy:nft:sepolia                         # On Sepolia testnet
-
-# Deploy all contracts
-npm run deploy:all                                  # Local network
-npm run deploy:all:local                          # Explicitly on localhost
-npm run deploy:all:sepolia                        # On Sepolia testnet
-
-# Deploy with unsafe demo options (for testing)
-npm run deploy:nft:unsafe-demo                    # Local network with unsafe options
-
-# Verify contracts on Etherscan
-npm run verify:deployment                          # Local verification
-npm run verify:deployment:sepolia                  # Sepolia verification
+# Legacy deployment scripts (existing)
+npx hardhat run script/deploy_NFT.ts               # Basic NFT deployment
+npx hardhat run script/deploy_NFT2.ts              # NFT2 deployment
+npx hardhat run script/deploy_NFT3.ts              # NFT3 deployment
+npx hardhat run script/deploy_upgrade.ts           # Upgrade deployment
 
 # Copy ABIs to frontend after deployment
 npm run copy:abis
@@ -59,6 +54,28 @@ npm run security                                    # High-priority security iss
 npm run slither                                     # Full Slither analysis
 npm run slither:high                               # High-severity issues only
 npm run slither:report                             # Generate JSON report
+```
+
+### Frontend Development
+
+```bash
+cd front
+
+# Development
+npm run dev                                          # Start development server with Turbopack
+npm run build                                        # Build production version
+npm run start                                        # Start production server
+
+# Multi-environment builds
+npm run build:test                                  # Build test environment
+npm run build:production                            # Build production environment
+npm run start:test                                   # Start test server (port 3001)
+npm run start:production                             # Start production server (port 3000)
+
+# Code quality
+npm run lint                                         # ESLint checks
+npm run lint:fix                                     # Fix ESLint issues
+npm run format                                       # Format code with Prettier
 ```
 
 ### Offchain Monitor Service
@@ -83,77 +100,92 @@ npm run lint                                         # ESLint check
 ## Architecture Overview
 
 ### Smart Contracts (`/contracts/`)
-- **MyNFT.sol**: Primary ERC721Upgradeable NFT contract with:
-  - UUPS upgradeability pattern
-  - ERC2981 royalty support
-  - Pausable functionality
-  - Batch minting capabilities
-  - Max supply limits (100 tokens)
-  - OpenZeppelin v5 integration with custom errors
+
+#### Primary Contract - BeggingContract.sol
+**Multi-token donation platform with comprehensive features:**
+- **Multi-token support**: ETH, ERC20, ERC721, ERC1155 donations
+- **Time-restricted donations**: Configurable start/end times
+- **Top 3 donator leaderboard**: Automatic ranking system
+- **Owner withdrawal functions**: Secure fund extraction
+- **Pause/unpause functionality**: Emergency controls
+- **Custom errors and modifiers**: Modular architecture with separate error/event/modifier files
+- **Security features**: ReentrancyGuard, access controls
+
+#### Legacy NFT Contracts (Being Phased Out)
+- **MyNFT.sol & MyNFT2.sol**: ERC721Upgradeable contracts with royalty features
+- **UUPS upgradeability**: OpenZeppelin upgradeable patterns
+- **Comprehensive testing**: 76 test files covering all scenarios
 
 ### Project Structure
-- `/contracts/contract/`: Main smart contract implementations
-- `/contracts/interfaces/`: Contract interfaces (currently .gitkeep)
-- `/script/`: Deployment scripts with enhanced DeployHelper utility
-- `/test/`: Comprehensive test suite with multiple test categories
-- `/offchain-monitor-service/`: Node.js service for blockchain event monitoring
-- `/front/`: Frontend application (separate project)
-- `/deployments/`: Deployment history and artifacts
+```
+├── contracts/
+│   ├── contract/           # Main smart contracts (BeggingContract.sol, MyNFT.sol)
+│   ├── errors/            # Custom error definitions
+│   ├── events/            # Custom event definitions
+│   ├── modify/            # Custom modifiers (CustomModifier.sol)
+│   ├── constants/         # Contract constants
+│   ├── structs/           # Struct definitions
+│   ├── utils/             # Utility contracts
+│   └── interfaces/        # Contract interfaces
+├── script/                # Deployment scripts (limited set available)
+├── test/                  # Comprehensive test suite (76 test files)
+├── offchain-monitor-service/  # Node.js event monitoring service
+├── front/                 # Next.js 15 + React 19 frontend application
+├── deployments/           # Deployment history and artifacts
+└── abis/                  # Contract ABIs for frontend integration
+```
 
-### Deployment System
-The project uses an enhanced deployment system with `DeployHelper` class that:
-- Automatically tracks deployment history in JSON files
-- Saves ABIs to frontend directory for seamless integration
-- Supports both initial deployments and upgrades
-- Maintains version history for upgradeable contracts
-- Handles multiple networks (localhost, Sepolia, mainnet)
+### Frontend Application (Next.js 15)
 
-### Testing Strategy
-Comprehensive testing approach with specialized files:
-- **MyNFT.test.ts**: Core unit tests covering all contract functionality
-- **MyNFT.gas.test.ts**: Gas optimization analysis and performance metrics
-- **MyNFT.integration.test.ts**: End-to-end workflow testing
-- **MyNFT.deployment.test.ts**: Deployment verification and upgrade testing
-- **MyNFT.typesafe.test.ts**: TypeScript type safety verification
+#### Technology Stack
+- **Next.js 15.5.3** with App Router and Turbopack for performance
+- **React 19** with Ant Design 5.27.4 compatibility patches
+- **Web3 Integration**: RainbowKit, Wagmi, Viem, Ethers.js
+- **State Management**: Zustand 5.0.8
+- **Styling**: Tailwind CSS 4 + Ant Design components
+- **TypeScript**: Strict configuration with path aliases
+
+#### Key Features
+- **Automated i18n System**: VS Code plugin auto-translates Chinese to English
+- **HTTP Client**: Request caching, retry logic, deduplication
+- **Multi-environment Support**: Test/production builds with PM2 deployment
+- **Web3 Integration**: Wallet connection, contract interaction
 
 ### Offchain Monitoring Service
-Node.js service (`offchain-monitor-service/`) that:
+Node.js service that:
 - Listens to blockchain events via WebSocket connections
-- Processes NFT transfer and minting events
+- Processes donation and transfer events
 - Stores event data in Supabase database
-- Supports multiple networks with Infura integration
-- Uses Winston for structured logging
-- Deployed on Railway with health check endpoint
+- Uses Infura for multi-network support
+- Winston structured logging
+- Railway deployment with health check endpoint
 
 ## Development Guidelines
 
 ### Contract Development
-- All contracts use OpenZeppelin v5 with upgradeable patterns
-- Follow UUPS upgradeability pattern for efficiency
-- Use custom errors instead of string messages (OpenZeppelin v5 standard)
-- Implement comprehensive access controls with `onlyOwner` modifiers
-- Include detailed NatSpec comments for all public functions
+- **Focus on BeggingContract**: Primary development should target the donation platform
+- **OpenZeppelin v5**: Use latest version with custom errors pattern
+- **Modular Architecture**: Separate errors, events, and modifiers into dedicated files
+- **Security First**: Implement ReentrancyGuard and comprehensive input validation
+- **Time-bound Features**: Leverage the startTime/endTime functionality for campaigns
 
-### Testing Requirements
-- All new contracts must have comprehensive test coverage
-- Include gas optimization tests for performance analysis
-- Test both success and failure scenarios with proper assertions
-- Use TypeScript type checking for all test files
-- Follow the existing test file organization pattern
+### Testing Strategy
+- **Comprehensive Coverage**: 76 test files covering unit, integration, gas, and deployment scenarios
+- **Gas Analysis**: Include performance testing for optimization
+- **Multi-contract Testing**: Test interactions between different contract types
+- **TypeScript Safety**: Use type checking for all test files
+
+### Frontend Development
+- **Chinese-First Development**: Write components in Chinese, let VS Code plugin handle English translation
+- **Web3 Integration**: Use Wagmi hooks for contract interactions with BeggingContract
+- **State Management**: Zustand stores for auth, loading, and user data
+- **Performance**: Leverage Turbopack, HTTP caching, and request deduplication
 
 ### Deployment Best Practices
-- Use `DeployHelper` class for all deployments to maintain consistent history
-- Always verify contracts after deployment to testnets
-- Copy ABIs to frontend directory after deployment
-- Test deployments on localhost before deploying to testnets
-- Keep environment variables (`.env`) properly configured for different networks
-
-### Security Considerations
-- Run security analysis with Slither before each deployment
-- Pay attention to reentrancy protection and integer overflow checks
-- Use Pauser pattern for emergency response capabilities
-- Implement proper input validation on all external functions
-- Keep OpenZeppelin contracts updated to latest stable versions
+- **Script Limitations**: Work around missing deployment scripts by using available ones
+- **Local Testing**: Always test on localhost before testnet deployment
+- **ABI Management**: Use `npm run copy:abis` after deployments
+- **Environment Variables**: Properly configure .env files for different networks
 
 ## Environment Configuration
 
@@ -162,23 +194,41 @@ Node.js service (`offchain-monitor-service/`) that:
 # Network Configuration
 INFURA_PROJECT_ID=your_infura_project_id
 PRIVATE_KEY=your_private_key
+ETHERSCAN_API_KEY=your_etherscan_api_key
+
+# Network-specific RPC URLs
+SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_PROJECT_ID
+MAINNET_RPC_URL=https://mainnet.infura.io/v3/YOUR_PROJECT_ID
 
 # Supabase Configuration (for offchain service)
 SUPABASE_URL=your_supabase_url
 SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_KEY=your_supabase_service_key
 
-# Network-specific RPC URLs
-SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_PROJECT_ID
-MAINNET_RPC_URL=https://mainnet.infura.io/v3/YOUR_PROJECT_ID
+# Frontend Configuration
+NEXT_PUBLIC_BASE_API=https://your-api-endpoint.com
+NEXT_PUBLIC_APP_TITLE=捐赠平台
+NEXT_PUBLIC_DEFAULT_LANGUAGE=zh
+NEXT_PUBLIC_SUPPORTED_LANGUAGES=zh,en
 ```
 
-## Important Notes
+## Current Project Status
 
-- This is a Web3 project focused on NFT development with upgradeable smart contracts
-- Uses TypeScript throughout for type safety
-- Implements industry-standard security practices with Slither integration
-- Includes comprehensive monitoring service for production environments
-- Frontend application should import ABIs from `front/src/app/abi/` after deployments
-- All contracts are upgradeable using OpenZeppelin's UUPS pattern
-- Project follows modular architecture with clear separation of concerns
+**This project has evolved from an NFT-focused system to a comprehensive donation/fundraising platform:**
+
+### Active Development
+- **BeggingContract.sol**: Multi-token donation platform with time restrictions and leaderboard
+- **Frontend**: Modern Next.js 15 application with automated i18n and Web3 integration
+- **Offchain Service**: Event monitoring for donation tracking
+
+### Legacy Components
+- **MyNFT contracts**: Still present but being phased out
+- **Missing Scripts**: Some deployment scripts referenced in package.json don't exist
+- **Documentation**: Current CLAUDE.md focuses more on legacy NFT functionality
+
+### Development Focus
+Prioritize development on:
+1. **BeggingContract features**: Donation campaigns, multi-token support, leaderboard functionality
+2. **Frontend integration**: Connect donation platform with Next.js frontend
+3. **Event monitoring**: Set up offchain service for donation tracking
+4. **Script completion**: Create missing deployment scripts for streamlined deployment

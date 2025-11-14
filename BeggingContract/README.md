@@ -216,13 +216,13 @@ test/
 ### 测试覆盖范围
 
 - ✅ 合约初始化和配置
-- ✅ NFT铸造和转移
+- ✅ NFT 铸造和转移
 - ✅ 访问控制和权限管理
 - ✅ 暂停/恢复机制
 - ✅ 版税功能
 - ✅ 合约升级机制
 - ✅ 错误处理和边界条件
-- ✅ Gas消耗分析
+- ✅ Gas 消耗分析
 - ✅ 集成测试场景
 
 ## 🔒 安全最佳实践
@@ -293,11 +293,156 @@ cd offchain-monitor-service && npm run build && npm start
 
 ### DeployHelper 部署工具
 
-- 自动化部署流程
-- 部署历史记录
-- ABI管理
-- 多网络支持
-- 合约升级支持
+`DeployHelper` 是一个强大的合约部署和管理工具类，提供以下核心功能：
+
+#### 功能特性
+
+- ✅ **自动化部署流程** - 简化合约部署操作
+- ✅ **部署历史记录** - 完整的版本管理和历史追踪
+- ✅ **ABI 自动管理** - 自动保存和同步 ABI 到前端
+- ✅ **多网络支持** - 支持多个网络的独立配置
+- ✅ **合约升级支持** - UUPS/Transparent 代理升级
+- ✅ **普通合约部署** - 支持非代理合约的部署
+
+#### 部署方法
+
+##### 1. 部署代理合约
+
+```typescript
+import { DeployHelper } from "./utils/DeployHelper";
+
+const helper = new DeployHelper();
+
+// 部署 UUPS 代理合约
+const { contract, versionInfo } = await helper.deployProxy(
+  "MyContract",
+  [arg1, arg2], // 初始化参数
+  {
+    kind: "uups", // 或 "transparent"
+    initializer: "initialize", // 初始化函数名
+    tokenMetadata: {
+      // 可选的 Token 元数据
+      name: "MyToken",
+      symbol: "MTK",
+      decimals: 18,
+    },
+  }
+);
+
+console.log(`代理地址: ${versionInfo.address}`);
+console.log(`实现地址: ${versionInfo.implementationAddress}`);
+```
+
+##### 2. 升级代理合约
+
+```typescript
+// 升级现有代理合约
+const { contract, versionInfo, newImplementation } = await helper.upgradeProxy(
+  "0x1234...", // 代理合约地址
+  "MyContractV2", // 新合约名称
+  {
+    unsafeAllow: ["constructor", "state-variable-immutable"],
+  }
+);
+
+console.log(`新实现地址: ${newImplementation}`);
+console.log(`版本: ${versionInfo.version}`);
+```
+
+##### 3. 部署普通合约
+
+```typescript
+// 部署非代理合约（如 BeggingContract）
+const { contract, versionInfo } = await helper.deployContract(
+  "BeggingContract",
+  [startTime, endTime], // 构造函数参数
+  {
+    tokenMetadata: {
+      // 可选
+      name: "BeggingToken",
+      symbol: "BGT",
+      decimals: 18,
+    },
+  }
+);
+
+console.log(`合约地址: ${versionInfo.address}`);
+console.log(`交易哈希: ${versionInfo.transactionHash}`);
+console.log(`Gas 使用: ${versionInfo.gasUsed}`);
+```
+
+#### 自动保存功能
+
+所有部署方法都会自动：
+
+1. **保存部署信息** - 写入 `deployments/{network}-deployment.json`
+2. **同步到前端** - 复制到 `front/src/app/abi/{network}-deployment.json`
+3. **保存 ABI** - 独立保存合约 ABI 到前端目录
+4. **记录历史版本** - 维护完整的部署和升级历史
+
+#### 部署信息结构
+
+```typescript
+{
+  "network": "sepolia",
+  "chainId": "11155111",
+  "lastUpdated": "2025-11-15T10:30:00.000Z",
+  "contracts": {
+    "BeggingContract": {
+      "contractName": "BeggingContract",
+      "proxyAddress": "0x1234...",
+      "currentVersion": "1",
+      "versions": [
+        {
+          "address": "0x1234...",
+          "transactionHash": "0xabcd...",
+          "blockNumber": 12345,
+          "gasUsed": "500000",
+          "version": "1",
+          "deployer": "0x5678...",
+          "deployedAt": "2025-11-15T10:30:00.000Z",
+          "isProxy": false,
+          "isActive": true,
+          "abi": [...]
+        }
+      ]
+    }
+  },
+  "tokens": {
+    "BeggingContract": {
+      "name": "BeggingToken",
+      "symbol": "BGT",
+      "decimals": 18
+    }
+  }
+}
+```
+
+#### 使用示例
+
+完整的部署脚本示例：
+
+```typescript
+import { DeployHelper } from "./utils/DeployHelper";
+
+async function main() {
+  const helper = new DeployHelper();
+
+  const startTime = Math.floor(Date.now() / 1000);
+  const endTime = startTime + 30 * 24 * 60 * 60; // 30天后
+
+  const { contract, versionInfo } = await helper.deployContract(
+    "BeggingContract",
+    [startTime, endTime]
+  );
+
+  console.log("部署完成！");
+  console.log(`合约地址: ${await contract.getAddress()}`);
+  console.log(`部署信息已保存到: deployments/ 和 front/src/app/abi/`);
+}
+
+main().catch(console.error);
+```
 
 ### 链下监听服务
 
@@ -331,7 +476,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: "18"
       - name: Install dependencies
         run: npm ci
       - name: Run tests
@@ -344,7 +489,7 @@ jobs:
 
 - [CLAUDE.md](./CLAUDE.md) - Claude Code 开发指南
 - [test/README.md](./test/README.md) - 测试文档
-- [API文档](./docs/api.md) - API接口文档
+- [API 文档](./docs/api.md) - API 接口文档
 - [部署指南](./docs/deployment.md) - 详细部署说明
 
 ## 🤝 贡献指南

@@ -21,7 +21,8 @@
       "Bash(timeout 10s npm run start:listener:*)",
       "Bash(npm run test:*)",
       "Bash(npm run debug:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(npx hardhat coverage:*)"
     ],
     "deny": [],
     "ask": []

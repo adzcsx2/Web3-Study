@@ -41,5 +41,9 @@ const config: HardhatUserConfig = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
   },
+  mocha: {
+    timeout: 600000, // 10分钟超时
+    parallel: false, // 如果需要并行测试
+  },
 };
 export default config;
