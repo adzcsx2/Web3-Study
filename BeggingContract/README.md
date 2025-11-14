@@ -1,496 +1,299 @@
-# Web3 项目架构模板
+# BeggingContract - 多代币捐赠平台
 
-一个标准化的 Web3 智能合约项目模板，包含完整的开发工具链、测试套件、部署系统和链下监听服务。
+一个基于Solidity开发的智能合约，支持多种代币类型的去中心化捐赠平台，包含排行榜功能、时间限制和全面的资金管理。
 
-## 🏗️ 项目架构
+## 🚀 主要特性
+
+### 核心功能
+- **多代币支持**: ETH、ERC20、ERC721 (NFT)、ERC1155 (多代币NFT)
+- **智能排行榜**: 自动维护捐赠金额最多的前3名捐赠者
+- **时间限制**: 可配置的捐赠开始/结束时间
+- **资金提取**: 合约所有者可以安全提取所有类型的捐赠
+- **暂停功能**: 紧急情况下可暂停/恢复合约操作
+
+### 安全特性
+- **重入攻击防护**: 使用OpenZeppelin的ReentrancyGuard
+- **访问控制**: 基于所有者权限的管理机制
+- **安全转账**: 所有代币转账使用SafeTransfer模式
+- **输入验证**: 全面的参数验证和自定义错误
+- **事件记录**: 完整的捐赠和提现事件日志
+
+## 📋 合约架构
 
 ```
-BeggingContract/
-├── contracts/                     # 智能合约源码
-│   ├── constants/                 # 合约常量定义
-│   ├── contract/                  # 主合约实现
-│   ├── errors/                    # 自定义错误定义
-│   ├── events/                    # 事件定义
-│   ├── interfaces/                # 接口定义
-│   ├── modify/                    # 自定义修饰符
-│   ├── structs/                   # 结构体定义
-│   └── utils/                     # 合约工具函数
-├── script/                        # 部署和工具脚本
-│   └── utils/                     # 部署辅助工具
-├── test/                          # 测试套件
-├── offchain-monitor-service/      # 链下监听服务
-│   ├── abis/                      # 合约ABI文件
-│   ├── logs/                      # 服务日志
-│   └── src/                       # 服务源码
-│       ├── config/                # 配置文件
-│       ├── services/              # 核心服务
-│       ├── types/                 # 类型定义
-│       └── utils/                 # 工具函数
-├── front/                         # 前端应用
-│   ├── public/                    # 静态资源
-│   ├── scripts/                   # 构建脚本
-│   └── src/                       # 前端源码
-│       ├── app/                   # App Router (Next.js)
-│       │   ├── abi/               # 合约ABI
-│       │   ├── api/               # API路由
-│       │   └── [pages]/           # 页面组件
-│       ├── components/            # 可复用组件
-│       ├── config/                # 前端配置
-│       ├── constants/             # 常量定义
-│       ├── hooks/                 # 自定义Hooks
-│       ├── http/                  # HTTP客户端
-│       ├── i18n/                  # 国际化
-│       ├── lib/                   # 第三方库配置
-│       ├── locales/               # 语言包
-│       ├── middleware/            # 中间件
-│       ├── router/                # 路由配置
-│       ├── scripts/               # 页面脚本
-│       ├── services/              # 业务服务
-│       ├── stores/                # 状态管理
-│       ├── styles/                # 样式文件
-│       ├── types/                 # TypeScript类型
-│       └── utils/                 # 工具函数
-├── src/                           # 后端服务源码（可选）
-│   ├── config/                    # 配置文件
-│   ├── images/                    # 图片资源
-│   ├── metadata/                  # 元数据文件
-│   ├── services/                  # 后端服务
-│   ├── types/                     # 类型定义
-│   └── utils/                     # 工具函数
-├── deployments/                   # 部署历史记录
-├── docs/                          # 项目文档
-├── abis/                          # 合约ABI文件
-├── logs/                          # 日志文件
-├── .vscode/                       # VS Code配置
-├── .openzeppelin/                 # OpenZeppelin配置
-├── typechain-types/               # TypeScript类型生成
-└── artifacts/                     # 编译产物
+contracts/
+├── contract/
+│   └── BeggingContract.sol    # 主合约
+├── events/
+│   └── CustomEvents.sol       # 自定义事件定义
+├── errors/
+│   └── CustomErrors.sol       # 自定义错误
+├── modify/
+│   └── CustomModifier.sol     # 自定义修饰符
+├── mocks/                     # 测试用模拟合约
+│   ├── MockERC20.sol
+│   ├── MockERC721.sol
+│   └── MockERC1155.sol
+└── interfaces/                # 接口定义
 ```
 
-## 🚀 快速开始
+## 🛠 技术栈
+
+- **Solidity**: 0.8.26
+- **开发框架**: Hardhat
+- **库依赖**: OpenZeppelin Contracts v5.4.0
+- **测试框架**: Mocha + Chai
+- **类型安全**: TypeScript
+- **代码分析**: Slither (静态分析)
+
+## 📦 安装与设置
 
 ### 环境要求
-
-- Node.js >= 18.0.0
-- npm 或 yarn
-- Git
+- Node.js >= 16.0.0
+- npm >= 8.0.0
 
 ### 安装依赖
-
 ```bash
-# 安装主项目依赖
+# 克隆项目
+git clone <repository-url>
+cd BeggingContract
+
+# 安装依赖
 npm install
-
-# 安装前端依赖
-cd front && npm install
-
-# 安装链下监听服务依赖
-cd offchain-monitor-service && npm install
 ```
 
 ### 环境配置
-
 创建 `.env` 文件并配置以下变量：
 
 ```bash
-# 网络配置
+# Infura Project ID (用于网络连接)
 INFURA_PROJECT_ID=your_infura_project_id
+
+# 部署账户私钥 (注意：不要在生产环境提交真实私钥)
 PRIVATE_KEY=your_private_key
 
-# Supabase配置（链下服务）
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_KEY=your_supabase_service_key
+# Etherscan API Key (用于合约验证)
+ETHERSCAN_API_KEY=your_etherscan_api_key
 
-# RPC URLs
+# 网络RPC URLs
 SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_PROJECT_ID
 MAINNET_RPC_URL=https://mainnet.infura.io/v3/YOUR_PROJECT_ID
 ```
 
-## 🛠️ 开发指南
+## 🔧 开发命令
 
-### 智能合约开发
-
+### 编译合约
 ```bash
-# 编译合约
+# 编译所有合约
 npx hardhat compile
 
-# 运行测试
+# 带详细输出的编译
+npx hardhat compile --verbose
+```
+
+### 测试
+```bash
+# 运行所有测试
 npx hardhat test
 
-# 运行特定测试
-npx hardhat test test/MyNFT.test.ts
+# 运行特定测试文件
+npx hardhat test test/BeggingContract.test.ts
 
-# 测试覆盖率
-npx hardhat coverage
-
-# Gas分析
+# 运行测试并生成Gas报告
 REPORT_GAS=true npx hardhat test
+
+# 运行测试覆盖率
+npx hardhat coverage
 
 # 类型检查
 npx tsc --noEmit
 ```
 
-### 合约部署
-
+### 部署
 ```bash
 # 部署到本地网络
-npm run deploy:nft:local
+npx hardhat run script/deploy_NFT.ts --network localhost
 
 # 部署到Sepolia测试网
-npm run deploy:nft:sepolia
+npx hardhat run script/deploy_NFT.ts --network sepolia
 
-# 部署所有合约
-npm run deploy:all:sepolia
-
-# 验证合约
-npm run verify:deployment:sepolia
+# 部署到主网 (谨慎操作)
+npx hardhat run script/deploy_NFT.ts --network mainnet
 
 # 复制ABI到前端
 npm run copy:abis
 ```
 
 ### 安全分析
-
 ```bash
-# 运行安全分析
+# 运行高优先级安全检查
 npm run security
 
-# 生成详细报告
+# 完整Slither分析
+npm run slither
+
+# 生成安全报告
 npm run slither:report
 ```
 
-### 前端开发
+## 📊 合约接口
 
+### 核心函数
+
+#### 捐赠功能
+```solidity
+// ETH捐赠
+function donateETH() external payable
+
+// ERC20代币捐赠
+function donateERC20(address tokenAddress, uint256 amount) external
+
+// ERC721 NFT捐赠
+function donateNFT(address nftAddress, uint256 tokenId) external
+
+// ERC1155多代币捐赠
+function donateERC1155(
+    address nftAddress,
+    uint256 tokenId,
+    uint256 amount,
+    bytes calldata data
+) external
+```
+
+#### 提取功能 (仅所有者)
+```solidity
+// 提取ETH
+function withdrawETH() external onlyOwner
+
+// 提取ERC20
+function withdrawERC20(address tokenAddress) external onlyOwner
+
+// 提取ERC721 NFT
+function withdrawNFT(address nftAddress, uint256 tokenId) external onlyOwner
+
+// 提取ERC1155
+function withdrawERC1155(
+    address nftAddress,
+    uint256 tokenId,
+    uint256 amount
+) external onlyOwner
+
+// 批量提取ERC1155
+function batchWithdrawERC1155(
+    address nftAddress,
+    uint256[] calldata ids,
+    uint256[] calldata amounts
+) external onlyOwner
+```
+
+#### 查询功能
+```solidity
+// 获取用户捐赠总额
+function getDonation(address donator) external view returns (uint256)
+
+// 获取排行榜前三名
+function getTopDonators() external view returns (address[] memory)
+```
+
+#### 管理功能 (仅所有者)
+```solidity
+// 暂停合约
+function pause() external onlyOwner
+
+// 恢复合约
+function unpause() external onlyOwner
+```
+
+### 事件
+```solidity
+// 捐赠事件
+event DonationETH(address indexed donator, uint256 amount, uint256 timestamp);
+event DonationERC20(address indexed donator, address indexed tokenAddress, uint256 amount, uint256 timestamp);
+event DonationERC721(address indexed donator, address indexed tokenAddress, uint256 tokenId, uint256 timestamp);
+event DonationERC1155(address indexed donator, address indexed tokenAddress, uint256 tokenId, uint256 amount, uint256 timestamp);
+
+// 提现事件
+event WithdrawETH(address indexed to, uint256 amount, uint256 timestamp);
+event WithdrawERC20(address indexed to, address indexed tokenAddress, uint256 amount, uint256 timestamp);
+event WithdrawERC721(address indexed to, address indexed tokenAddress, uint256 tokenId, uint256 timestamp);
+event WithdrawERC1155(address indexed to, address indexed tokenAddress, uint256 tokenId, uint256 amount, uint256 timestamp);
+
+// 排行榜事件
+event RankDonator(address indexed donator, uint256 amount, uint256 timestamp);
+```
+
+## 🚀 部署指南
+
+### 本地部署
 ```bash
-cd front
-
-# 开发模式
-npm run dev
-
-# 构建生产版本
-npm run build
-
-# 启动生产服务器
-npm start
-
-# 类型检查
-npm run type-check
-
-# 代码检查
-npm run lint
-```
-
-### 链下监听服务
-
-```bash
-cd offchain-monitor-service
-
-# 开发模式
-npm run dev
-
-# 构建项目
-npm run build
-
-# 启动服务
-npm start
-
-# 测试服务
-npm run test
-```
-
-## 🧪 测试策略
-
-### 测试文件组织
-
-```
-test/
-├── MyNFT.test.ts                 # 核心功能测试
-├── MyNFT.gas.test.ts            # Gas消耗分析
-├── MyNFT.integration.test.ts    # 集成测试
-├── MyNFT.deployment.test.ts     # 部署测试
-├── MyNFT.typesafe.test.ts       # 类型安全测试
-└── README.md                    # 测试说明文档
-```
-
-### 测试覆盖范围
-
-- ✅ 合约初始化和配置
-- ✅ NFT 铸造和转移
-- ✅ 访问控制和权限管理
-- ✅ 暂停/恢复机制
-- ✅ 版税功能
-- ✅ 合约升级机制
-- ✅ 错误处理和边界条件
-- ✅ Gas 消耗分析
-- ✅ 集成测试场景
-
-## 🔒 安全最佳实践
-
-### 智能合约安全
-
-- 使用 OpenZeppelin v5 标准库
-- 实施重入攻击保护
-- 整数溢出检查
-- 访问控制机制
-- 暂停功能支持
-- 定期安全扫描
-
-### 代码质量
-
-- TypeScript 类型安全
-- ESLint 代码规范
-- Prettier 代码格式化
-- 全面的单元测试
-- 集成测试覆盖
-- Gas 优化分析
-
-## 📦 部署流程
-
-### 1. 本地开发和测试
-
-```bash
-# 启动本地Hardhat网络
+# 启动本地Hardhat节点
 npx hardhat node
 
-# 部署到本地网络
-npm run deploy:nft:local
-
-# 运行测试验证
-npx hardhat test
+# 在新终端中部署合约
+npx hardhat run script/deploy_NFT.ts --network localhost
 ```
 
-### 2. 测试网部署
-
+### 测试网部署 (Sepolia)
 ```bash
-# 配置环境变量
-# 编辑 .env 文件
-
+# 确保有足够的测试ETH
 # 部署到Sepolia
-npm run deploy:nft:sepolia
+npx hardhat run script/deploy_NFT.ts --network sepolia
 
-# 验证合约
-npm run verify:deployment:sepolia
+# 验证合约 (可选)
+npx hardhat verify --network sepolia <CONTRACT_ADDRESS>
 ```
 
-### 3. 生产部署
+### 生产环境部署
+⚠️ **警告**: 生产环境部署需要谨慎操作，建议先进行全面的安全审计。
 
 ```bash
-# 运行完整安全分析
-npm run security
-
 # 部署到主网
-npm run deploy:nft:mainnet
+npx hardhat run script/deploy_NFT.ts --network mainnet
 
 # 验证合约
-npm run verify:deployment:mainnet
-
-# 启动链下监听服务
-cd offchain-monitor-service && npm run build && npm start
+npx hardhat verify --network mainnet <CONTRACT_ADDRESS>
 ```
 
-## 🧩 项目组件说明
+## 🧪 测试
 
-### DeployHelper 部署工具
+项目包含全面的测试套件，覆盖：
 
-`DeployHelper` 是一个强大的合约部署和管理工具类，提供以下核心功能：
+- **单元测试**: 各个函数的功能测试
+- **集成测试**: 完整的捐赠流程测试
+- **Gas分析**: 优化Gas消耗
+- **边界测试**: 极端情况处理
+- **安全测试**: 重入攻击、权限控制等
 
-#### 功能特性
-
-- ✅ **自动化部署流程** - 简化合约部署操作
-- ✅ **部署历史记录** - 完整的版本管理和历史追踪
-- ✅ **ABI 自动管理** - 自动保存和同步 ABI 到前端
-- ✅ **多网络支持** - 支持多个网络的独立配置
-- ✅ **合约升级支持** - UUPS/Transparent 代理升级
-- ✅ **普通合约部署** - 支持非代理合约的部署
-
-#### 部署方法
-
-##### 1. 部署代理合约
-
-```typescript
-import { DeployHelper } from "./utils/DeployHelper";
-
-const helper = new DeployHelper();
-
-// 部署 UUPS 代理合约
-const { contract, versionInfo } = await helper.deployProxy(
-  "MyContract",
-  [arg1, arg2], // 初始化参数
-  {
-    kind: "uups", // 或 "transparent"
-    initializer: "initialize", // 初始化函数名
-    tokenMetadata: {
-      // 可选的 Token 元数据
-      name: "MyToken",
-      symbol: "MTK",
-      decimals: 18,
-    },
-  }
-);
-
-console.log(`代理地址: ${versionInfo.address}`);
-console.log(`实现地址: ${versionInfo.implementationAddress}`);
+```bash
+# 运行特定类型测试
+npx hardhat test test/BeggingContract.test.ts
+npx hardhat test test/BeggingContract.sepolia.test.ts --network sepolia
 ```
 
-##### 2. 升级代理合约
+## 🔒 安全考虑
 
-```typescript
-// 升级现有代理合约
-const { contract, versionInfo, newImplementation } = await helper.upgradeProxy(
-  "0x1234...", // 代理合约地址
-  "MyContractV2", // 新合约名称
-  {
-    unsafeAllow: ["constructor", "state-variable-immutable"],
-  }
-);
+### 已实现的安全措施
+- ✅ 重入攻击防护 (ReentrancyGuard)
+- ✅ 访问控制 (Ownable)
+- ✅ 时间限制验证
+- ✅ 余额检查
+- ✅ 安全转账模式
+- ✅ 暂停机制
+- ✅ 事件日志记录
 
-console.log(`新实现地址: ${newImplementation}`);
-console.log(`版本: ${versionInfo.version}`);
-```
+### 安全建议
+1. **定期安全审计**: 建议每次部署前进行代码审计
+2. **渐进式部署**: 先在测试网充分测试
+3. **权限管理**: 谨慎管理合约所有者权限
+4. **监控机制**: 建立链上事件监控系统
+5. **应急计划**: 制定合约暂停和资金提取应急预案
 
-##### 3. 部署普通合约
+## 📈 Gas优化
 
-```typescript
-// 部署非代理合约（如 BeggingContract）
-const { contract, versionInfo } = await helper.deployContract(
-  "BeggingContract",
-  [startTime, endTime], // 构造函数参数
-  {
-    tokenMetadata: {
-      // 可选
-      name: "BeggingToken",
-      symbol: "BGT",
-      decimals: 18,
-    },
-  }
-);
-
-console.log(`合约地址: ${versionInfo.address}`);
-console.log(`交易哈希: ${versionInfo.transactionHash}`);
-console.log(`Gas 使用: ${versionInfo.gasUsed}`);
-```
-
-#### 自动保存功能
-
-所有部署方法都会自动：
-
-1. **保存部署信息** - 写入 `deployments/{network}-deployment.json`
-2. **同步到前端** - 复制到 `front/src/app/abi/{network}-deployment.json`
-3. **保存 ABI** - 独立保存合约 ABI 到前端目录
-4. **记录历史版本** - 维护完整的部署和升级历史
-
-#### 部署信息结构
-
-```typescript
-{
-  "network": "sepolia",
-  "chainId": "11155111",
-  "lastUpdated": "2025-11-15T10:30:00.000Z",
-  "contracts": {
-    "BeggingContract": {
-      "contractName": "BeggingContract",
-      "proxyAddress": "0x1234...",
-      "currentVersion": "1",
-      "versions": [
-        {
-          "address": "0x1234...",
-          "transactionHash": "0xabcd...",
-          "blockNumber": 12345,
-          "gasUsed": "500000",
-          "version": "1",
-          "deployer": "0x5678...",
-          "deployedAt": "2025-11-15T10:30:00.000Z",
-          "isProxy": false,
-          "isActive": true,
-          "abi": [...]
-        }
-      ]
-    }
-  },
-  "tokens": {
-    "BeggingContract": {
-      "name": "BeggingToken",
-      "symbol": "BGT",
-      "decimals": 18
-    }
-  }
-}
-```
-
-#### 使用示例
-
-完整的部署脚本示例：
-
-```typescript
-import { DeployHelper } from "./utils/DeployHelper";
-
-async function main() {
-  const helper = new DeployHelper();
-
-  const startTime = Math.floor(Date.now() / 1000);
-  const endTime = startTime + 30 * 24 * 60 * 60; // 30天后
-
-  const { contract, versionInfo } = await helper.deployContract(
-    "BeggingContract",
-    [startTime, endTime]
-  );
-
-  console.log("部署完成！");
-  console.log(`合约地址: ${await contract.getAddress()}`);
-  console.log(`部署信息已保存到: deployments/ 和 front/src/app/abi/`);
-}
-
-main().catch(console.error);
-```
-
-### 链下监听服务
-
-- 实时事件监听
-- 数据持久化
-- 多网络支持
-- 结构化日志
-- 健康检查端点
-
-### 前端应用
-
-- Next.js 14 App Router
-- TypeScript 支持
-- 国际化支持
-- Web3 集成
-- 响应式设计
-
-## 🔄 CI/CD 集成
-
-### GitHub Actions 工作流
-
-```yaml
-# .github/workflows/ci.yml
-name: CI/CD Pipeline
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: "18"
-      - name: Install dependencies
-        run: npm ci
-      - name: Run tests
-        run: npm run test:all
-      - name: Security scan
-        run: npm run security
-```
-
-## 📚 文档
-
-- [CLAUDE.md](./CLAUDE.md) - Claude Code 开发指南
-- [test/README.md](./test/README.md) - 测试文档
-- [API 文档](./docs/api.md) - API 接口文档
-- [部署指南](./docs/deployment.md) - 详细部署说明
+- **优化的数据结构**: 使用高效的存储布局
+- **批量操作**: 支持批量ERC1155提现
+- **IR编译器**: 启用viaIR优化
+- **运行次数优化**: 编译器优化设置为200次
 
 ## 🤝 贡献指南
 
@@ -498,15 +301,13 @@ jobs:
 2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
 3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开 Pull Request
+5. 开启 Pull Request
 
 ### 代码规范
-
-- 遵循 TypeScript 最佳实践
-- 使用 ESLint 和 Prettier
+- 遵循Solidity样式指南
 - 编写全面的测试
+- 添加适当的注释
 - 更新相关文档
-- 通过所有 CI 检查
 
 ## 📄 许可证
 
@@ -514,22 +315,31 @@ jobs:
 
 ## 🆘 支持
 
-如果您遇到问题或有疑问：
+如有问题或建议，请：
+1. 查看 [FAQ](docs/FAQ.md)
+2. 搜索现有的 [Issues](../../issues)
+3. 创建新的 Issue 描述问题
 
-1. 查看 [FAQ](./docs/faq.md)
-2. 搜索 [Issues](../../issues)
-3. 创建新的 [Issue](../../issues/new)
-4. 联系维护者
+## 🗺 路线图
 
-## 🏆 致谢
+### v1.0 (当前版本)
+- [x] 基础多代币捐赠功能
+- [x] 排行榜系统
+- [x] 时间限制
+- [x] 安全机制
 
-- [OpenZeppelin](https://openzeppelin.com/) - 安全的智能合约库
-- [Hardhat](https://hardhat.org/) - 以太坊开发环境
-- [Ethers.js](https://ethers.org/) - 以太坊交互库
-- [Next.js](https://nextjs.org/) - React 框架
-- [Supabase](https://supabase.com/) - 后端即服务
-- [Railway](https://railway.app/) - 部署平台
+### v1.1 (计划中)
+- [ ] 分级捐赠者奖励
+- [ ] 捐赠里程碑系统
+- [ ] 多签钱包支持
+- [ ] 前端集成界面
+
+### v2.0 (未来版本)
+- [ ] 治理代币机制
+- [ ] DAO投票系统
+- [ ] 跨链捐赠
+- [ ] 自动化资金管理
 
 ---
 
-**注意**: 这是一个项目模板，请根据具体需求进行相应的修改和配置。
+**⚠️ 免责声明**: 本合约仅用于教育和演示目的。在生产环境使用前，请进行充分的安全审计和测试。开发者不对资金损失承担责任。
