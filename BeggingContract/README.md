@@ -77,12 +77,6 @@ INFURA_PROJECT_ID=your_infura_project_id
 # 部署账户私钥 (注意：不要在生产环境提交真实私钥)
 PRIVATE_KEY=your_private_key
 
-# Etherscan API Key (用于合约验证)
-ETHERSCAN_API_KEY=your_etherscan_api_key
-
-# 网络RPC URLs
-SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_PROJECT_ID
-MAINNET_RPC_URL=https://mainnet.infura.io/v3/YOUR_PROJECT_ID
 ```
 
 ## 🔧 开发命令

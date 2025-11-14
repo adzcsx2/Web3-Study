@@ -101,10 +101,6 @@ PRIVATE_KEY=your_private_key
 SUPABASE_URL=your_supabase_url
 SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_KEY=your_supabase_service_key
-
-# RPC URLs
-SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_PROJECT_ID
-MAINNET_RPC_URL=https://mainnet.infura.io/v3/YOUR_PROJECT_ID
 ```
 
 ## 🛠️ 开发指南
@@ -216,13 +212,13 @@ test/
 ### 测试覆盖范围
 
 - ✅ 合约初始化和配置
-- ✅ NFT铸造和转移
+- ✅ NFT 铸造和转移
 - ✅ 访问控制和权限管理
 - ✅ 暂停/恢复机制
 - ✅ 版税功能
 - ✅ 合约升级机制
 - ✅ 错误处理和边界条件
-- ✅ Gas消耗分析
+- ✅ Gas 消耗分析
 - ✅ 集成测试场景
 
 ## 🔒 安全最佳实践
@@ -295,7 +291,7 @@ cd offchain-monitor-service && npm run build && npm start
 
 - 自动化部署流程
 - 部署历史记录
-- ABI管理
+- ABI 管理
 - 多网络支持
 - 合约升级支持
 
@@ -331,7 +327,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: "18"
       - name: Install dependencies
         run: npm ci
       - name: Run tests
@@ -344,7 +340,7 @@ jobs:
 
 - [CLAUDE.md](./CLAUDE.md) - Claude Code 开发指南
 - [test/README.md](./test/README.md) - 测试文档
-- [API文档](./docs/api.md) - API接口文档
+- [API 文档](./docs/api.md) - API 接口文档
 - [部署指南](./docs/deployment.md) - 详细部署说明
 
 ## 🤝 贡献指南

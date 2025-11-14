@@ -126,9 +126,6 @@ cd offchain-monitor-service && npm install && cd ..
 PRIVATE_KEY=your_private_key_here
 INFURA_PROJECT_ID=your_infura_project_id
 
-# 网络配置
-NETWORK_NAME=sepolia
-NETWORK_CHAIN_ID=11155111
 ```
 
 #### 前端环境 (front/.env.local)
