@@ -22,7 +22,9 @@
       "Bash(npm run test:*)",
       "Bash(npm run debug:*)",
       "Bash(tree:*)",
-      "Bash(npx hardhat coverage:*)"
+      "Bash(npx hardhat coverage:*)",
+      "Bash(ssh:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
