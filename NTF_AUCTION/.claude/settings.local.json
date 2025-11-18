@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx hardhat test:*)",
+      "Bash(npx hardhat compile:*)",
+      "Bash(npx hardhat clean:*)",
+      "Bash(npx hardhat run:*)",
+      "Bash(dir:*)",
+      "Bash(npx hardhat node:*)",
+      "Bash(npm run deploy:simple:nft:*)",
+      "Bash(npm run)",
+      "Bash(npm run verify:deployment:*)",
+      "Bash(npm run copy:abis:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run deploy:nft:local:*)",
+      "Bash(npm run deploy:nft:unsafe-demo:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run test)",
+      "Bash(npm ls:*)",
+      "Bash(timeout 10s npm run start:listener:*)",
+      "Bash(npm run test:*)",
+      "Bash(npm run debug:*)",
+      "Bash(tree:*)",
+      "Bash(npx hardhat coverage:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
