@@ -24,7 +24,13 @@
       "Bash(tree:*)",
       "Bash(npx hardhat coverage:*)",
       "Bash(ssh:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(ssh-add:*)",
+      "Bash(cat:*)",
+      "Bash(git remote get-url:*)",
+      "Bash(git remote set-url:*)"
     ],
     "deny": [],
     "ask": []
