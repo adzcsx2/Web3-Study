@@ -1,0 +1,516 @@
+{
+  "contractName": "LiquidityManager",
+  "address": "0xfF993CFdB01499d4162007a9C8348c7D79C4D9aA",
+  "abi": [
+    {
+      "type": "error",
+      "name": "NotContractOwner",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "_user"
+        },
+        {
+          "type": "address",
+          "name": "_contractOwner"
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "PairCreated",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "pair",
+          "indexed": true
+        },
+        {
+          "type": "address",
+          "name": "token0",
+          "indexed": true
+        },
+        {
+          "type": "address",
+          "name": "token1",
+          "indexed": true
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "addLiquidity",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "tokenA"
+        },
+        {
+          "type": "address",
+          "name": "tokenB"
+        },
+        {
+          "type": "uint256",
+          "name": "amountADesired"
+        },
+        {
+          "type": "uint256",
+          "name": "amountBDesired"
+        },
+        {
+          "type": "uint256",
+          "name": "amountAMin"
+        },
+        {
+          "type": "uint256",
+          "name": "amountBMin"
+        },
+        {
+          "type": "address",
+          "name": "to"
+        },
+        {
+          "type": "uint256",
+          "name": "deadline"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": "amountA"
+        },
+        {
+          "type": "uint256",
+          "name": "amountB"
+        },
+        {
+          "type": "uint256",
+          "name": "liquidity"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "addLiquidityETH",
+      "constant": false,
+      "stateMutability": "payable",
+      "payable": true,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "token"
+        },
+        {
+          "type": "uint256",
+          "name": "amountTokenDesired"
+        },
+        {
+          "type": "uint256",
+          "name": "amountTokenMin"
+        },
+        {
+          "type": "uint256",
+          "name": "amountETHMin"
+        },
+        {
+          "type": "address",
+          "name": "to"
+        },
+        {
+          "type": "uint256",
+          "name": "deadline"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": "amountToken"
+        },
+        {
+          "type": "uint256",
+          "name": "amountETH"
+        },
+        {
+          "type": "uint256",
+          "name": "liquidity"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "createPair",
+      "constant": false,
+      "payable": false,
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "getAmountIn",
+      "constant": true,
+      "stateMutability": "pure",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "amountOut"
+        },
+        {
+          "type": "uint256",
+          "name": "reserveIn"
+        },
+        {
+          "type": "uint256",
+          "name": "reserveOut"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": "amountIn"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getAmountOut",
+      "constant": true,
+      "stateMutability": "pure",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "amountIn"
+        },
+        {
+          "type": "uint256",
+          "name": "reserveIn"
+        },
+        {
+          "type": "uint256",
+          "name": "reserveOut"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": "amountOut"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getAmountsIn",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "amountOut"
+        },
+        {
+          "type": "address[]",
+          "name": "path"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256[]",
+          "name": "amounts"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getAmountsOut",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "amountIn"
+        },
+        {
+          "type": "address[]",
+          "name": "path"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256[]",
+          "name": "amounts"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getFactory",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "address",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getUniswapV2Pair",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "address",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getWETH",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "address",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "initializeLiquidity",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "_uniswapV2Router"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "removeLiquidity",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "tokenA"
+        },
+        {
+          "type": "address",
+          "name": "tokenB"
+        },
+        {
+          "type": "uint256",
+          "name": "liquidity"
+        },
+        {
+          "type": "uint256",
+          "name": "amountAMin"
+        },
+        {
+          "type": "uint256",
+          "name": "amountBMin"
+        },
+        {
+          "type": "address",
+          "name": "to"
+        },
+        {
+          "type": "uint256",
+          "name": "deadline"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": "amountA"
+        },
+        {
+          "type": "uint256",
+          "name": "amountB"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "swapETHForExactTokens",
+      "constant": false,
+      "stateMutability": "payable",
+      "payable": true,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "amountOut"
+        },
+        {
+          "type": "address[]",
+          "name": "path"
+        },
+        {
+          "type": "address",
+          "name": "to"
+        },
+        {
+          "type": "uint256",
+          "name": "deadline"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256[]",
+          "name": "amounts"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "swapExactETHForTokens",
+      "constant": false,
+      "stateMutability": "payable",
+      "payable": true,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "amountOutMin"
+        },
+        {
+          "type": "address[]",
+          "name": "path"
+        },
+        {
+          "type": "address",
+          "name": "to"
+        },
+        {
+          "type": "uint256",
+          "name": "deadline"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256[]",
+          "name": "amounts"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "swapExactTokensForETH",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "amountIn"
+        },
+        {
+          "type": "uint256",
+          "name": "amountOutMin"
+        },
+        {
+          "type": "address[]",
+          "name": "path"
+        },
+        {
+          "type": "address",
+          "name": "to"
+        },
+        {
+          "type": "uint256",
+          "name": "deadline"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256[]",
+          "name": "amounts"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "swapExactTokensForTokens",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "amountIn"
+        },
+        {
+          "type": "uint256",
+          "name": "amountOutMin"
+        },
+        {
+          "type": "address[]",
+          "name": "path"
+        },
+        {
+          "type": "address",
+          "name": "to"
+        },
+        {
+          "type": "uint256",
+          "name": "deadline"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256[]",
+          "name": "amounts"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "swapTokensForExactETH",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "amountOut"
+        },
+        {
+          "type": "uint256",
+          "name": "amountInMax"
+        },
+        {
+          "type": "address[]",
+          "name": "path"
+        },
+        {
+          "type": "address",
+          "name": "to"
+        },
+        {
+          "type": "uint256",
+          "name": "deadline"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256[]",
+          "name": "amounts"
+        }
+      ]
+    }
+  ]
+}

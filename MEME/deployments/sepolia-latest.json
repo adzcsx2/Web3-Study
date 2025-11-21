@@ -1,0 +1,30 @@
+{
+  "network": "sepolia",
+  "chainId": "11155111",
+  "deployedAt": "2025-11-21T23:00:52.295Z",
+  "contracts": {
+    "diamond": "0xf5DEA64F85E9FCc53aE3896AFdefD771D9183219",
+    "diamondInit": "0xba062bcC1342DaE00Ea3a6Aefe26b3c2473e07E9",
+    "facets": {
+      "DiamondCutFacet": "0x9C6630858F994C7e11ca3563aCb17DaffEF3002F",
+      "DiamondLoupeFacet": "0xCe844CC9E4b0f24A8546d090264F6F4c754369d4",
+      "OwnershipFacet": "0x5B18022f51477E55c6Fa57E557bf6E10584A8D0E",
+      "ERC20Facet": "0x8CE762df59d026Fd0cF8d3005FC3c07bdD589438",
+      "ShibMemeFacet": "0x6f3620F9c4f6E3CB7b05edD0272387fE4f35ADaA",
+      "LiquidityManager": "0xfF993CFdB01499d4162007a9C8348c7D79C4D9aA"
+    }
+  },
+  "token": {
+    "name": "ShibMeme",
+    "symbol": "SBMM",
+    "decimals": 18,
+    "totalSupply": "100000000.0",
+    "ownerBalance": "10000000.0",
+    "contractBalance": "40000000.0"
+  },
+  "config": {
+    "taxRecipient": "0x1ABfBBDfcB2313fA295bFedC942982d1b632B498",
+    "maxTransactionAmount": "10000",
+    "dailyTransactionLimit": 100
+  }
+}
