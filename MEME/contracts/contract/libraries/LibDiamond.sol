@@ -92,6 +92,8 @@ library LibDiamond {
         // LiquidityManager 相关存储变量
         address uniswapV2Router;
         address uniswapV2Pair;
+        // 重入锁
+        uint256 reentrancyStatus; // 1 = 未锁定, 2 = 已锁定
     }
 
     // 获取钻石存储
@@ -130,6 +132,18 @@ library LibDiamond {
         if (msg.sender != diamondStorage().contractOwner) {
             revert NotContractOwner(msg.sender, diamondStorage().contractOwner);
         }
+    }
+
+    // 重入保护：检查并锁定
+    function lockReentrancy() internal {
+        DiamondStorage storage ds = diamondStorage();
+        require(ds.reentrancyStatus != 2, "ReentrancyGuard: reentrant call");
+        ds.reentrancyStatus = 2;
+    }
+
+    // 重入保护：解锁
+    function unlockReentrancy() internal {
+        diamondStorage().reentrancyStatus = 1;
     }
 
     // 钻石切割事件

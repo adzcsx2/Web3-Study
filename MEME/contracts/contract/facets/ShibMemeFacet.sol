@@ -2,10 +2,13 @@
 pragma solidity ^0.8.26;
 
 import "@openzeppelin/contracts/utils/math/Math.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IUniswapV2Router} from "../interfaces/IUniswapV2Router.sol";
 import {LibDiamond} from "../libraries/LibDiamond.sol";
 import "../../events/ShibMemeEvents.sol";
+
+using SafeERC20 for IERC20;
 
 using Math for uint256;
 
@@ -14,9 +17,19 @@ using Math for uint256;
  * @notice 实现代币税费、交易限制和流动性管理功能
  * @dev 作为 Diamond 的 Facet，重写 ERC20 的 transfer 函数添加税费逻辑
  */
-contract ShibMemeFacet is ReentrancyGuard, ShibMemeEvents {
+contract ShibMemeFacet is ShibMemeEvents {
     // ERC20 事件（用于税费转账）
     event Transfer(address indexed from, address indexed to, uint256 value);
+
+    /**
+     * @notice 重入保护修饰符
+     * @dev 使用 Diamond Storage 中的重入锁状态
+     */
+    modifier nonReentrant() {
+        LibDiamond.lockReentrancy();
+        _;
+        LibDiamond.unlockReentrancy();
+    }
 
     /**
      * @notice 初始化代币参数
@@ -299,5 +312,43 @@ contract ShibMemeFacet is ReentrancyGuard, ShibMemeEvents {
 
     function isMaxTxExempt(address account) external view returns (bool) {
         return LibDiamond.diamondStorage().isExcludedFromMaxTx[account];
+    }
+
+    // ============ 紧急功能 ============
+
+    /**
+     * @dev 紧急提取 ETH（仅所有者）
+     * @notice 将合约中的所有 ETH 发送给合约所有者
+     */
+    function emergencyWithdrawETH() external nonReentrant {
+        LibDiamond.enforceIsContractOwner();
+
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No ETH to withdraw");
+
+        address owner = LibDiamond.contractOwner();
+        (bool success, ) = payable(owner).call{value: balance}("");
+        require(success, "ETH transfer failed");
+
+        emit EmergencyWithdraw(owner, address(0), balance, block.timestamp);
+    }
+
+    /**
+     * @dev 紧急提取 ERC20 代币（仅所有者）
+     * @param token 代币合约地址
+     * @notice 将合约中的所有指定代币发送给合约所有者
+     */
+    function emergencyWithdrawToken(address token) external nonReentrant {
+        LibDiamond.enforceIsContractOwner();
+        require(token != address(0), "Token cannot be zero address");
+        require(token != address(this), "Cannot withdraw own token");
+
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        require(balance > 0, "No tokens to withdraw");
+
+        address owner = LibDiamond.contractOwner();
+        IERC20(token).safeTransfer(owner, balance);
+
+        emit EmergencyWithdraw(owner, token, balance, block.timestamp);
     }
 }

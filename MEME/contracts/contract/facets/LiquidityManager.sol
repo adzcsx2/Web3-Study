@@ -12,6 +12,16 @@ contract LiquidityManager {
         address indexed token1
     );
 
+    /**
+     * @notice 重入保护修饰符
+     * @dev 使用 Diamond Storage 中的重入锁状态
+     */
+    modifier nonReentrant() {
+        LibDiamond.lockReentrancy();
+        _;
+        LibDiamond.unlockReentrancy();
+    }
+
     function initializeLiquidity(address _uniswapV2Router) external {
         LibDiamond.enforceIsContractOwner();
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
@@ -84,6 +94,7 @@ contract LiquidityManager {
     )
         external
         payable
+        nonReentrant
         returns (uint amountToken, uint amountETH, uint liquidity)
     {
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
@@ -145,7 +156,7 @@ contract LiquidityManager {
         address[] calldata path,
         address to,
         uint deadline
-    ) external payable returns (uint[] memory amounts) {
+    ) external payable nonReentrant returns (uint[] memory amounts) {
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
         return
             IUniswapV2Router(ds.uniswapV2Router).swapExactETHForTokens{
@@ -194,7 +205,7 @@ contract LiquidityManager {
         address[] calldata path,
         address to,
         uint deadline
-    ) external payable returns (uint[] memory amounts) {
+    ) external payable nonReentrant returns (uint[] memory amounts) {
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
         return
             IUniswapV2Router(ds.uniswapV2Router).swapETHForExactTokens{

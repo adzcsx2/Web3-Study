@@ -55,4 +55,12 @@ abstract contract ShibMemeEvents {
         uint256 newAmount,
         uint256 timestamp
     );
+
+    // 紧急提取事件
+    event EmergencyWithdraw(
+        address indexed recipient,
+        address indexed token, // address(0) 表示 ETH
+        uint256 amount,
+        uint256 timestamp
+    );
 }
