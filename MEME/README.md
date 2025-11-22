@@ -45,7 +45,7 @@ MEME/
 │   │   │   ├── IDiamondLoupe.sol      # 🔍 钻石放大镜接口
 │   │   │   ├── IERC173.sol            # 👤 所有权接口
 │   │   │   ├── IERC20.sol             # 🪙 ERC20 接口
-│   │   │   ├── IUniswapV2*.sol        # 🏦 Uniswap V2 接口
+│   │   │   ├── IUniswapV2*.sol        # 🏦 Uniswap V2 接口(废弃保留)
 │   │   │   └── IUniswapV3*.sol        # 🏦 Uniswap V3 接口
 │   │   ├── libraries/           # 📚 库文件
 │   │   │   ├── LibDiamond.sol         # 💎 钻石存储库
@@ -310,27 +310,32 @@ Diamond (EIP-2535) 是一种模块化的智能合约架构，允许：
 ### Facet 功能划分
 
 #### ShibMemeFacet
+
 - **代币核心功能**: 转账、授权、余额查询
 - **税费机制**: 自动收取和分配交易税费
 - **交易限制**: 最大交易金额和每日限额
 - **批量操作**: 支持批量转账和授权
 
 #### ERC20Facet
+
 - **标准接口**: 完整实现 ERC20 标准
 - **元数据**: 代币名称、符号、小数位数
 - **标准事件**: Transfer、Approval 事件
 
 #### LiquidityManager
+
 - **流动性管理**: 添加和移除流动性
 - **Uniswap 集成**: 与 Uniswap V3 的交互
 - **费用管理**: 流动性费用的处理
 
 #### DiamondCutFacet
+
 - **升级管理**: 添加、替换、移除 Facet
 - **版本控制**: 跟踪合约版本信息
 - **权限控制**: 仅管理员可执行升级
 
 #### DiamondLoupeFacet
+
 - **信息查询**: 查询 Facet 和函数信息
 - **透明性**: 提供合约结构的完全可见性
 - **调试支持**: 开发和调试工具
@@ -355,18 +360,16 @@ const diamondCutFacet = await ethers.getContractAt(
 );
 
 // 2. 准备升级数据
-const facetCut = [{
-  facetAddress: newFacetAddress,
-  action: FacetCutAction.Replace,
-  functionSelectors: getSelectors(newFacetContract)
-}];
+const facetCut = [
+  {
+    facetAddress: newFacetAddress,
+    action: FacetCutAction.Replace,
+    functionSelectors: getSelectors(newFacetContract),
+  },
+];
 
 // 3. 执行升级
-await diamondCutFacet.diamondCut(
-  facetCut,
-  ethers.ZeroAddress,
-  "0x"
-);
+await diamondCutFacet.diamondCut(facetCut, ethers.ZeroAddress, "0x");
 ```
 
 ## 🛠️ 开发工具
