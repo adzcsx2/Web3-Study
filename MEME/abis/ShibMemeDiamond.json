@@ -1,6 +1,6 @@
 {
   "contractName": "ShibMemeDiamond",
-  "address": "0xf5DEA64F85E9FCc53aE3896AFdefD771D9183219",
+  "address": "0x5DC7f78ADE4e6f10f6DceAA68B3dCa90dF5DF4e5",
   "abi": [
     {
       "type": "constructor",
@@ -525,8 +525,40 @@
     },
     {
       "type": "error",
-      "name": "ReentrancyGuardReentrantCall",
-      "inputs": []
+      "name": "SafeERC20FailedOperation",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "token"
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "EmergencyWithdraw",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "recipient",
+          "indexed": true
+        },
+        {
+          "type": "address",
+          "name": "token",
+          "indexed": true
+        },
+        {
+          "type": "uint256",
+          "name": "amount",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "timestamp",
+          "indexed": false
+        }
+      ]
     },
     {
       "type": "event",
@@ -736,6 +768,27 @@
     },
     {
       "type": "function",
+      "name": "emergencyWithdrawETH",
+      "constant": false,
+      "payable": false,
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "emergencyWithdrawToken",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "token"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
       "name": "getDailyTransactionLimit",
       "constant": true,
       "stateMutability": "view",
@@ -842,20 +895,6 @@
           "name": ""
         }
       ]
-    },
-    {
-      "type": "function",
-      "name": "provideInitialLiquidity",
-      "constant": false,
-      "stateMutability": "payable",
-      "payable": true,
-      "inputs": [
-        {
-          "type": "address",
-          "name": "uniswapV2Router"
-        }
-      ],
-      "outputs": []
     },
     {
       "type": "function",
@@ -982,11 +1021,87 @@
     {
       "type": "event",
       "anonymous": false,
-      "name": "PairCreated",
+      "name": "FeesCollected",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId",
+          "indexed": true
+        },
+        {
+          "type": "uint256",
+          "name": "amount0",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "amount1",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "LiquidityAdded",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId",
+          "indexed": true
+        },
+        {
+          "type": "uint128",
+          "name": "liquidity",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "amount0",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "amount1",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "LiquidityRemoved",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId",
+          "indexed": true
+        },
+        {
+          "type": "uint128",
+          "name": "liquidity",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "amount0",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "amount1",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "PoolCreated",
       "inputs": [
         {
           "type": "address",
-          "name": "pair",
+          "name": "pool",
           "indexed": true
         },
         {
@@ -998,215 +1113,88 @@
           "type": "address",
           "name": "token1",
           "indexed": true
+        },
+        {
+          "type": "uint24",
+          "name": "fee",
+          "indexed": false
         }
       ]
     },
     {
       "type": "function",
-      "name": "addLiquidity",
+      "name": "collectFees",
       "constant": false,
       "payable": false,
       "inputs": [
         {
-          "type": "address",
-          "name": "tokenA"
-        },
-        {
-          "type": "address",
-          "name": "tokenB"
-        },
-        {
           "type": "uint256",
-          "name": "amountADesired"
-        },
-        {
-          "type": "uint256",
-          "name": "amountBDesired"
-        },
-        {
-          "type": "uint256",
-          "name": "amountAMin"
-        },
-        {
-          "type": "uint256",
-          "name": "amountBMin"
+          "name": "tokenId"
         },
         {
           "type": "address",
-          "name": "to"
-        },
-        {
-          "type": "uint256",
-          "name": "deadline"
+          "name": "recipient"
         }
       ],
       "outputs": [
         {
           "type": "uint256",
-          "name": "amountA"
+          "name": "amount0"
         },
         {
           "type": "uint256",
-          "name": "amountB"
-        },
-        {
-          "type": "uint256",
-          "name": "liquidity"
+          "name": "amount1"
         }
       ]
     },
     {
       "type": "function",
-      "name": "addLiquidityETH",
-      "constant": false,
-      "stateMutability": "payable",
-      "payable": true,
-      "inputs": [
-        {
-          "type": "address",
-          "name": "token"
-        },
-        {
-          "type": "uint256",
-          "name": "amountTokenDesired"
-        },
-        {
-          "type": "uint256",
-          "name": "amountTokenMin"
-        },
-        {
-          "type": "uint256",
-          "name": "amountETHMin"
-        },
-        {
-          "type": "address",
-          "name": "to"
-        },
-        {
-          "type": "uint256",
-          "name": "deadline"
-        }
-      ],
-      "outputs": [
-        {
-          "type": "uint256",
-          "name": "amountToken"
-        },
-        {
-          "type": "uint256",
-          "name": "amountETH"
-        },
-        {
-          "type": "uint256",
-          "name": "liquidity"
-        }
-      ]
-    },
-    {
-      "type": "function",
-      "name": "createPair",
+      "name": "createPool",
       "constant": false,
       "payable": false,
       "inputs": [],
-      "outputs": []
-    },
-    {
-      "type": "function",
-      "name": "getAmountIn",
-      "constant": true,
-      "stateMutability": "pure",
-      "payable": false,
-      "inputs": [
-        {
-          "type": "uint256",
-          "name": "amountOut"
-        },
-        {
-          "type": "uint256",
-          "name": "reserveIn"
-        },
-        {
-          "type": "uint256",
-          "name": "reserveOut"
-        }
-      ],
       "outputs": [
         {
-          "type": "uint256",
-          "name": "amountIn"
+          "type": "address",
+          "name": "pool"
         }
       ]
     },
     {
       "type": "function",
-      "name": "getAmountOut",
-      "constant": true,
-      "stateMutability": "pure",
+      "name": "decreaseLiquidity",
+      "constant": false,
       "payable": false,
       "inputs": [
         {
           "type": "uint256",
-          "name": "amountIn"
+          "name": "tokenId"
+        },
+        {
+          "type": "uint128",
+          "name": "liquidity"
         },
         {
           "type": "uint256",
-          "name": "reserveIn"
+          "name": "amount0Min"
         },
         {
           "type": "uint256",
-          "name": "reserveOut"
+          "name": "amount1Min"
+        },
+        {
+          "type": "uint256",
+          "name": "deadline"
         }
       ],
       "outputs": [
         {
           "type": "uint256",
-          "name": "amountOut"
-        }
-      ]
-    },
-    {
-      "type": "function",
-      "name": "getAmountsIn",
-      "constant": true,
-      "stateMutability": "view",
-      "payable": false,
-      "inputs": [
-        {
-          "type": "uint256",
-          "name": "amountOut"
+          "name": "amount0"
         },
         {
-          "type": "address[]",
-          "name": "path"
-        }
-      ],
-      "outputs": [
-        {
-          "type": "uint256[]",
-          "name": "amounts"
-        }
-      ]
-    },
-    {
-      "type": "function",
-      "name": "getAmountsOut",
-      "constant": true,
-      "stateMutability": "view",
-      "payable": false,
-      "inputs": [
-        {
           "type": "uint256",
-          "name": "amountIn"
-        },
-        {
-          "type": "address[]",
-          "name": "path"
-        }
-      ],
-      "outputs": [
-        {
-          "type": "uint256[]",
-          "name": "amounts"
+          "name": "amount1"
         }
       ]
     },
@@ -1226,7 +1214,112 @@
     },
     {
       "type": "function",
-      "name": "getUniswapV2Pair",
+      "name": "getLiquidityTokenIds",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "uint256[]",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getPoolFee",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "uint24",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getPoolSlot0",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "uint160",
+          "name": "sqrtPriceX96"
+        },
+        {
+          "type": "int24",
+          "name": "tick"
+        },
+        {
+          "type": "uint16",
+          "name": "observationIndex"
+        },
+        {
+          "type": "uint16",
+          "name": "observationCardinality"
+        },
+        {
+          "type": "uint16",
+          "name": "observationCardinalityNext"
+        },
+        {
+          "type": "uint8",
+          "name": "feeProtocol"
+        },
+        {
+          "type": "bool",
+          "name": "unlocked"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getPositionInfo",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "address",
+          "name": "token0"
+        },
+        {
+          "type": "address",
+          "name": "token1"
+        },
+        {
+          "type": "uint24",
+          "name": "fee"
+        },
+        {
+          "type": "int24",
+          "name": "tickLower"
+        },
+        {
+          "type": "int24",
+          "name": "tickUpper"
+        },
+        {
+          "type": "uint128",
+          "name": "liquidity"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getUniswapV3Pool",
       "constant": true,
       "stateMutability": "view",
       "payable": false,
@@ -1254,146 +1347,180 @@
     },
     {
       "type": "function",
+      "name": "increaseLiquidity",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId"
+        },
+        {
+          "type": "uint256",
+          "name": "amount0Desired"
+        },
+        {
+          "type": "uint256",
+          "name": "amount1Desired"
+        },
+        {
+          "type": "uint256",
+          "name": "amount0Min"
+        },
+        {
+          "type": "uint256",
+          "name": "amount1Min"
+        },
+        {
+          "type": "uint256",
+          "name": "deadline"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint128",
+          "name": "liquidity"
+        },
+        {
+          "type": "uint256",
+          "name": "amount0"
+        },
+        {
+          "type": "uint256",
+          "name": "amount1"
+        }
+      ]
+    },
+    {
+      "type": "function",
       "name": "initializeLiquidity",
       "constant": false,
       "payable": false,
       "inputs": [
         {
           "type": "address",
-          "name": "_uniswapV2Router"
+          "name": "_swapRouter"
+        },
+        {
+          "type": "address",
+          "name": "_nonfungiblePositionManager"
+        },
+        {
+          "type": "address",
+          "name": "_factory"
+        },
+        {
+          "type": "uint24",
+          "name": "_poolFee"
         }
       ],
       "outputs": []
     },
     {
       "type": "function",
-      "name": "removeLiquidity",
+      "name": "mintNewPosition",
       "constant": false,
-      "payable": false,
+      "stateMutability": "payable",
+      "payable": true,
       "inputs": [
         {
           "type": "address",
-          "name": "tokenA"
+          "name": "token0"
         },
         {
           "type": "address",
-          "name": "tokenB"
+          "name": "token1"
+        },
+        {
+          "type": "uint24",
+          "name": "fee"
+        },
+        {
+          "type": "int24",
+          "name": "tickLower"
+        },
+        {
+          "type": "int24",
+          "name": "tickUpper"
         },
         {
           "type": "uint256",
+          "name": "amount0Desired"
+        },
+        {
+          "type": "uint256",
+          "name": "amount1Desired"
+        },
+        {
+          "type": "uint256",
+          "name": "amount0Min"
+        },
+        {
+          "type": "uint256",
+          "name": "amount1Min"
+        },
+        {
+          "type": "address",
+          "name": "recipient"
+        },
+        {
+          "type": "uint256",
+          "name": "deadline"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId"
+        },
+        {
+          "type": "uint128",
           "name": "liquidity"
         },
         {
           "type": "uint256",
-          "name": "amountAMin"
+          "name": "amount0"
         },
         {
           "type": "uint256",
-          "name": "amountBMin"
-        },
-        {
-          "type": "address",
-          "name": "to"
-        },
-        {
-          "type": "uint256",
-          "name": "deadline"
-        }
-      ],
-      "outputs": [
-        {
-          "type": "uint256",
-          "name": "amountA"
-        },
-        {
-          "type": "uint256",
-          "name": "amountB"
+          "name": "amount1"
         }
       ]
     },
     {
       "type": "function",
-      "name": "swapETHForExactTokens",
-      "constant": false,
-      "stateMutability": "payable",
-      "payable": true,
-      "inputs": [
-        {
-          "type": "uint256",
-          "name": "amountOut"
-        },
-        {
-          "type": "address[]",
-          "name": "path"
-        },
-        {
-          "type": "address",
-          "name": "to"
-        },
-        {
-          "type": "uint256",
-          "name": "deadline"
-        }
-      ],
-      "outputs": [
-        {
-          "type": "uint256[]",
-          "name": "amounts"
-        }
-      ]
-    },
-    {
-      "type": "function",
-      "name": "swapExactETHForTokens",
-      "constant": false,
-      "stateMutability": "payable",
-      "payable": true,
-      "inputs": [
-        {
-          "type": "uint256",
-          "name": "amountOutMin"
-        },
-        {
-          "type": "address[]",
-          "name": "path"
-        },
-        {
-          "type": "address",
-          "name": "to"
-        },
-        {
-          "type": "uint256",
-          "name": "deadline"
-        }
-      ],
-      "outputs": [
-        {
-          "type": "uint256[]",
-          "name": "amounts"
-        }
-      ]
-    },
-    {
-      "type": "function",
-      "name": "swapExactTokensForETH",
+      "name": "setPoolFee",
       "constant": false,
       "payable": false,
       "inputs": [
+        {
+          "type": "uint24",
+          "name": "_poolFee"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "swapExactInput",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "bytes",
+          "name": "path"
+        },
         {
           "type": "uint256",
           "name": "amountIn"
         },
         {
           "type": "uint256",
-          "name": "amountOutMin"
-        },
-        {
-          "type": "address[]",
-          "name": "path"
+          "name": "amountOutMinimum"
         },
         {
           "type": "address",
-          "name": "to"
+          "name": "recipient"
         },
         {
           "type": "uint256",
@@ -1402,32 +1529,40 @@
       ],
       "outputs": [
         {
-          "type": "uint256[]",
-          "name": "amounts"
+          "type": "uint256",
+          "name": "amountOut"
         }
       ]
     },
     {
       "type": "function",
-      "name": "swapExactTokensForTokens",
+      "name": "swapExactInputSingle",
       "constant": false,
       "payable": false,
       "inputs": [
+        {
+          "type": "address",
+          "name": "tokenIn"
+        },
+        {
+          "type": "address",
+          "name": "tokenOut"
+        },
+        {
+          "type": "uint24",
+          "name": "fee"
+        },
         {
           "type": "uint256",
           "name": "amountIn"
         },
         {
           "type": "uint256",
-          "name": "amountOutMin"
-        },
-        {
-          "type": "address[]",
-          "name": "path"
+          "name": "amountOutMinimum"
         },
         {
           "type": "address",
-          "name": "to"
+          "name": "recipient"
         },
         {
           "type": "uint256",
@@ -1436,32 +1571,40 @@
       ],
       "outputs": [
         {
-          "type": "uint256[]",
-          "name": "amounts"
+          "type": "uint256",
+          "name": "amountOut"
         }
       ]
     },
     {
       "type": "function",
-      "name": "swapTokensForExactETH",
+      "name": "swapExactOutputSingle",
       "constant": false,
       "payable": false,
       "inputs": [
+        {
+          "type": "address",
+          "name": "tokenIn"
+        },
+        {
+          "type": "address",
+          "name": "tokenOut"
+        },
+        {
+          "type": "uint24",
+          "name": "fee"
+        },
         {
           "type": "uint256",
           "name": "amountOut"
         },
         {
           "type": "uint256",
-          "name": "amountInMax"
-        },
-        {
-          "type": "address[]",
-          "name": "path"
+          "name": "amountInMaximum"
         },
         {
           "type": "address",
-          "name": "to"
+          "name": "recipient"
         },
         {
           "type": "uint256",
@@ -1470,10 +1613,14 @@
       ],
       "outputs": [
         {
-          "type": "uint256[]",
-          "name": "amounts"
+          "type": "uint256",
+          "name": "amountIn"
         }
       ]
+    },
+    {
+      "type": "receive",
+      "stateMutability": "payable"
     },
     {
       "type": "function",

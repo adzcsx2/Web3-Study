@@ -27,10 +27,20 @@ const config: HardhatUserConfig = {
     },
     // 测试网示例：Sepolia
     sepolia: {
-      url: process.env.INFURA_PROJECT_ID
-        ? `https://sepolia.infura.io/v3/${process.env.INFURA_PROJECT_ID}`
-        : "",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      url:
+        process.env.SEPOLIA_RPC_URL ||
+        (process.env.INFURA_PROJECT_ID
+          ? `https://sepolia.infura.io/v3/${process.env.INFURA_PROJECT_ID}`
+          : ""),
+      accounts: [
+        process.env.PRIVATE_KEY,
+        process.env.PRIVATE_KEY_USER1,
+        process.env.PRIVATE_KEY_USER2,
+        process.env.PRIVATE_KEY_USER3,
+      ].filter((key): key is string => !!key), // 过滤掉 undefined 的私钥
+      timeout: 180000, // 180秒超时
+      gasPrice: "auto",
+      gas: "auto",
     },
 
     // 主网示例

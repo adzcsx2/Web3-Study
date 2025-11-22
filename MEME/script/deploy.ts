@@ -1,11 +1,155 @@
 import { ethers } from "hardhat";
 import fs from "fs";
 import path from "path";
+import sepolia_last from "../deployments/sepolia-latest.json";
+import { Token } from "@uniswap/sdk-core";
+import { encodeSqrtRatioX96 } from "@uniswap/v3-sdk";
+
 const { getSelectors, FacetCutAction } = require("./utils/diamond.js");
 
-// 添加延迟函数，避免请求过快
+// 添加延迟函数,避免请求过快
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// 检查是否是网络相关错误
+function isNetworkError(error: any): boolean {
+  const networkErrorCodes = [
+    "ECONNRESET",
+    "ETIMEDOUT",
+    "ENOTFOUND",
+    "NETWORK_ERROR",
+  ];
+  const networkErrorMessages = [
+    "network socket disconnected",
+    "TLS connection",
+    "timeout",
+    "network error",
+    "connection refused",
+  ];
+
+  if (error.code && networkErrorCodes.includes(error.code)) {
+    return true;
+  }
+
+  const errorMsg = error.message?.toLowerCase() || "";
+  return networkErrorMessages.some((msg) => errorMsg.includes(msg));
+}
+
+// 带重试的交易执行函数
+async function executeTransactionWithRetry(
+  txFunction: () => Promise<any>,
+  name: string,
+  maxRetries = 5,
+  initialDelay = 5000
+): Promise<any> {
+  let lastError: any;
+
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      console.log(`\n🔄 Executing ${name} (attempt ${i + 1}/${maxRetries})...`);
+
+      const tx = await txFunction();
+      console.log(`⏳ Waiting for transaction confirmation...`);
+      console.log(`Transaction hash: ${tx.hash}`);
+
+      const receipt = await tx.wait();
+
+      if (receipt.status === 1) {
+        console.log(`✅ ${name} executed successfully!`);
+        return receipt;
+      } else {
+        throw new Error(`Transaction failed with status ${receipt.status}`);
+      }
+    } catch (error: any) {
+      lastError = error;
+      const isNetwork = isNetworkError(error);
+
+      console.log(`❌ ${name} attempt ${i + 1} failed`);
+      console.log(
+        `Error type: ${isNetwork ? "NETWORK ERROR" : "TRANSACTION ERROR"}`
+      );
+      console.log(`Error code: ${error.code || "UNKNOWN"}`);
+      console.log(`Error message: ${error.message}`);
+
+      if (i < maxRetries - 1) {
+        const waitTime = isNetwork ? initialDelay : (i + 1) * 3000;
+        console.log(
+          `⏱️  ${isNetwork ? "Network issue detected." : ""} Retrying in ${
+            waitTime / 1000
+          } seconds...`
+        );
+        await delay(waitTime);
+        console.log(`🔁 Resuming ${name}...`);
+      } else {
+        console.log(`\n❌ All ${maxRetries} attempts failed for ${name}`);
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+// 带重试的外部合约调用函数 (需要更长的等待时间)
+async function retryExternalCall<T>(
+  operation: () => Promise<T>,
+  operationName: string,
+  maxRetries = 5
+): Promise<T> {
+  let lastError: any;
+
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      lastError = error;
+      const isNetwork = isNetworkError(error);
+
+      if (i < maxRetries - 1) {
+        const waitTime = isNetwork ? 8000 : 5000; // 外部调用需要更长等待
+        console.log(
+          `⚠️  ${operationName} failed (${
+            isNetwork ? "Network error" : "External call error"
+          }), retrying in ${waitTime / 1000}s... (${i + 1}/${maxRetries})`
+        );
+        await delay(waitTime);
+      }
+    }
+  }
+
+  console.log(`❌ ${operationName} failed after ${maxRetries} attempts`);
+  throw lastError;
+}
+
+// 带重试的通用异步操作函数
+async function retryAsyncOperation<T>(
+  operation: () => Promise<T>,
+  operationName: string,
+  maxRetries = 3
+): Promise<T> {
+  let lastError: any;
+
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      lastError = error;
+      const isNetwork = isNetworkError(error);
+
+      if (i < maxRetries - 1) {
+        const waitTime = isNetwork ? 5000 : 3000;
+        console.log(
+          `⚠️  ${operationName} failed (${
+            isNetwork ? "Network error" : "Error"
+          }), retrying in ${waitTime / 1000}s... (${i + 1}/${maxRetries})`
+        );
+        await delay(waitTime);
+      }
+    }
+  }
+
+  console.log(`❌ ${operationName} failed after ${maxRetries} attempts`);
+  throw lastError;
 }
 
 // 带重试的部署函数
@@ -41,13 +185,22 @@ async function deployWithRetry(
       return contract;
     } catch (error: any) {
       lastError = error;
+      const isNetwork = isNetworkError(error);
+
       console.log(`❌ Deployment attempt ${i + 1} failed`);
+      console.log(
+        `Error type: ${isNetwork ? "NETWORK ERROR" : "DEPLOYMENT ERROR"}`
+      );
       console.log(`Error code: ${error.code || "UNKNOWN"}`);
       console.log(`Error message: ${error.message}`);
 
       if (i < maxRetries - 1) {
-        const waitTime = (i + 1) * 5000; // 递增等待时间：5s, 10s, 15s, 20s, 25s
-        console.log(`⏱️  Retrying in ${waitTime / 1000} seconds...`);
+        const waitTime = isNetwork ? 5000 : (i + 1) * 5000; // 网络错误固定5秒,其他错误递增
+        console.log(
+          `⏱️  ${isNetwork ? "Network issue detected." : ""} Retrying in ${
+            waitTime / 1000
+          } seconds...`
+        );
         await delay(waitTime);
         console.log(`🔁 Resuming deployment...`);
       } else {
@@ -61,7 +214,7 @@ async function deployWithRetry(
   throw lastError;
 }
 
-async function main() {
+async function deployDiamond() {
   console.log("Deploying contracts...");
   const [signer] = await ethers.getSigners();
   console.log("Using signer:", signer.address);
@@ -76,7 +229,10 @@ async function main() {
   // 请阅读EIP2535钻石标准中关于diamondCut函数如何工作的文档
   const DiamondInit = await ethers.getContractFactory("DiamondInit");
   const diamondInit = await deployWithRetry(DiamondInit, "DiamondInit");
-  const diamondInitAddress = await diamondInit.getAddress();
+  const diamondInitAddress = await retryAsyncOperation(
+    () => diamondInit.getAddress(),
+    "Get DiamondInit address"
+  );
   console.log("DiamondInit deployed to:", diamondInitAddress);
 
   // 部署切面并设置`facetCuts`变量
@@ -95,7 +251,10 @@ async function main() {
   for (const FacetName of FacetNames) {
     const Facet = await ethers.getContractFactory(FacetName);
     const facet = await deployWithRetry(Facet, FacetName);
-    const facetAddress = await facet.getAddress();
+    const facetAddress = await retryAsyncOperation(
+      () => facet.getAddress(),
+      `Get ${FacetName} address`
+    );
     // 构建切面切割对象
     facetCuts.push({
       facetAddress: facetAddress, // 切面地址
@@ -132,12 +291,22 @@ async function main() {
       break;
     } catch (error: any) {
       lastDiamondError = error;
+      const isNetwork = isNetworkError(error);
+
       console.log(`❌ Diamond deployment attempt ${i + 1} failed`);
-      console.log(`Error: ${error.message}`);
+      console.log(
+        `Error type: ${isNetwork ? "NETWORK ERROR" : "DEPLOYMENT ERROR"}`
+      );
+      console.log(`Error code: ${error.code || "UNKNOWN"}`);
+      console.log(`Error message: ${error.message}`);
 
       if (i < 4) {
-        const waitTime = (i + 1) * 5000;
-        console.log(`⏱️  Retrying in ${waitTime / 1000} seconds...`);
+        const waitTime = isNetwork ? 5000 : (i + 1) * 5000;
+        console.log(
+          `⏱️  ${isNetwork ? "Network issue detected." : ""} Retrying in ${
+            waitTime / 1000
+          } seconds...`
+        );
         await delay(waitTime);
       }
     }
@@ -148,7 +317,10 @@ async function main() {
     throw lastDiamondError || new Error("Failed to deploy Diamond contract");
   }
 
-  const diamondAddress = await diamond.getAddress();
+  const diamondAddress = (await retryAsyncOperation(
+    () => diamond.getAddress(),
+    "Get Diamond address"
+  )) as string;
   console.log();
   console.log("Diamond deployed:", diamondAddress);
   await delay(3000); // 等待3秒确保链上状态同步
@@ -161,89 +333,46 @@ async function main() {
     diamondAddress
   );
 
-  let initSuccess = false;
-  for (let i = 0; i < 5; i++) {
-    try {
-      console.log(`\n🔄 Initialization attempt ${i + 1}/5...`);
-      const initTx = await shibMemeFacet.initializeShibMeme(
+  await executeTransactionWithRetry(
+    async () => {
+      return await shibMemeFacet.initializeShibMeme(
         "ShibMeme",
         "SBMM",
         signer.address, // 税费接收地址
         ethers.parseEther("10000"), // 最大交易额度: 10,000 tokens
         100 // 每日交易限制: 100笔
       );
-      console.log(`⏳ Waiting for initialization transaction...`);
-      await initTx.wait();
-      console.log(`✅ ShibMeme initialized successfully`);
-      initSuccess = true;
-      break;
-    } catch (error: any) {
-      console.log(`❌ Initialization attempt ${i + 1} failed`);
-      console.log(`Error: ${error.message}`);
-
-      if (i < 4) {
-        const waitTime = (i + 1) * 5000;
-        console.log(`⏱️  Retrying in ${waitTime / 1000} seconds...`);
-        await delay(waitTime);
-      }
-    }
-  }
-
-  if (!initSuccess) {
-    throw new Error("Failed to initialize ShibMeme after 5 attempts");
-  }
+    },
+    "ShibMeme Initialization",
+    5, // 最大重试次数
+    5000 // 网络错误时的初始延迟(5秒)
+  );
 
   // 验证部署
   console.log();
   console.log("Verifying deployment...");
   const erc20Facet = await ethers.getContractAt("ERC20Facet", diamondAddress);
-  const name = await erc20Facet.name();
-  const symbol = await erc20Facet.symbol();
-  const totalSupply = await erc20Facet.totalSupply();
-  const ownerBalance = await erc20Facet.balanceOf(signer.address);
+  const name = await retryAsyncOperation(
+    () => erc20Facet.name(),
+    "Get token name"
+  );
+  const symbol = await retryAsyncOperation(
+    () => erc20Facet.symbol(),
+    "Get token symbol"
+  );
+  const totalSupply = await retryAsyncOperation(
+    () => erc20Facet.totalSupply(),
+    "Get total supply"
+  );
+  const ownerBalance = await retryAsyncOperation(
+    () => erc20Facet.balanceOf(signer.address),
+    "Get owner balance"
+  );
 
   console.log("Token Name:", name);
   console.log("Token Symbol:", symbol);
   console.log("Total Supply:", ethers.formatEther(totalSupply));
   console.log("Owner Balance:", ethers.formatEther(ownerBalance));
-
-  // 获取合约代币余额
-  const contractBalance = await erc20Facet.balanceOf(diamondAddress);
-  console.log("Contract Balance:", ethers.formatEther(contractBalance));
-
-  // // 提供初始流动性
-  // console.log();
-  // console.log("Providing initial liquidity...");
-
-  // // Sepolia 测试网 UniswapV2Router 地址
-  // const UNISWAP_V2_ROUTER = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506";
-
-  // // 设置要提供的 ETH 数量（例如：0.01 ETH）
-  // const ethAmount = ethers.parseEther("0.01");
-
-  // // 检查合约中的代币余额（初始化时已铸造给合约）
-  // const contractBalance = await erc20Facet.balanceOf(diamondAddress);
-  // console.log(
-  //   `Diamond contract token balance: ${ethers.formatEther(contractBalance)}`
-  // );
-
-  // // 调用 provideInitialLiquidity 方法
-  // console.log(
-  //   `Providing liquidity with ${ethers.formatEther(ethAmount)} ETH...`
-  // );
-  // const liquidityTx = await shibMemeFacet.provideInitialLiquidity(
-  //   UNISWAP_V2_ROUTER,
-  //   { value: ethAmount }
-  // );
-  // await liquidityTx.wait();
-  // console.log("Initial liquidity provided successfully!");
-
-  // // 验证流动性池
-  // const contractBalanceAfter = await erc20Facet.balanceOf(diamondAddress);
-  // console.log(
-  //   "Diamond contract balance after liquidity:",
-  //   ethers.formatEther(contractBalanceAfter)
-  // );
 
   //--------------------------------- 保存部署信息到 JSON 文件 ---------------------------
   console.log();
@@ -274,12 +403,22 @@ async function main() {
       decimals: 18,
       totalSupply: ethers.formatEther(totalSupply),
       ownerBalance: ethers.formatEther(ownerBalance),
-      contractBalance: ethers.formatEther(contractBalance),
+      contractBalance: "0", // 合约本身的 ETH 余额，不是代币余额
     },
     config: {
       taxRecipient: signer.address,
       maxTransactionAmount: "10000",
       dailyTransactionLimit: 100,
+    },
+    abis: {
+      fullABI: "abis/ShibMemeDiamond.json",
+      facets: {
+        ERC20Facet: "abis/ERC20Facet.json",
+        ShibMemeFacet: "abis/ShibMemeFacet.json",
+        LiquidityManager: "abis/LiquidityManager.json",
+        DiamondLoupeFacet: "abis/DiamondLoupeFacet.json",
+        OwnershipFacet: "abis/OwnershipFacet.json",
+      },
     },
   };
 
@@ -387,7 +526,11 @@ async function main() {
     );
   });
   console.log(`Individual facet ABIs saved to: ${abisDir}`);
-
+  // 检查合约中的代币余额（初始化时已铸造给合约）
+  const contractBalance = await retryAsyncOperation(
+    () => erc20Facet.balanceOf(diamondAddress),
+    "Get contract balance"
+  );
   console.log();
   console.log("Deployment Summary:");
   console.log("===================");
@@ -401,6 +544,434 @@ async function main() {
     "Deployment info saved to:",
     `deployments/${networkName}-latest.json`
   );
+}
+
+async function liquidityManagerInitialization() {
+  console.log("🔧 Initializing LiquidityManager (Uniswap V3)...");
+  const [signer] = await ethers.getSigners();
+  const diamondAddress = sepolia_last.contracts.diamond;
+  const liquidityManager = await ethers.getContractAt(
+    "LiquidityManager",
+    diamondAddress
+  );
+
+  // Sepolia Uniswap V3 地址
+  const UNISWAP_V3_ADDRESSES = {
+    swapRouter: "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E",
+    nonfungiblePositionManager: "0x1238536071E1c677A632429e3655c799b22cDA52",
+    factory: "0x0227628f3F023bb0B980b67D528571c95c6DaC1c",
+    poolFee: 3000, // 0.3% fee tier
+  };
+
+  // 检查是否已经初始化
+  try {
+    const factory = await retryAsyncOperation(
+      () => liquidityManager.getFactory(),
+      "Check initialization status",
+      2
+    );
+
+    if (factory && factory !== ethers.ZeroAddress) {
+      console.log("✅ LiquidityManager already initialized!");
+      console.log("  Factory:", factory);
+
+      // 显示当前配置
+      const poolFee = await retryAsyncOperation(
+        () => liquidityManager.getPoolFee(),
+        "Get pool fee",
+        2
+      );
+      console.log("  Pool Fee:", poolFee);
+
+      // 尝试获取WETH (需要调用外部合约)
+      try {
+        const weth = await retryExternalCall(
+          () => liquidityManager.getWETH(),
+          "Get WETH address (external call)"
+        );
+        console.log("  WETH9:", weth);
+      } catch (e: any) {
+        console.log(
+          "  WETH9: ⚠️  Unable to retrieve (external call may be slow)"
+        );
+      }
+
+      return; // 已初始化,直接返回
+    } else {
+      console.log(
+        "📝 LiquidityManager not yet initialized (factory is zero address)"
+      );
+    }
+  } catch (error: any) {
+    console.log("⚠️  Unable to check initialization status:", error.message);
+    console.log("📝 Proceeding with initialization...");
+  }
+  console.log("Initializing with Uniswap V3 contracts:");
+  console.log("  SwapRouter:", UNISWAP_V3_ADDRESSES.swapRouter);
+  console.log(
+    "  Position Manager:",
+    UNISWAP_V3_ADDRESSES.nonfungiblePositionManager
+  );
+  console.log("  Factory:", UNISWAP_V3_ADDRESSES.factory);
+  console.log("  Pool Fee:", UNISWAP_V3_ADDRESSES.poolFee, "(0.3%)");
+
+  const receipt = await executeTransactionWithRetry(
+    async () => {
+      return await liquidityManager.initializeLiquidity(
+        UNISWAP_V3_ADDRESSES.swapRouter,
+        UNISWAP_V3_ADDRESSES.nonfungiblePositionManager,
+        UNISWAP_V3_ADDRESSES.factory,
+        UNISWAP_V3_ADDRESSES.poolFee
+      );
+    },
+    "LiquidityManager Initialization",
+    5,
+    5000
+  );
+
+  console.log("✅ LiquidityManager (V3) initialized successfully!");
+  console.log(`Transaction hash: ${receipt.hash}`);
+
+  // 等待一下,确保链上状态同步
+  await delay(5000);
+
+  // 验证初始化
+  console.log("\n🔍 Verifying initialization...");
+
+  const factory = await retryAsyncOperation(
+    () => liquidityManager.getFactory(),
+    "Get factory address",
+    5
+  );
+
+  const poolFee = await retryAsyncOperation(
+    () => liquidityManager.getPoolFee(),
+    "Get pool fee",
+    5
+  );
+
+  console.log("  Factory:", factory);
+  console.log("  Pool Fee:", poolFee);
+
+  // WETH 需要调用外部合约,可能失败,设为可选
+  try {
+    const weth = await retryExternalCall(
+      () => liquidityManager.getWETH(),
+      "Get WETH address (external call)"
+    );
+    console.log("  WETH9:", weth);
+  } catch (error: any) {
+    console.log("  WETH9: ⚠️  Unable to retrieve (external call failed)");
+    console.log(
+      "  Note: This is expected if the Position Manager contract is slow to respond"
+    );
+  }
+
+  console.log("\n✅ LiquidityManager verification completed!");
+}
+
+async function createV3Pool() {
+  console.log("\n🏊 Creating Uniswap V3 Pool...");
+  const diamondAddress = sepolia_last.contracts.diamond;
+  const liquidityManager = await ethers.getContractAt(
+    "LiquidityManager",
+    diamondAddress
+  );
+
+  // 检查池子是否已存在
+  try {
+    const existingPool = await retryAsyncOperation(
+      () => liquidityManager.getUniswapV3Pool(),
+      "Check existing pool",
+      2
+    );
+
+    if (existingPool && existingPool !== ethers.ZeroAddress) {
+      console.log("✅ V3 Pool already exists!");
+      console.log(`Pool Address: ${existingPool}`);
+      return existingPool;
+    } else {
+      console.log("📝 V3 Pool not yet created (pool address is zero)");
+    }
+  } catch (error: any) {
+    console.log("⚠️  Unable to check pool status:", error.message);
+    console.log("📝 Proceeding with pool creation...");
+  }
+  const receipt = await executeTransactionWithRetry(
+    async () => {
+      return await liquidityManager.createPool();
+    },
+    "V3 Pool Creation",
+    5,
+    5000
+  );
+
+  const poolAddress = await retryAsyncOperation(
+    () => liquidityManager.getUniswapV3Pool(),
+    "Get V3 pool address"
+  );
+  console.log("✅ V3 Pool created successfully!");
+  console.log(`Pool Address: ${poolAddress}`);
+  console.log(`Transaction hash: ${receipt.hash}`);
+
+  return poolAddress;
+}
+
+async function initializePoolPrice() {
+  console.log("\n💰 Initializing V3 Pool Price...");
+  const diamondAddress = sepolia_last.contracts.diamond;
+  const liquidityManager = await ethers.getContractAt(
+    "LiquidityManager",
+    diamondAddress
+  );
+
+  // 获取池子地址
+  const poolAddress = await retryAsyncOperation(
+    () => liquidityManager.getUniswapV3Pool(),
+    "Get pool address"
+  );
+
+  if (!poolAddress || poolAddress === ethers.ZeroAddress) {
+    console.log("❌ Pool not created yet, skipping price initialization");
+    return;
+  }
+
+  // 检查池子是否已初始化
+  try {
+    const slot0 = await retryAsyncOperation(
+      () => liquidityManager.getPoolSlot0(),
+      "Check pool slot0",
+      3
+    );
+
+    if (slot0.sqrtPriceX96 !== 0n) {
+      console.log("✅ Pool already initialized!");
+      console.log(`  Current Price: ${slot0.sqrtPriceX96.toString()}`);
+      console.log(`  Current Tick: ${slot0.tick.toString()}`);
+      return;
+    }
+  } catch (error: any) {
+    console.log("📝 Pool not initialized, proceeding...");
+  }
+
+  // 获取 WETH 地址
+  const weth = await retryExternalCall(
+    () => liquidityManager.getWETH(),
+    "Get WETH address"
+  );
+
+  // 确定 token0 和 token1 顺序
+  const isToken0 = diamondAddress.toLowerCase() < weth.toLowerCase();
+
+  // ============ 🎯 池子价格初始化逻辑 ============
+  // 目标价格：1,000,000 Diamond Token = 1 ETH
+  // encodeSqrtRatioX96 要求整数参数,不能用小数!
+  let initialPrice: bigint;
+
+  if (isToken0) {
+    // Diamond 是 token0，WETH 是 token1
+    // price = WETH / Diamond = 1 / 1000000 = 0.000001
+    // 使用 encodeSqrtRatioX96(1 ETH, 1000000 Diamond)
+    initialPrice = BigInt(encodeSqrtRatioX96(1, 1000000).toString());
+    console.log(
+      "  ✓ 初始化价格: 1,000,000 Diamond = 1 WETH (Diamond 是 token0)"
+    );
+  } else {
+    // Diamond 是 token1，WETH 是 token0
+    // price = Diamond / WETH = 1000000 / 1 = 1000000
+    // 使用 encodeSqrtRatioX96(1000000 Diamond, 1 ETH)
+    initialPrice = BigInt(encodeSqrtRatioX96(1000000, 1).toString());
+    console.log(
+      "  ✓ 初始化价格: 1,000,000 Diamond = 1 WETH (Diamond 是 token1)"
+    );
+  }
+
+  console.log(`  Calculated sqrtPriceX96: ${initialPrice.toString()}`);
+
+  // 初始化池子价格
+  const poolABI = [
+    "function initialize(uint160 sqrtPriceX96) external",
+    "function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)",
+  ];
+  const pool = await ethers.getContractAt(poolABI, poolAddress);
+
+  const receipt = await executeTransactionWithRetry(
+    async () => {
+      return await pool.initialize(initialPrice);
+    },
+    "Pool Price Initialization",
+    5,
+    5000
+  );
+
+  await delay(3000);
+
+  const slot0 = await pool.slot0();
+  console.log("✅ Pool price initialized successfully!");
+  console.log(`  SqrtPriceX96: ${slot0.sqrtPriceX96.toString()}`);
+  console.log(`  Current Tick: ${slot0.tick.toString()}`);
+  console.log(`  Price ratio: 10000 Token = 0.01 ETH`);
+  console.log(`  Transaction hash: ${receipt.hash}`);
+}
+
+async function addInitialLiquidity() {
+  console.log("\n🌊 Adding Initial Liquidity (40% tokens + 0.01 ETH)...");
+  const [signer] = await ethers.getSigners();
+  const diamondAddress = sepolia_last.contracts.diamond;
+
+  const liquidityManager = await ethers.getContractAt(
+    "LiquidityManager",
+    diamondAddress
+  );
+  const erc20Facet = await ethers.getContractAt("ERC20Facet", diamondAddress);
+
+  // 获取 owner 的代币余额
+  const ownerBalance = await retryAsyncOperation(
+    () => erc20Facet.balanceOf(signer.address),
+    "Get owner balance"
+  );
+
+  console.log(`  Owner balance: ${ethers.formatEther(ownerBalance)} tokens`);
+
+  // 计算 40% 的代币数量
+  const liquidityTokenAmount = (ownerBalance * 40n) / 100n;
+  const liquidityEthAmount = ethers.parseEther("0.01");
+
+  console.log(`  Adding liquidity:`);
+  console.log(`    Tokens: ${ethers.formatEther(liquidityTokenAmount)} (40%)`);
+  console.log(`    ETH: ${ethers.formatEther(liquidityEthAmount)}`);
+
+  // 检查 owner ETH 余额
+  const ethBalance = await ethers.provider.getBalance(signer.address);
+  console.log(`  Owner ETH balance: ${ethers.formatEther(ethBalance)} ETH`);
+
+  if (ethBalance < liquidityEthAmount) {
+    console.log("❌ Insufficient ETH balance for adding liquidity");
+    return;
+  }
+
+  // 获取 WETH 地址
+  const weth = await retryExternalCall(
+    () => liquidityManager.getWETH(),
+    "Get WETH address"
+  );
+
+  console.log(`  WETH address: ${weth}`);
+
+  // 确定 token0 和 token1 顺序
+  const isToken0 = diamondAddress.toLowerCase() < weth.toLowerCase();
+  const token0 = isToken0 ? diamondAddress : weth;
+  const token1 = isToken0 ? weth : diamondAddress;
+
+  const amount0Desired = isToken0 ? liquidityTokenAmount : liquidityEthAmount;
+  const amount1Desired = isToken0 ? liquidityEthAmount : liquidityTokenAmount;
+
+  console.log(`  Token0: ${token0} ${isToken0 ? "(ShibMeme)" : "(WETH)"}`);
+  console.log(`  Token1: ${token1} ${isToken0 ? "(WETH)" : "(ShibMeme)"}`);
+
+  // 授权合约使用代币
+  console.log("\n  Approving tokens...");
+  const approveReceipt = await executeTransactionWithRetry(
+    async () => {
+      return await erc20Facet.approve(diamondAddress, liquidityTokenAmount);
+    },
+    "Approve tokens for liquidity",
+    5,
+    5000
+  );
+
+  console.log(`  ✅ Approval confirmed: ${approveReceipt.hash}`);
+  await delay(3000);
+
+  // 添加流动性
+  console.log("\n  Adding liquidity to pool...");
+
+  const tickLower = -887220; // 最小 tick (全价格范围)
+  const tickUpper = 887220; // 最大 tick
+  const deadline = Math.floor(Date.now() / 1000) + 3600; // 1小时后过期
+
+  const receipt = await executeTransactionWithRetry(
+    async () => {
+      return await liquidityManager.mintNewPosition(
+        token0,
+        token1,
+        3000, // 0.3% fee
+        tickLower,
+        tickUpper,
+        amount0Desired,
+        amount1Desired,
+        0, // amount0Min - 允许滑点
+        0, // amount1Min - 允许滑点
+        signer.address, // NFT 接收者
+        deadline,
+        { value: liquidityEthAmount } // 发送 ETH
+      );
+    },
+    "Add Initial Liquidity",
+    5,
+    5000
+  );
+
+  console.log("✅ Initial liquidity added successfully!");
+  console.log(`  Transaction hash: ${receipt.hash}`);
+  console.log(`  Gas used: ${receipt.gasUsed.toString()}`);
+
+  await delay(3000);
+
+  // 验证流动性
+  try {
+    const tokenIds = await retryAsyncOperation(
+      () => liquidityManager.getLiquidityTokenIds(),
+      "Get liquidity token IDs"
+    );
+
+    console.log(`\n  ✅ Liquidity positions: ${tokenIds.length}`);
+    if (tokenIds.length > 0) {
+      console.log(`  Latest NFT Token ID: ${tokenIds[tokenIds.length - 1]}`);
+    }
+
+    // 查询池子流动性
+    const poolAddress = await liquidityManager.getUniswapV3Pool();
+    const poolABI = ["function liquidity() external view returns (uint128)"];
+    const pool = await ethers.getContractAt(poolABI, poolAddress);
+    const poolLiquidity = await pool.liquidity();
+    console.log(`  Pool total liquidity: ${poolLiquidity.toString()}`);
+  } catch (error: any) {
+    console.log("  ⚠️  Unable to verify liquidity:", error.message);
+  }
+}
+// 转0.011 eth合约用于初始化流动性 40%代币 + 0.01 eth
+async function transferEthToContract() {
+  const [signer] = await ethers.getSigners();
+  const diamondAddress = sepolia_last.contracts.diamond;
+  console.log(`Transferring 0.011 ETH to contract: ${diamondAddress}...`);
+
+  const receipt = await executeTransactionWithRetry(
+    async () => {
+      return await signer.sendTransaction({
+        to: diamondAddress,
+        value: ethers.parseEther("0.011"),
+      });
+    },
+    "Transfer ETH to Contract",
+    5,
+    5000
+  );
+
+  console.log(`✅ Transfer completed!`);
+  console.log(`  Transaction hash: ${receipt.hash}`);
+  console.log(`  Gas used: ${receipt.gasUsed.toString()}`);
+}
+
+async function main() {
+  await deployDiamond();
+  await transferEthToContract();
+  await liquidityManagerInitialization();
+  await createV3Pool();
+  await initializePoolPrice();
+  await addInitialLiquidity();
+
+  console.log("\n🎉 Deployment and liquidity setup completed successfully!");
 }
 
 main()

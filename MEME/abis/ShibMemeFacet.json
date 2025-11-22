@@ -1,6 +1,6 @@
 {
   "contractName": "ShibMemeFacet",
-  "address": "0x6f3620F9c4f6E3CB7b05edD0272387fE4f35ADaA",
+  "address": "0x11629e3338c876e0330C70FD8bdD7eA5c5E9A100",
   "abi": [
     {
       "type": "error",
@@ -18,8 +18,40 @@
     },
     {
       "type": "error",
-      "name": "ReentrancyGuardReentrantCall",
-      "inputs": []
+      "name": "SafeERC20FailedOperation",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "token"
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "EmergencyWithdraw",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "recipient",
+          "indexed": true
+        },
+        {
+          "type": "address",
+          "name": "token",
+          "indexed": true
+        },
+        {
+          "type": "uint256",
+          "name": "amount",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "timestamp",
+          "indexed": false
+        }
+      ]
     },
     {
       "type": "event",
@@ -229,6 +261,27 @@
     },
     {
       "type": "function",
+      "name": "emergencyWithdrawETH",
+      "constant": false,
+      "payable": false,
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "emergencyWithdrawToken",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "token"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
       "name": "getDailyTransactionLimit",
       "constant": true,
       "stateMutability": "view",
@@ -335,20 +388,6 @@
           "name": ""
         }
       ]
-    },
-    {
-      "type": "function",
-      "name": "provideInitialLiquidity",
-      "constant": false,
-      "stateMutability": "payable",
-      "payable": true,
-      "inputs": [
-        {
-          "type": "address",
-          "name": "uniswapV2Router"
-        }
-      ],
-      "outputs": []
     },
     {
       "type": "function",

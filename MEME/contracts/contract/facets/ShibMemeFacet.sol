@@ -4,7 +4,6 @@ pragma solidity ^0.8.26;
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IUniswapV2Router} from "../interfaces/IUniswapV2Router.sol";
 import {LibDiamond} from "../libraries/LibDiamond.sol";
 import "../../events/ShibMemeEvents.sol";
 
@@ -210,47 +209,14 @@ contract ShibMemeFacet is ShibMemeEvents {
     }
 
     /**
-     * @notice 提供初始流动性
+     * @notice 提供初始流动性 (已弃用 - 请使用 LiquidityManager 的 V3 功能)
+     * @dev 此函数已移除，请使用 LiquidityManager facet 中的 V3 流动性功能
      */
-    function provideInitialLiquidity(
-        address uniswapV2Router
-    ) external payable nonReentrant {
-        LibDiamond.enforceIsContractOwner();
-        LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
-
-        require(uniswapV2Router != address(0), "Invalid router address");
-        require(msg.value > 0, "Must send ETH");
-
-        if (ds.uniswapV2Router == address(0)) {
-            ds.uniswapV2Router = uniswapV2Router;
-        }
-
-        uint256 tokenAmount = ds.balances[address(this)];
-        require(tokenAmount > 0, "No tokens in contract");
-
-        // 授权路由合约
-        ds.allowances[address(this)][uniswapV2Router] = tokenAmount;
-
-        // 添加流动性 - 使用滑点保护（允许 5% 滑点）
-        uint256 minTokenAmount = tokenAmount.mulDiv(95, 100); // 95% 的代币数量
-        uint256 minETHAmount = msg.value.mulDiv(95, 100); // 95% 的 ETH 数量
-
-        IUniswapV2Router(uniswapV2Router).addLiquidityETH{value: msg.value}(
-            address(this), // token: 代币地址
-            tokenAmount, // amountTokenDesired: 期望添加的代币数量
-            minTokenAmount, // amountTokenMin: 最少代币数量（滑点保护）
-            minETHAmount, // amountETHMin: 最少 ETH 数量（滑点保护）
-            msg.sender, // to: LP Token 接收地址
-            block.timestamp + 300 // deadline: 5 分钟后过期
-        );
-
-        emit LiquidityProvided(
-            msg.sender,
-            tokenAmount,
-            msg.value,
-            block.timestamp
-        );
-    }
+    // 注意：V2 流动性功能已迁移到 LiquidityManager (V3)
+    // 请使用：
+    // 1. liquidityManager.initializeLiquidity(...) - 初始化 V3
+    // 2. liquidityManager.createPool() - 创建池子
+    // 3. liquidityManager.mintNewPosition(...) - 添加流动性
 
     /**
      * @notice 设置税费白名单

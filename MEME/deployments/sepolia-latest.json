@@ -1,17 +1,17 @@
 {
   "network": "sepolia",
   "chainId": "11155111",
-  "deployedAt": "2025-11-21T23:00:52.295Z",
+  "deployedAt": "2025-11-22T20:36:26.785Z",
   "contracts": {
-    "diamond": "0xf5DEA64F85E9FCc53aE3896AFdefD771D9183219",
-    "diamondInit": "0xba062bcC1342DaE00Ea3a6Aefe26b3c2473e07E9",
+    "diamond": "0x5DC7f78ADE4e6f10f6DceAA68B3dCa90dF5DF4e5",
+    "diamondInit": "0x0A4475cdc60d58585F44da0753E9C1E32EE10Af4",
     "facets": {
-      "DiamondCutFacet": "0x9C6630858F994C7e11ca3563aCb17DaffEF3002F",
-      "DiamondLoupeFacet": "0xCe844CC9E4b0f24A8546d090264F6F4c754369d4",
-      "OwnershipFacet": "0x5B18022f51477E55c6Fa57E557bf6E10584A8D0E",
-      "ERC20Facet": "0x8CE762df59d026Fd0cF8d3005FC3c07bdD589438",
-      "ShibMemeFacet": "0x6f3620F9c4f6E3CB7b05edD0272387fE4f35ADaA",
-      "LiquidityManager": "0xfF993CFdB01499d4162007a9C8348c7D79C4D9aA"
+      "DiamondCutFacet": "0x825a1e371dd3B5080db931159E098a31C2dbCe6E",
+      "DiamondLoupeFacet": "0x7Cc96Ed9c091AB49D9a437ecf0536388064241F7",
+      "OwnershipFacet": "0x2829BC95A1A2C36BaaEE657cd40e07A6005565E4",
+      "ERC20Facet": "0x99D6075C0F99E67e5a1c81839f831c961d94C4Bc",
+      "ShibMemeFacet": "0x11629e3338c876e0330C70FD8bdD7eA5c5E9A100",
+      "LiquidityManager": "0xAf257DE58DFA2A01c77be9F46Da5E14fBC1c170F"
     }
   },
   "token": {
@@ -20,11 +20,21 @@
     "decimals": 18,
     "totalSupply": "100000000.0",
     "ownerBalance": "10000000.0",
-    "contractBalance": "40000000.0"
+    "contractBalance": "0"
   },
   "config": {
     "taxRecipient": "0x1ABfBBDfcB2313fA295bFedC942982d1b632B498",
     "maxTransactionAmount": "10000",
     "dailyTransactionLimit": 100
+  },
+  "abis": {
+    "fullABI": "abis/ShibMemeDiamond.json",
+    "facets": {
+      "ERC20Facet": "abis/ERC20Facet.json",
+      "ShibMemeFacet": "abis/ShibMemeFacet.json",
+      "LiquidityManager": "abis/LiquidityManager.json",
+      "DiamondLoupeFacet": "abis/DiamondLoupeFacet.json",
+      "OwnershipFacet": "abis/OwnershipFacet.json"
+    }
   }
 }

@@ -89,9 +89,13 @@ library LibDiamond {
         mapping(address => uint256) lastTransactionDay; // 记录上次交易的日期
         mapping(address => bool) isExcludedFromFee; // 税费白名单
         mapping(address => bool) isExcludedFromMaxTx; // 交易限制白名单
-        // LiquidityManager 相关存储变量
-        address uniswapV2Router;
-        address uniswapV2Pair;
+        // LiquidityManager 相关存储变量 (Uniswap V3)
+        address swapRouter; // V3 SwapRouter 地址
+        address nonfungiblePositionManager; // V3 NFT Position Manager 地址
+        address uniswapV3Factory; // V3 Factory 地址
+        address uniswapV3Pool; // V3 Pool 地址
+        uint24 poolFee; // 池子手续费等级 (默认 3000 = 0.3%)
+        uint256[] liquidityTokenIds; // 存储所有流动性NFT的token IDs
         // 重入锁
         uint256 reentrancyStatus; // 1 = 未锁定, 2 = 已锁定
     }
