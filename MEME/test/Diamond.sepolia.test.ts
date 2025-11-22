@@ -140,8 +140,14 @@ describe("ShibMeme Diamond - Sepolia 完整测试", function () {
       throw error;
     }
 
-    // 获取 WETH 地址
-    weth = await liquidityManager.getWETH();
+    // 尝试获取 WETH 地址 (如果 LiquidityManager 已初始化)
+    try {
+      weth = await liquidityManager.getWETH();
+      console.log("💰 WETH 地址:", weth);
+    } catch (error: any) {
+      console.log("⚠️  LiquidityManager 尚未初始化,稍后获取 WETH 地址");
+      // 不是致命错误,继续执行测试
+    }
   });
 
   describe("📦 1. 部署验证", function () {

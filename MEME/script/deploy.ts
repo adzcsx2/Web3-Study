@@ -1,218 +1,20 @@
 import { ethers } from "hardhat";
 import fs from "fs";
 import path from "path";
+// 如果找不到"../deployments/sepolia-latest.json",需要先部署合约
 import sepolia_last from "../deployments/sepolia-latest.json";
 import { Token } from "@uniswap/sdk-core";
 import { encodeSqrtRatioX96 } from "@uniswap/v3-sdk";
+import {
+  delay,
+  isNetworkError,
+  executeTransactionWithRetry,
+  retryExternalCall,
+  retryAsyncOperation,
+  deployWithRetry,
+} from "./utils/retryHelpers";
 
 const { getSelectors, FacetCutAction } = require("./utils/diamond.js");
-
-// 添加延迟函数,避免请求过快
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// 检查是否是网络相关错误
-function isNetworkError(error: any): boolean {
-  const networkErrorCodes = [
-    "ECONNRESET",
-    "ETIMEDOUT",
-    "ENOTFOUND",
-    "NETWORK_ERROR",
-  ];
-  const networkErrorMessages = [
-    "network socket disconnected",
-    "TLS connection",
-    "timeout",
-    "network error",
-    "connection refused",
-  ];
-
-  if (error.code && networkErrorCodes.includes(error.code)) {
-    return true;
-  }
-
-  const errorMsg = error.message?.toLowerCase() || "";
-  return networkErrorMessages.some((msg) => errorMsg.includes(msg));
-}
-
-// 带重试的交易执行函数
-async function executeTransactionWithRetry(
-  txFunction: () => Promise<any>,
-  name: string,
-  maxRetries = 5,
-  initialDelay = 5000
-): Promise<any> {
-  let lastError: any;
-
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      console.log(`\n🔄 Executing ${name} (attempt ${i + 1}/${maxRetries})...`);
-
-      const tx = await txFunction();
-      console.log(`⏳ Waiting for transaction confirmation...`);
-      console.log(`Transaction hash: ${tx.hash}`);
-
-      const receipt = await tx.wait();
-
-      if (receipt.status === 1) {
-        console.log(`✅ ${name} executed successfully!`);
-        return receipt;
-      } else {
-        throw new Error(`Transaction failed with status ${receipt.status}`);
-      }
-    } catch (error: any) {
-      lastError = error;
-      const isNetwork = isNetworkError(error);
-
-      console.log(`❌ ${name} attempt ${i + 1} failed`);
-      console.log(
-        `Error type: ${isNetwork ? "NETWORK ERROR" : "TRANSACTION ERROR"}`
-      );
-      console.log(`Error code: ${error.code || "UNKNOWN"}`);
-      console.log(`Error message: ${error.message}`);
-
-      if (i < maxRetries - 1) {
-        const waitTime = isNetwork ? initialDelay : (i + 1) * 3000;
-        console.log(
-          `⏱️  ${isNetwork ? "Network issue detected." : ""} Retrying in ${
-            waitTime / 1000
-          } seconds...`
-        );
-        await delay(waitTime);
-        console.log(`🔁 Resuming ${name}...`);
-      } else {
-        console.log(`\n❌ All ${maxRetries} attempts failed for ${name}`);
-      }
-    }
-  }
-
-  throw lastError;
-}
-
-// 带重试的外部合约调用函数 (需要更长的等待时间)
-async function retryExternalCall<T>(
-  operation: () => Promise<T>,
-  operationName: string,
-  maxRetries = 5
-): Promise<T> {
-  let lastError: any;
-
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await operation();
-    } catch (error: any) {
-      lastError = error;
-      const isNetwork = isNetworkError(error);
-
-      if (i < maxRetries - 1) {
-        const waitTime = isNetwork ? 8000 : 5000; // 外部调用需要更长等待
-        console.log(
-          `⚠️  ${operationName} failed (${
-            isNetwork ? "Network error" : "External call error"
-          }), retrying in ${waitTime / 1000}s... (${i + 1}/${maxRetries})`
-        );
-        await delay(waitTime);
-      }
-    }
-  }
-
-  console.log(`❌ ${operationName} failed after ${maxRetries} attempts`);
-  throw lastError;
-}
-
-// 带重试的通用异步操作函数
-async function retryAsyncOperation<T>(
-  operation: () => Promise<T>,
-  operationName: string,
-  maxRetries = 3
-): Promise<T> {
-  let lastError: any;
-
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await operation();
-    } catch (error: any) {
-      lastError = error;
-      const isNetwork = isNetworkError(error);
-
-      if (i < maxRetries - 1) {
-        const waitTime = isNetwork ? 5000 : 3000;
-        console.log(
-          `⚠️  ${operationName} failed (${
-            isNetwork ? "Network error" : "Error"
-          }), retrying in ${waitTime / 1000}s... (${i + 1}/${maxRetries})`
-        );
-        await delay(waitTime);
-      }
-    }
-  }
-
-  console.log(`❌ ${operationName} failed after ${maxRetries} attempts`);
-  throw lastError;
-}
-
-// 带重试的部署函数
-async function deployWithRetry(
-  factory: any,
-  name: string,
-  maxRetries = 5
-): Promise<any> {
-  let lastError: any;
-
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      console.log(`\n🔄 Deploying ${name} (attempt ${i + 1}/${maxRetries})...`);
-
-      let contract;
-      try {
-        contract = await factory.deploy();
-      } catch (deployError: any) {
-        throw deployError;
-      }
-
-      console.log(`⏳ Waiting for deployment confirmation...`);
-
-      try {
-        await contract.waitForDeployment();
-      } catch (waitError: any) {
-        throw waitError;
-      }
-
-      const address = await contract.getAddress();
-      console.log(`✅ ${name} deployed successfully: ${address}`);
-      await delay(3000); // 部署后等待3秒
-      return contract;
-    } catch (error: any) {
-      lastError = error;
-      const isNetwork = isNetworkError(error);
-
-      console.log(`❌ Deployment attempt ${i + 1} failed`);
-      console.log(
-        `Error type: ${isNetwork ? "NETWORK ERROR" : "DEPLOYMENT ERROR"}`
-      );
-      console.log(`Error code: ${error.code || "UNKNOWN"}`);
-      console.log(`Error message: ${error.message}`);
-
-      if (i < maxRetries - 1) {
-        const waitTime = isNetwork ? 5000 : (i + 1) * 5000; // 网络错误固定5秒,其他错误递增
-        console.log(
-          `⏱️  ${isNetwork ? "Network issue detected." : ""} Retrying in ${
-            waitTime / 1000
-          } seconds...`
-        );
-        await delay(waitTime);
-        console.log(`🔁 Resuming deployment...`);
-      } else {
-        console.log(
-          `\n❌ All ${maxRetries} deployment attempts failed for ${name}`
-        );
-      }
-    }
-  }
-
-  throw lastError;
-}
 
 async function deployDiamond() {
   console.log("Deploying contracts...");
@@ -964,7 +766,8 @@ async function transferEthToContract() {
 }
 
 async function main() {
-  await deployDiamond();
+  // await deployDiamond();
+  // 如果找不到,需要先部署,再执行下面的"../deployments/sepolia-latest.json";
   await transferEthToContract();
   await liquidityManagerInitialization();
   await createV3Pool();
