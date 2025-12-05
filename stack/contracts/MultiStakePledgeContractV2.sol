@@ -105,13 +105,13 @@ contract MultiStakePledgeContractV2 is
         poolId = poolCounter++;
 
         // 设置最小质押金额：如果为 0 则使用默认值 1（允许任意小额质押）
-        uint256 finalMinDeposit = params.minDepositAmount > 0 
-            ? params.minDepositAmount 
+        uint256 finalMinDeposit = params.minDepositAmount > 0
+            ? params.minDepositAmount
             : 1; // 默认 1 wei
-            
+
         // 设置冷却期：如果为 0 则使用默认值 1 分钟
-        uint256 finalCooldown = params.cooldownPeriod > 0 
-            ? params.cooldownPeriod 
+        uint256 finalCooldown = params.cooldownPeriod > 0
+            ? params.cooldownPeriod
             : 1 minutes; // 默认 1 分钟
 
         pools[poolId] = PoolInfo({
@@ -260,7 +260,7 @@ contract MultiStakePledgeContractV2 is
 
         PoolInfo storage pool = pools[poolId];
         UserPoolInfo storage userPool = userPoolInfo[poolId][msg.sender];
-        
+
         // 🔒 安全检查：确保申请金额不超过当前有效质押余额
         // balances 只包含有效质押的代币（不包括已申请解质押的冻结代币）
         if (userPool.balances < amount) {
@@ -349,7 +349,7 @@ contract MultiStakePledgeContractV2 is
         if (blacklist[msg.sender]) revert BlacklistedAddress(msg.sender);
 
         PoolInfo storage pool = pools[poolId];
-        
+
         // 检查池子是否已开始（必须要有 startTime）
         if (pool.startTime == 0) revert PoolNotStarted(poolId);
 
@@ -362,7 +362,7 @@ contract MultiStakePledgeContractV2 is
      */
     function _claimRewards(uint256 poolId, address account) internal {
         PoolInfo storage pool = pools[poolId];
-        
+
         _updatePoolReward(poolId, account);
 
         UserPoolInfo storage userPool = userPoolInfo[poolId][account];
@@ -409,7 +409,7 @@ contract MultiStakePledgeContractV2 is
         if (pool.totalStaked > 0) {
             pool.rewardPerTokenStored = _rewardPerTokenForPool(poolId);
         }
-        
+
         // 🔧 关键修复：无论是否有质押，都要更新 lastUpdateTime
         // 避免无人质押期间的奖励累积给第一个质押者
         pool.lastUpdateTime = min(block.timestamp, pool.endTime);
@@ -440,7 +440,7 @@ contract MultiStakePledgeContractV2 is
     }
 
     /**
-     * @notice 计算用户在池子中的收益
+     * @notice 计算用户在池子中新的收益
      */
     function _earnedInPool(
         uint256 poolId,
@@ -505,12 +505,9 @@ contract MultiStakePledgeContractV2 is
     function getUserFrozenInfo(
         uint256 poolId,
         address account
-    ) external view returns (
-        uint256 frozenAmount,
-        uint256 unlockableAmount
-    ) {
+    ) external view returns (uint256 frozenAmount, uint256 unlockableAmount) {
         if (poolId >= poolCounter) revert PoolNotExists(poolId);
-        
+
         UserPoolInfo storage userPool = userPoolInfo[poolId][account];
         frozenAmount = _getFrozenAmount(userPool.unstakeRequests);
         unlockableAmount = _calculateUnlockableAmount(userPool.unstakeRequests);

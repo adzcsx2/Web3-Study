@@ -36,7 +36,7 @@ import { TransactionType, TransactionStatus } from "@/types/TransactionHistory";
 import { useStatistics } from "@/hooks/useStatistics";
 import type { PoolInfo } from "@/types/StakePledgeContractStructs";
 import type { UserPoolData } from "@/types/UserPoolData";
-
+import { useSignMessage } from "wagmi";
 // 定义 Pool 数据类型（本地使用）
 interface LocalPoolInfo {
   stakeToken: string;
@@ -1741,6 +1741,60 @@ function UserDashboardComponent(): React.ReactNode {
     </>
   );
 }
+
+// function Test(): React.ReactNode {
+//   const { signMessage, isPending, isSuccess, isPaused, data, isError } =
+//     useSignMessage();
+
+//   // 方法 2: 监听状态变化
+//   useEffect(() => {
+//     if (isSuccess && data) {
+//       console.log("✅ 签名成功:", data);
+//     }
+//     if (isError) {
+//       console.log("❌ 签名失败");
+//     }
+//   }, [isSuccess, isError, data]);
+
+//   return (
+//     <div>
+//       <Typography.Title
+//         level={3}
+//         className="text-center !mb-6 text-xl sm:text-2xl"
+//       >
+//         测试组件
+//       </Typography.Title>
+//       <div className="p-4 bg-gray-100 rounded-lg">这里是测试内容。</div>
+
+//       <Button
+//         type="default"
+//         className="mr-3"
+//         onClick={() => {
+//           // 不需要 await，直接调用
+//           signMessage({
+//             message: "Hello, sign this message to prove you own this wallet!",
+//           });
+//         }}
+//         disabled={isPending || isPaused}
+//       >
+//         签名消息
+//       </Button>
+
+//       {/* 实时显示签名结果 */}
+//       {isSuccess && data && (
+//         <div className="mt-3 p-3 bg-green-50 rounded-lg">
+//           <div className="text-green-600 font-bold mb-1">✅ 签名成功</div>
+//           <div className="text-xs text-gray-600 break-all">{data}</div>
+//         </div>
+//       )}
+//       {isError && (
+//         <div className="mt-3 p-3 bg-red-50 rounded-lg">
+//           <div className="text-red-600 font-bold">❌ 签名失败</div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
 
 //主页面
 function Main(): React.ReactNode {

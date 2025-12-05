@@ -25,6 +25,17 @@ MEME 是一个基于 Ethereum 的 Web3 代币项目，采用 **EIP-2535 Diamond 
 - **Uniswap V3 SDK**: 集成最新的去中心化交易协议
 - **TypeScript**: 类型安全的开发体验
 
+## 📚 智能合约学习指南
+
+**🎯 专注智能合约开发的深度学习指南**: [CONTRACT_LEARNING_GUIDE.md](./CONTRACT_LEARNING_GUIDE.md)
+
+该指南包含以下核心内容：
+- 🧠 **EIP-2535 Diamond Pattern** 深度解析
+- 🏦 **Uniswap V3 DeFi集成** 实战教学
+- 🔒 **智能合约安全** 最佳实践
+- ⚡ **Gas优化** 和性能调优
+- 🛠️ **企业级部署** 和升级策略
+
 ## 📁 项目结构
 
 ```
