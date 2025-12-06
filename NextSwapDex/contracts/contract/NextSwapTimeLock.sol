@@ -2,12 +2,12 @@
 pragma solidity ^0.8.26;
 
 /**
- * @title NestSwapTimelock
- * @dev NestSwapTimelock
+ * @title NextSwapTimelock
+ * @dev NextSwapTimelock
  */
 import "@openzeppelin/contracts/governance/TimelockController.sol";
 
-contract NestSwapTimelock is TimelockController {
+contract NextSwapTimelock is TimelockController {
     /**
      * @dev 构造函数
      * @param minDelay 最小延迟时间(秒) - 建议 2 天 = 172800 秒

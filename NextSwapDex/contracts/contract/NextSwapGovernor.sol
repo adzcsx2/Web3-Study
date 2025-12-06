@@ -9,9 +9,9 @@ import "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFractio
 import "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
 import "@openzeppelin/contracts/governance/TimelockController.sol";
 
-import "./NestSwapToken.sol";
+import "./NextSwapToken.sol";
 
-contract NestSwapGovernor is
+contract NextSwapGovernor is
     Governor,
     GovernorSettings,
     GovernorCountingSimple,
@@ -19,12 +19,12 @@ contract NestSwapGovernor is
     GovernorVotesQuorumFraction,
     GovernorTimelockControl
 {
-    NestSwapToken private immutable _nestSwapToken;
+    NextSwapToken private immutable _nextSwapToken;
     constructor(
         IVotes _token,
         TimelockController _timelock
     )
-        Governor("NestSwapGovernor")
+        Governor("NextSwapGovernor")
         // 前期设置: 投票延迟 1 区块，投票周期约为 1 个区块，提案门槛为 0 代币
         GovernorSettings(
             /* votingDelay */ 1,
@@ -36,7 +36,7 @@ contract NestSwapGovernor is
         GovernorVotesQuorumFraction(1)
         GovernorTimelockControl(_timelock)
     {
-        _nestSwapToken = NestSwapToken(address(_token));
+        _nextSwapToken = NextSwapToken(address(_token));
     }
     // 设置投票法定人数为流通量的百分比
     function quorum(
@@ -47,7 +47,7 @@ contract NestSwapGovernor is
         override(Governor, GovernorVotesQuorumFraction)
         returns (uint256)
     {
-        uint256 circulatingSupply = _nestSwapToken.circulatingSupply();
+        uint256 circulatingSupply = _nextSwapToken.circulatingSupply();
 
         uint256 numerator = quorumNumerator(blockNumber);
 

@@ -16,6 +16,7 @@ const config: HardhatUserConfig = {
             runs: 200,
           },
           viaIR: true, // 使用IR编译器获得更好的优化
+          evmVersion: "cancun",
         },
       },
     ],

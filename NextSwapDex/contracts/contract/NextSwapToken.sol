@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 /**
- * @title NestSwapToken
- * @dev NestSwapToken
+ * @title NextSwapToken
+ * @dev NextSwapToken
  */
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
 import "../events/NextSwapEvents.sol";
-contract NestSwapToken is
+contract NextSwapToken is
     ERC20,
     ERC20Permit,
     ERC20Votes,
@@ -35,34 +35,34 @@ contract NestSwapToken is
     address public timelock;
 
     modifier noZeroAddress(address addr) {
-        require(addr != address(0), "NestSwap: caller is the zero address");
+        require(addr != address(0), "NextSwap: caller is the zero address");
         _;
     }
 
     modifier notAdminRole(bytes32 role) {
         require(
             role != DEFAULT_ADMIN_ROLE,
-            "NestSwap: cannot operate admin role"
+            "NextSwap: cannot operate admin role"
         );
         _;
     }
     modifier noTimeLockRole(bytes32 role) {
         require(
             role != TIMELOCK_ROLE,
-            "NestSwap: cannot operate timelock role"
+            "NextSwap: cannot operate timelock role"
         );
         _;
     }
     modifier amountGreaterThanZero(uint256 amount) {
-        require(amount > 0, "NestSwap: amount must be greater than zero");
+        require(amount > 0, "NextSwap: amount must be greater than zero");
         _;
     }
 
     constructor(
         address _timelock
     )
-        ERC20("NestSwap Token", "NST")
-        ERC20Permit("NestSwap Token")
+        ERC20("NextSwap Token", "NST")
+        ERC20Permit("NextSwap Token")
         noZeroAddress(_timelock)
     {
         timelock = _timelock;
@@ -86,7 +86,7 @@ contract NestSwapToken is
     ) public noZeroAddress(to) onlyRole(role) noTimeLockRole(role) {
         require(!hasRole(role, to), "you can't transfer role to holder");
         // 3. 验证接收地址有效
-        require(to != msg.sender, "NestSwap: cannot transfer to self");
+        require(to != msg.sender, "NextSwap: cannot transfer to self");
 
         _revokeRole(role, msg.sender);
         _grantRole(role, to);
@@ -206,9 +206,9 @@ contract NestSwapToken is
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(
             role != DEFAULT_ADMIN_ROLE,
-            "NestSwap: cannot revoke admin role"
+            "NextSwap: cannot revoke admin role"
         );
-        require(role != TIMELOCK_ROLE, "NestSwap: cannot revoke timelock role");
+        require(role != TIMELOCK_ROLE, "NextSwap: cannot revoke timelock role");
 
         _revokeRole(role, account);
         emit EmergencyRoleRevoked(role, account, msg.sender);
@@ -224,7 +224,7 @@ contract NestSwapToken is
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(
             role != DEFAULT_ADMIN_ROLE,
-            "NestSwap: cannot grant admin role"
+            "NextSwap: cannot grant admin role"
         );
         _grantRole(role, account);
         emit EmergencyRoleGranted(role, account, msg.sender);
@@ -238,7 +238,7 @@ contract NestSwapToken is
         address to,
         uint256 amount
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(token != address(this), "NestSwap: cannot recover NST");
+        require(token != address(this), "NextSwap: cannot recover NST");
         IERC20(token).safeTransfer(to, amount);
         emit EmergencyTokenRecovered(token, to, amount, msg.sender);
     }

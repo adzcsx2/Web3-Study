@@ -30,4 +30,6 @@ abstract contract NextSwapEvents {
         uint256 amount,
         address indexed adminAddress
     );
+    event AirdropTokensWithdrawn(address indexed to, uint256 amount);
+    event AirdropMerkleRootUpdated(bytes32 newMerkleRoot);
 }
