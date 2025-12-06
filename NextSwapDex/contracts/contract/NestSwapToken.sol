@@ -26,6 +26,11 @@ contract NestSwapToken is
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant TIMELOCK_ROLE = keccak256("TIMELOCK_ROLE");
 
+    // 总量
+    uint256 public MAX_SUPPLY = 1_000_000_000 * 10 ** decimals();
+    //流通量
+    uint256 public circulatingSupply;
+
     //时间锁合约地址
     address public timelock;
 
@@ -62,7 +67,7 @@ contract NestSwapToken is
     {
         timelock = _timelock;
         // 初始铸造 10 亿 NST 给部署者
-        _mint(msg.sender, 1_000_000_000 * 10 ** decimals());
+        _mint(msg.sender, MAX_SUPPLY);
         //设置角色
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(TIMELOCK_ROLE, _timelock);
@@ -138,11 +143,15 @@ contract NestSwapToken is
         address to,
         uint256 amount
     ) public onlyRole(TIMELOCK_ROLE) noZeroAddress(to) whenNotPaused {
+        MAX_SUPPLY += amount;
+        circulatingSupply += amount;
         _mint(to, amount);
         emit TokensMinted(to, amount);
     }
     // ✅ 建议：允许用户自己销毁代币
     function burn(uint256 amount) public whenNotPaused {
+        MAX_SUPPLY -= amount;
+        circulatingSupply -= amount;
         _burn(msg.sender, amount);
         emit TokensBurned(msg.sender, amount);
     }
@@ -163,6 +172,8 @@ contract NestSwapToken is
         uint256 amount
     ) public onlyRole(TIMELOCK_ROLE) whenNotPaused {
         _spendAllowance(account, msg.sender, amount);
+        MAX_SUPPLY -= amount;
+        circulatingSupply -= amount;
         _burn(account, amount);
 
         emit TokensBurned(account, amount);
