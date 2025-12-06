@@ -11,11 +11,14 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../../events/NextSwapEvents.sol";
 import "../NextSwapToken.sol";
 
 contract NextSwapAirdrop is AccessControl, ReentrancyGuard, NextSwapEvents {
+    using SafeERC20 for IERC20;
+
     IERC20 public immutable token;
     bytes32 public merkleRoot;
     //已领取映射 hasClaimed[airdropRound][address] = bool
@@ -52,7 +55,7 @@ contract NextSwapAirdrop is AccessControl, ReentrancyGuard, NextSwapEvents {
             token.balanceOf(address(this)) >= amount,
             "Insufficient token balance"
         );
-        token.transfer(recipient, amount);
+        token.safeTransfer(recipient, amount);
         emit AirdropTokensWithdrawn(recipient, amount);
     }
 

@@ -32,4 +32,32 @@ abstract contract NextSwapEvents {
     );
     event AirdropTokensWithdrawn(address indexed to, uint256 amount);
     event AirdropMerkleRootUpdated(bytes32 newMerkleRoot);
+    event RewardAdded(address indexed user, uint256 amount);
+    event RewardClaimed(address indexed user, uint256 amount);
+
+    event EcosystemFundAddressChanged(
+        address indexed oldAddress,
+        address indexed newAddress
+    );
+    event FinalizeRewards(address ecosystemFundAddress, uint256 acount);
+
+    event FundReceived(
+        address indexed token,
+        uint256 amount,
+        address indexed from
+    );
+
+    event TeamInspireTokensClaimed(
+        address indexed to,
+        uint256 amount,
+        address indexed adminAddress
+    );
+
+    event MemberAllocationAdded(
+        address indexed memberAddress,
+        uint256 allocation,
+        uint256 claimStartTime,
+        uint256 claimEndTime,
+        address indexed adminAddress
+    );
 }

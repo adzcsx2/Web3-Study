@@ -13,18 +13,20 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
 import "../events/NextSwapEvents.sol";
+import "../modifiers/NextSwapModifier.sol";
+import "../constants/Constants.sol";
+
 contract NextSwapToken is
     ERC20,
     ERC20Permit,
     ERC20Votes,
     AccessControl,
     Pausable,
-    NextSwapEvents
+    NextSwapEvents,
+    NextSwapModifier
 {
     using SafeERC20 for IERC20;
-    //权限常量
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    bytes32 public constant TIMELOCK_ROLE = keccak256("TIMELOCK_ROLE");
+    using Constants for *;
 
     // 总量
     uint256 public MAX_SUPPLY = 1_000_000_000 * 10 ** decimals();
@@ -34,45 +36,21 @@ contract NextSwapToken is
     //时间锁合约地址
     address public timelock;
 
-    modifier noZeroAddress(address addr) {
-        require(addr != address(0), "NextSwap: caller is the zero address");
-        _;
-    }
-
-    modifier notAdminRole(bytes32 role) {
-        require(
-            role != DEFAULT_ADMIN_ROLE,
-            "NextSwap: cannot operate admin role"
-        );
-        _;
-    }
-    modifier noTimeLockRole(bytes32 role) {
-        require(
-            role != TIMELOCK_ROLE,
-            "NextSwap: cannot operate timelock role"
-        );
-        _;
-    }
-    modifier amountGreaterThanZero(uint256 amount) {
-        require(amount > 0, "NextSwap: amount must be greater than zero");
-        _;
-    }
-
     constructor(
         address _timelock
     )
         ERC20("NextSwap Token", "NST")
         ERC20Permit("NextSwap Token")
-        noZeroAddress(_timelock)
+        nonZeroAddress(_timelock)
     {
         timelock = _timelock;
         // 初始铸造 10 亿 NST 给部署者
         _mint(msg.sender, MAX_SUPPLY);
         //设置角色
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(TIMELOCK_ROLE, _timelock);
+        _grantRole(Constants.TIMELOCK_ROLE, _timelock);
         // 将时间锁合约设置为管理员
-        _grantRole(PAUSER_ROLE, msg.sender);
+        _grantRole(Constants.PAUSER_ROLE, msg.sender);
     }
     // -------------------------------------------权限控制-------------------------------------
     /**
@@ -83,7 +61,7 @@ contract NextSwapToken is
     function transferRole(
         bytes32 role,
         address to
-    ) public noZeroAddress(to) onlyRole(role) noTimeLockRole(role) {
+    ) public nonZeroAddress(to) onlyRole(role) nonTimeLockRole(role) {
         require(!hasRole(role, to), "you can't transfer role to holder");
         // 3. 验证接收地址有效
         require(to != msg.sender, "NextSwap: cannot transfer to self");
@@ -97,16 +75,16 @@ contract NextSwapToken is
 
     function updateTimelock(
         address newTimelock
-    ) external onlyRole(TIMELOCK_ROLE) noZeroAddress(newTimelock) {
+    ) external onlyRole(Constants.TIMELOCK_ROLE) nonZeroAddress(newTimelock) {
         address oldTimelock = timelock;
 
         // 撤销旧时间锁权限
-        _revokeRole(TIMELOCK_ROLE, oldTimelock);
+        _revokeRole(Constants.TIMELOCK_ROLE, oldTimelock);
         _revokeRole(DEFAULT_ADMIN_ROLE, oldTimelock);
 
         // 授予新时间锁权限
         timelock = newTimelock;
-        _grantRole(TIMELOCK_ROLE, newTimelock);
+        _grantRole(Constants.TIMELOCK_ROLE, newTimelock);
         _grantRole(DEFAULT_ADMIN_ROLE, newTimelock);
 
         emit TimelockUpdated(oldTimelock, newTimelock);
@@ -118,9 +96,9 @@ contract NextSwapToken is
     )
         public
         override
-        onlyRole(TIMELOCK_ROLE)
-        notAdminRole(role)
-        noTimeLockRole(role)
+        onlyRole(Constants.TIMELOCK_ROLE)
+        nonAdminRole(role)
+        nonTimeLockRole(role)
     {
         _grantRole(role, account);
     }
@@ -131,9 +109,9 @@ contract NextSwapToken is
     )
         public
         override
-        onlyRole(TIMELOCK_ROLE)
-        notAdminRole(role)
-        noTimeLockRole(role)
+        onlyRole(Constants.TIMELOCK_ROLE)
+        nonAdminRole(role)
+        nonTimeLockRole(role)
     {
         _revokeRole(role, account);
     }
@@ -142,7 +120,7 @@ contract NextSwapToken is
     function mint(
         address to,
         uint256 amount
-    ) public onlyRole(TIMELOCK_ROLE) noZeroAddress(to) whenNotPaused {
+    ) public onlyRole(Constants.TIMELOCK_ROLE) nonZeroAddress(to) whenNotPaused {
         MAX_SUPPLY += amount;
         circulatingSupply += amount;
         _mint(to, amount);
@@ -170,7 +148,7 @@ contract NextSwapToken is
     function burnFrom(
         address account,
         uint256 amount
-    ) public onlyRole(TIMELOCK_ROLE) whenNotPaused {
+    ) public onlyRole(Constants.TIMELOCK_ROLE) whenNotPaused {
         _spendAllowance(account, msg.sender, amount);
         MAX_SUPPLY -= amount;
         circulatingSupply -= amount;
@@ -183,7 +161,7 @@ contract NextSwapToken is
      * @dev 暂停合约
      * @notice 紧急情况下需要快速响应，无需时间锁
      */
-    function pause() external onlyRole(PAUSER_ROLE) {
+    function pause() external onlyRole(Constants.PAUSER_ROLE) {
         _pause();
     }
 
@@ -191,7 +169,7 @@ contract NextSwapToken is
      * @dev 恢复合约
      * @notice 紧急情况下需要快速响应，无需时间锁
      */
-    function unpause() external onlyRole(PAUSER_ROLE) {
+    function unpause() external onlyRole(Constants.PAUSER_ROLE) {
         _unpause();
     }
     /**
@@ -208,7 +186,7 @@ contract NextSwapToken is
             role != DEFAULT_ADMIN_ROLE,
             "NextSwap: cannot revoke admin role"
         );
-        require(role != TIMELOCK_ROLE, "NextSwap: cannot revoke timelock role");
+        require(role != Constants.TIMELOCK_ROLE, "NextSwap: cannot revoke timelock role");
 
         _revokeRole(role, account);
         emit EmergencyRoleRevoked(role, account, msg.sender);
