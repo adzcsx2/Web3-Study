@@ -8,3 +8,10 @@ struct TeamMemberInspire {
     uint256 claimStartTime; // 奖励开始释放时间
     uint256 claimEndTime; // 奖励结束释放时间
 }
+// 空投轮次信息
+struct AirdropRound {
+    bytes32 merkleRoot;
+    uint256 startTime;
+    uint256 endTime;
+    bool isActive;
+}

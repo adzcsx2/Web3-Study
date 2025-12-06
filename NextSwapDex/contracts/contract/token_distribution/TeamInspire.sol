@@ -18,6 +18,7 @@ import "../../structs/NextSwapStructs.sol";
  * @dev 团队激励合约
 - **悬崖期（Cliff）**：1 年完全锁仓
 - **线性释放期**：之后 3 年线性释放
+- ** 1年后加入的成员**：从加入时间开始 3 年线性释放（无悬崖期）
  */
 
 contract TeamInspire is

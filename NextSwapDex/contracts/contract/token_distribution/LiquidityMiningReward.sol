@@ -14,6 +14,7 @@ pragma solidity ^0.8.26;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 import "../../events/NextSwapEvents.sol";
 import "../../modifiers/NextSwapModifier.sol";
@@ -21,6 +22,7 @@ import "../../modifiers/NextSwapModifier.sol";
 contract LiquidityMiningReward is
     AccessControl,
     ReentrancyGuard,
+    Pausable,
     NextSwapEvents,
     NextSwapModifier
 {
@@ -66,7 +68,7 @@ contract LiquidityMiningReward is
     }
 
     // 奖励领取截止,所有剩余代币打入生态基金地址
-    function finalizeRewards() external nonReentrant {
+    function finalizeRewards() external nonReentrant whenNotPaused {
         require(
             block.timestamp > claimDeadline,
             "Claim deadline has not passed"
@@ -76,6 +78,21 @@ contract LiquidityMiningReward is
             nextSwapToken.safeTransfer(ecosystemFundAddress, contractBalance);
             emit FinalizeRewards(ecosystemFundAddress, contractBalance);
         }
+    }
+
+    // ====== 紧急控制函数 ======
+    /**
+     * @dev 暂停合约（紧急情况）
+     */
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @dev 恢复合约
+     */
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
     }
 
     // ---------------------------------------view functions----------------------------------------
