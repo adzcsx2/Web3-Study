@@ -60,4 +60,9 @@ abstract contract NextSwapEvents {
         uint256 claimEndTime,
         address indexed adminAddress
     );
+    event WithdrawNextSwapToken(
+        address indexed to,
+        uint256 amount,
+        address indexed adminAddress
+    );
 }

@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
  * @dev 为子合约提供统一的暂停/恢复机制，支持独立的暂停权限控制
  *
  * 核心功能：pause（暂停合约）、unpause（恢复合约）
+ * 继承自 OpenZeppelin Pausable，提供标准化的暂停机制和事件
  *
  * @custom:security-contact security@example.com
  */
@@ -25,18 +26,18 @@ abstract contract PublicPausable is Pausable {
 
     /**
      * @notice 暂停合约
-     * @dev 禁用所有带 whenNotPaused 修饰符的函数
+     * @dev 禁用所有带 whenNotPaused 修饰符的函数，触发 Paused 事件
      */
-    function pause() external virtual {
+    function pause() public virtual {
         _checkPauser();
         _pause();
     }
 
     /**
      * @notice 恢复合约
-     * @dev 启用所有带 whenNotPaused 修饰符的函数
+     * @dev 启用所有带 whenNotPaused 修饰符的函数，触发 Unpaused 事件
      */
-    function unpause() external virtual {
+    function unpause() public virtual {
         _checkPauser();
         _unpause();
     }

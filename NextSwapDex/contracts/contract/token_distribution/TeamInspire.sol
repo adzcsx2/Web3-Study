@@ -49,7 +49,7 @@ contract TeamInspire is
         address initialOwner,
         address _tokenAddress,
         uint256 _startTime
-    ) Ownable(initialOwner) {
+    ) Ownable(initialOwner) PublicWithdrawable(_tokenAddress) {
         require(_tokenAddress != address(0), "Invalid token address");
         require(
             _startTime > block.timestamp,
@@ -60,18 +60,6 @@ contract TeamInspire is
         startTime = _startTime;
         cliffEndTime = _startTime + 365 days; // 悬崖期结束时间,1年后
         claimEndTime = cliffEndTime + 3 * 365 days; // 线性释放期3年
-    }
-
-    function _checkOwner()
-        internal
-        view
-        override(Ownable, PublicWithdrawable)
-    {
-        Ownable._checkOwner();
-    }
-
-    function _checkPauser() internal view override {
-        Ownable._checkOwner();
     }
 
     /**
@@ -238,5 +226,14 @@ contract TeamInspire is
         }
 
         return claimableAmount;
+    }
+    //------------------------------------------ override functions ------------------------------------------
+
+    function _checkOwner() internal view override(Ownable, PublicWithdrawable) {
+        super._checkOwner();
+    }
+
+    function _checkPauser() internal view override {
+        super._checkOwner();
     }
 }

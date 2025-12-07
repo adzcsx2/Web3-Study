@@ -6,10 +6,11 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "../lib/PublicWithdrawable.sol";
+import "../NextSwapToken.sol";
 
 import "../../constants/Constants.sol";
 import "../../modifiers/NextSwapModifier.sol";
-import "../NextSwapToken.sol";
 import "../../events/NextSwapEvents.sol";
 
 /**
@@ -19,64 +20,39 @@ import "../../events/NextSwapEvents.sol";
 
 contract EcosystemFund is
     Ownable2Step,
-    ReentrancyGuard,
-    Pausable,
+    PublicWithdrawable,
     NextSwapModifier,
     NextSwapEvents
 {
     using Constants for *;
     using SafeERC20 for IERC20;
 
-    constructor(address initialOwner) Ownable(initialOwner) {
+    IERC20 public immutable token;
+
+    constructor(
+        address _tokenAddress,
+        address initialOwner
+    ) Ownable(initialOwner) PublicWithdrawable(_tokenAddress) {
         // Ownable2Step 会自动从 Ownable 继承
+        token = IERC20(_tokenAddress);
+    }
+    //------------------------------------------ override functions ------------------------------------------
+
+    function _checkOwner() internal view override(Ownable, PublicWithdrawable) {
+        super._checkOwner();
     }
 
-    // ====== 紧急控制函数 ======
-    /**
-     * @dev 暂停合约（紧急情况）
-     */
-    function pause() external onlyOwner {
-        _pause();
+    function _checkPauser() internal view override {
+        super._checkOwner();
     }
 
-    /**
-     * @dev 恢复合约
-     */
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-
-    // ====== 治理：提取 ETH（如果误收）======
-    function withdrawETH(
-        address payable to,
-        uint256 amount
-    ) external onlyOwner nonReentrant whenNotPaused {
-        require(to != address(0), "Invalid recipient");
-        require(amount <= address(this).balance, "Insufficient balance");
-        to.transfer(amount);
-        emit EmergencyTokenRecovered(address(0), to, amount, msg.sender);
-    }
-    function withdrawERC20(
-        address tokenAddress,
-        address to,
-        uint256 amount
-    )
-        external
-        onlyOwner
-        nonReentrant
-        whenNotPaused
-        nonZeroAddress(tokenAddress)
-        nonZeroAddress(to)
+    // 业务代币过期时间设为当前时间，允许随时提取
+    function _withdrawOringinTokenExpiry()
+        internal
+        view
+        override
+        returns (uint256)
     {
-        IERC20 token = IERC20(tokenAddress);
-        uint256 contractBalance = token.balanceOf(address(this));
-        require(amount <= contractBalance, "Insufficient token balance");
-        token.safeTransfer(to, amount);
-        emit EmergencyTokenRecovered(tokenAddress, to, amount, msg.sender);
-    }
-
-    // ====== 安全：接收 ETH ======
-    receive() external payable {
-        emit FundReceived(address(0), msg.value, msg.sender);
+        return block.timestamp;
     }
 }

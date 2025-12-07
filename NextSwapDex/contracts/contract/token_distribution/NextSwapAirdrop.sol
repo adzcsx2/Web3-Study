@@ -11,9 +11,9 @@ pragma solidity ^0.8.26;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
+import "../lib/PublicWithdrawable.sol";
 
 import "../../events/NextSwapEvents.sol";
 import "../NextSwapToken.sol";
@@ -21,15 +21,12 @@ import "../../modifiers/NextSwapModifier.sol";
 import "../../structs/NextSwapStructs.sol";
 
 contract NextSwapAirdrop is
-    AccessControl,
-    ReentrancyGuard,
-    Pausable,
+    Ownable2Step,
+    PublicWithdrawable,
+    NextSwapModifier,
     NextSwapEvents
 {
     using SafeERC20 for IERC20;
-
-    // 创建 PAUSER_ROLE
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     IERC20 public immutable token;
     //已领取映射 hasClaimed[airdropRound][address] = bool
@@ -38,10 +35,12 @@ contract NextSwapAirdrop is
     mapping(uint256 => AirdropRound) public airdropRounds;
     uint256 public currentRound;
 
-    constructor(address tokenAddress) {
-        token = IERC20(tokenAddress);
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(PAUSER_ROLE, msg.sender);
+    constructor(
+        address _tokenAddress,
+        address initialOwner
+    ) Ownable(initialOwner) PublicWithdrawable(_tokenAddress) {
+        // Ownable2Step 会自动从 Ownable 继承
+        token = IERC20(_tokenAddress);
     }
 
     /**
@@ -52,7 +51,7 @@ contract NextSwapAirdrop is
         bytes32 _merkleRoot,
         uint256 startTime,
         uint256 endTime
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyOwner {
         require(round > currentRound, "Invalid round number");
         require(
             airdropRounds[round].merkleRoot == bytes32(0),
@@ -75,10 +74,7 @@ contract NextSwapAirdrop is
     /**
      * @dev 设置空投轮次状态
      */
-    function setRoundActive(
-        uint256 round,
-        bool _isActive
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setRoundActive(uint256 round, bool _isActive) external onlyOwner {
         require(round <= currentRound, "Round does not exist");
         airdropRounds[round].isActive = _isActive;
     }
@@ -166,10 +162,7 @@ contract NextSwapAirdrop is
     /**
      * @dev 提取剩余代币到生态基金
      */
-    function withdrawTokens(
-        address to,
-        uint256 amount
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function withdrawTokens(address to, uint256 amount) external onlyOwner {
         require(to != address(0), "Invalid recipient");
         require(
             token.balanceOf(address(this)) >= amount,
@@ -180,33 +173,15 @@ contract NextSwapAirdrop is
         emit AirdropTokensWithdrawn(to, amount);
     }
 
-    /**
-     * @dev 紧急提取代币（包括误转的ERC20代币）
-     */
-    function emergencyWithdraw(
-        address tokenAddress,
-        address to,
-        uint256 amount
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(to != address(0), "Invalid recipient");
-        require(tokenAddress != address(0), "Invalid token address");
-
-        IERC20(tokenAddress).safeTransfer(to, amount);
-        emit EmergencyTokenRecovered(tokenAddress, to, amount, msg.sender);
-    }
-
-    /**
-     * @dev 暂停合约
-     */
-    function pause() external onlyRole(PAUSER_ROLE) {
-        _pause();
-    }
-
-    /**
-     * @dev 恢复合约
-     */
-    function unpause() external onlyRole(PAUSER_ROLE) {
-        _unpause();
+    //------------------------------------------ view functions ------------------------------------------
+    // 业务代币过期时间设为当前时间，允许随时提取
+    function _withdrawOringinTokenExpiry()
+        internal
+        view
+        override
+        returns (uint256)
+    {
+        return block.timestamp;
     }
 
     /**
@@ -231,5 +206,14 @@ contract NextSwapAirdrop is
             roundInfo.endTime,
             roundInfo.isActive
         );
+    }
+    //------------------------------------------ override functions ------------------------------------------
+    // 重写权限检查，结合 Ownable 和 PublicWithdrawable
+    function _checkOwner() internal view override(Ownable, PublicWithdrawable) {
+        super._checkOwner();
+    }
+
+    function _checkPauser() internal view override {
+        super._checkOwner();
     }
 }

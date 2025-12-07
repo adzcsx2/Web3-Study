@@ -9,17 +9,25 @@ import "./PublicPausable.sol";
 /**
  * @title PublicWithdrawable
  * @notice 可提取合约基础库 - 提供安全的误转资金回收功能
- * @dev 为子合约提供误转资金（ERC20/ETH）的安全提取能力
+ * @dev 为子合约提供误转资金（ERC20/ETH）的安全提取能力，同时保护业务代币不被误提取
  *
- * 核心功能：withdraw（提取代币）、receive（接收 ETH）、暂停机制
- * 安全特性：重入保护、SafeERC20、零地址检查、余额验证
+ * 核心功能：emergencyWithdraw（提取代币）、receive（接收 ETH）、暂停机制
+ * 安全特性：重入保护、SafeERC20、零地址检查、余额验证、业务代币保护
  *
- * ⚠️ 重要：本合约不保护业务代币，子合约需重写 withdraw 方法保护重要代币
+ * ✅ 业务代币保护：通过 originalTokenAddress 白名单机制，禁止提取业务核心代币
+ * ⚠️ 仅可提取误转入的其他代币或 ETH，保障合约核心资产安全
  *
  * @custom:security-contact security@example.com
  */
 abstract contract PublicWithdrawable is ReentrancyGuard, PublicPausable {
     using SafeERC20 for IERC20;
+
+    // 业务代币合约地址
+    address public immutable originalTokenAddress;
+
+    constructor(address _tokenAddress) {
+        originalTokenAddress = _tokenAddress;
+    }
 
     // ====== 事件 ======
 
@@ -31,6 +39,19 @@ abstract contract PublicWithdrawable is ReentrancyGuard, PublicPausable {
      * @param operator 操作者地址
      */
     event _EmergencyTokenRecovered(
+        address indexed token,
+        address indexed to,
+        uint256 amount,
+        address indexed operator
+    );
+    /**
+     * @notice 原生(业务)代币提取事件
+     * @param token 代币地址
+     * @param to 接收地址
+     * @param amount 回收数量
+     * @param operator 操作者地址
+     */
+    event _WithdrawOriginalToken(
         address indexed token,
         address indexed to,
         uint256 amount,
@@ -68,25 +89,48 @@ abstract contract PublicWithdrawable is ReentrancyGuard, PublicPausable {
      */
     function _checkOwner() internal view virtual;
 
+    /**
+     * @dev 设置原生(业务)代币提取的时间点
+     * @notice 子合约必须实现此方法以开启业务代币的紧急提取功能
+     */
+    function _withdrawOringinTokenExpiry()
+        internal
+        view
+        virtual
+        returns (uint256)
+    {
+        return 0;
+    }
+
     // ====== 资金提取 ======
 
     /**
      * @notice 提取误转入合约的代币或原生 ETH
-     * @dev 默认实现不保护业务代币，子合约应重写此方法保护重要代币
+     * @dev 已实现业务代币保护，禁止提取 originalTokenAddress 指定的核心业务代币
      *
      * @param tokenAddress 代币地址（address(0) 表示 ETH）
      * @param to 接收地址
      * @param amount 提取数量
      *
-     * 安全机制：权限控制、重入保护、暂停检查、零地址检查、余额验证、SafeERC20
+     * 保护机制：
+     * - ✅ 业务代币白名单保护：禁止提取 originalTokenAddress
+     * - ✅ 权限控制：仅授权地址可调用
+     * - ✅ 重入攻击防护：nonReentrant 修饰符
+     * - ✅ 暂停机制：支持紧急暂停
+     * - ✅ 参数验证：零地址检查、余额验证
+     * - ✅ 安全转账：使用 SafeERC20
      */
-    function withdraw(
+    function emergencyWithdraw(
         address tokenAddress,
         address to,
         uint256 amount
     ) external virtual nonReentrant whenNotPaused _nonZeroAddress(to) {
         _checkOwner();
         require(amount > 0, "Zero amount");
+        require(
+            tokenAddress != originalTokenAddress,
+            "cannot withdraw original token"
+        );
 
         if (tokenAddress == address(0)) {
             // 提取原生 ETH
@@ -104,6 +148,38 @@ abstract contract PublicWithdrawable is ReentrancyGuard, PublicPausable {
         }
 
         emit _EmergencyTokenRecovered(tokenAddress, to, amount, msg.sender);
+    }
+
+    /**
+     * 紧急提取业务代币（仅在紧急情况下，且经过时间锁后可用）
+     */
+    function withdrawOriginalToken(
+        address to,
+        uint256 amount
+    ) external virtual nonReentrant whenNotPaused _nonZeroAddress(to) {
+        _checkOwner();
+        require(amount > 0, "Zero amount");
+        uint256 withdrawOringinTokenExpiry = _withdrawOringinTokenExpiry();
+        require(
+            withdrawOringinTokenExpiry > 0,
+            "Emergency withdrawal not enabled"
+        );
+        require(
+            block.timestamp >= withdrawOringinTokenExpiry,
+            "Emergency withdrawal not allowed yet"
+        );
+        IERC20 token = IERC20(originalTokenAddress);
+        require(
+            token.balanceOf(address(this)) >= amount,
+            "Insufficient balance"
+        );
+        token.safeTransfer(to, amount);
+        emit _WithdrawOriginalToken(
+            originalTokenAddress,
+            to,
+            amount,
+            msg.sender
+        );
     }
 
     // ====== ETH 接收 ======
