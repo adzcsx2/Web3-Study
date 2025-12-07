@@ -48,9 +48,9 @@ contract NextSwapToken is
         _mint(msg.sender, MAX_SUPPLY);
         //设置角色
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(Constants.TIMELOCK_ROLE, _timelock);
-        // 将时间锁合约设置为管理员
         _grantRole(Constants.PAUSER_ROLE, msg.sender);
+        // 将时间锁合约设置为管理员
+        _grantRole(Constants.TIMELOCK_ROLE, _timelock);
     }
     // -------------------------------------------权限控制-------------------------------------
     /**
