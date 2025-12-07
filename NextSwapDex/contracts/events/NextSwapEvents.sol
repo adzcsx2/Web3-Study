@@ -65,4 +65,29 @@ abstract contract NextSwapEvents {
         uint256 amount,
         address indexed adminAddress
     );
+    event PrivateSaleRoundSet(
+        uint256 roundId,
+        uint256 rate,
+        uint256 startTime,
+        uint256 endTime,
+        uint256 cap,
+        bool isActive
+    );
+    event TokensAllocated(
+        address indexed investor,
+        uint256 amountPaid,
+        uint256 tokensAllocated
+    );
+    event LowTokenBalance(
+        address indexed contractAddress,
+        uint256 currentBalance,
+        uint256 requiredBalance,
+        uint256 roundId
+    );
+    event InsufficientTokenBalance(
+        address indexed investor,
+        uint256 requested,
+        uint256 available,
+        uint256 roundId
+    );
 }

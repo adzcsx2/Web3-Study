@@ -29,7 +29,10 @@ abstract contract NextSwapModifier {
     }
     // 非管理员角色检查
     modifier nonAdminRole(bytes32 role) {
-        require(role != Constants.DEFAULT_ADMIN_ROLE, "cannot operate admin role");
+        require(
+            role != Constants.DEFAULT_ADMIN_ROLE,
+            "cannot operate admin role"
+        );
         _;
     }
     // 非时间锁角色检查
@@ -48,6 +51,17 @@ abstract contract NextSwapModifier {
     // 余额是否有足够数量检查
     modifier hasSufficientBalance(uint256 balance, uint256 amount) {
         require(balance >= amount, "insufficient balance");
+        _;
+    }
+
+    // 时间需要大于当前时间检查
+    modifier timeInFuture(uint256 time) {
+        require(time > block.timestamp, "time must be in the future");
+        _;
+    }
+    // 结束时间需要大于开始时间检查
+    modifier endTimeAfterStartTime(uint256 startTime, uint256 endTime) {
+        require(endTime > startTime, "endTime must be after startTime");
         _;
     }
 }
