@@ -491,6 +491,18 @@ export class DeployHelper {
     console.log(`   - 交易哈希: ${deploymentTx?.hash}`);
     console.log(`   - 版本: ${version}`);
 
+    // 获取并显示合约大小
+    try {
+      const contractCode = await ethers.provider.getCode(implementationAddress);
+      const sizeBytes = (contractCode.length - 2) / 2; // 减去0x前缀，每2个字符代表1字节
+      const sizeKB = (sizeBytes / 1024).toFixed(2);
+      console.log(
+        `   - 合约大小: ${sizeKB} KB (${sizeBytes.toLocaleString()} 字节)`
+      );
+    } catch (error) {
+      console.warn("⚠️  无法获取合约大小:", error);
+    }
+
     // 自动保存部署信息
     await this.saveContractDeployment(
       contractName,
@@ -581,12 +593,24 @@ export class DeployHelper {
       abi,
     };
 
-    console.log(`✅ 普通合约部署成功:`);
+    console.log(`✅ 普通合约 ${contractName} 部署成功:`);
     console.log(`   - 合约地址: ${contractAddress}`);
     console.log(`   - 交易哈希: ${transactionHash}`);
     console.log(`   - 区块号: ${blockNumber}`);
     console.log(`   - Gas 使用: ${gasUsed}`);
     console.log(`   - 版本: ${version}`);
+
+    // 获取并显示合约大小
+    try {
+      const contractCode = await ethers.provider.getCode(contractAddress);
+      const sizeBytes = (contractCode.length - 2) / 2; // 减去0x前缀，每2个字符代表1字节
+      const sizeKB = (sizeBytes / 1024).toFixed(2);
+      console.log(
+        `   - 合约大小: ${sizeKB} KB (${sizeBytes.toLocaleString()} 字节)`
+      );
+    } catch (error) {
+      console.warn("⚠️  无法获取合约大小:", error);
+    }
 
     // 自动保存部署信息
     await this.saveContractDeployment(
@@ -705,11 +729,23 @@ export class DeployHelper {
       abi,
     };
 
-    console.log(`✅ 合约升级成功:`);
+    console.log(`✅ ${newContractName} 合约升级成功:`);
     console.log(`   - 代理地址: ${proxyAddress}`);
     console.log(`   - 新实现地址: ${newImplementation}`);
     console.log(`   - 版本: ${version}`);
     console.log(`   - 交易哈希: ${transactionHash}`);
+
+    // 获取并显示新实现的合约大小
+    try {
+      const contractCode = await ethers.provider.getCode(newImplementation);
+      const sizeBytes = (contractCode.length - 2) / 2; // 减去0x前缀，每2个字符代表1字节
+      const sizeKB = (sizeBytes / 1024).toFixed(2);
+      console.log(
+        `   - 新实现合约大小: ${sizeKB} KB (${sizeBytes.toLocaleString()} 字节)`
+      );
+    } catch (error) {
+      console.warn("⚠️  无法获取合约大小:", error);
+    }
 
     // 自动保存升级历史
     await this.saveContractDeployment(newContractName, versionInfo);

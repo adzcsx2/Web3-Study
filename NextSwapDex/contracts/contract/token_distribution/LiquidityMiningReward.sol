@@ -18,12 +18,12 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 
 import "../../events/NextSwapEvents.sol";
 import "../../modifiers/NextSwapModifier.sol";
+import "../../errors/NextSwapErrors.sol";
 
 contract LiquidityMiningReward is
     AccessControl,
     ReentrancyGuard,
     Pausable,
-    NextSwapEvents,
     NextSwapModifier
 {
     using SafeERC20 for IERC20;
@@ -69,10 +69,9 @@ contract LiquidityMiningReward is
 
     // 奖励领取截止,所有剩余代币打入生态基金地址
     function finalizeRewards() external nonReentrant whenNotPaused {
-        require(
-            block.timestamp > claimDeadline,
-            "Claim deadline has not passed"
-        );
+        if (block.timestamp <= claimDeadline) {
+            revert ClaimDeadlineHasNotPassed();
+        }
         uint256 contractBalance = nextSwapToken.balanceOf(address(this));
         if (contractBalance > 0) {
             nextSwapToken.safeTransfer(ecosystemFundAddress, contractBalance);
@@ -101,12 +100,12 @@ contract LiquidityMiningReward is
         if (block.timestamp <= startTime) {
             return 0;
         } else if (block.timestamp >= endTime) {
-            return Constants.LIQUIDITY_MINING_TOTAL;
+            return LIQUIDITY_MINING_TOTAL;
         } else {
             uint256 elapsedTime = block.timestamp - startTime;
             uint256 totalDuration = endTime - startTime;
             return
-                (Constants.LIQUIDITY_MINING_TOTAL * elapsedTime) /
+                (LIQUIDITY_MINING_TOTAL * elapsedTime) /
                 totalDuration;
         }
     }

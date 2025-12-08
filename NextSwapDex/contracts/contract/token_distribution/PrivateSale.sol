@@ -11,6 +11,7 @@ import "../../constants/Constants.sol";
 import "../../modifiers/NextSwapModifier.sol";
 import "../../events/NextSwapEvents.sol";
 import "../../structs/NextSwapStructs.sol";
+import "../../errors/NextSwapErrors.sol";
 /**
  * @title PrivateSale
  * @dev 私募合约
@@ -18,10 +19,8 @@ import "../../structs/NextSwapStructs.sol";
 contract PrivateSale is
     Ownable2Step,
     PublicWithdrawable,
-    NextSwapModifier,
-    NextSwapEvents
+    NextSwapModifier
 {
-    using Constants for *;
     using SafeERC20 for IERC20;
 
     IERC20 public immutable token;
@@ -96,17 +95,19 @@ contract PrivateSale is
     {
         PrivateSaleRound storage round = privateSaleRounds[currentRound];
 
-        require(round.isActive, "Private sale round is not active");
-        require(
-            block.timestamp >= round.startTime &&
-                block.timestamp <= round.endTime,
-            "Private sale round is not active"
-        );
+        if (!round.isActive) {
+            revert PrivateSaleRoundIsNotActive();
+        }
+        if (
+            block.timestamp < round.startTime ||
+            block.timestamp > round.endTime
+        ) {
+            revert PrivateSaleRoundTimeNotActive();
+        }
         uint256 tokensToAllocate = amountPaid * round.rate;
-        require(
-            round.totalSold + tokensToAllocate <= round.cap,
-            "Private sale round cap exceeded"
-        );
+        if (round.totalSold + tokensToAllocate > round.cap) {
+            revert PrivateSaleRoundCapExceeded();
+        }
 
         // 检查合约代币余额是否充足
         uint256 contractBalance = token.balanceOf(address(this));
@@ -118,7 +119,7 @@ contract PrivateSale is
                 contractBalance,
                 currentRound
             );
-            revert("Insufficient token balance in contract");
+            revert InsufficientTokenBalanceInContract();
         }
 
         PrivateSaleInvestor storage investorInfo = privateSaleInvestors[
@@ -152,19 +153,19 @@ contract PrivateSale is
         PrivateSaleInvestor storage investorInfo = privateSaleInvestors[
             msg.sender
         ];
-        require(
-            investorInfo.purchased > 0,
-            "No tokens purchased in private sale"
-        );
-        require(
-            block.timestamp >= investorInfo.claimStartTime,
-            "Claim period has not started"
-        );
+        if (investorInfo.purchased == 0) {
+            revert NoTokensPurchasedInPrivateSale();
+        }
+        if (block.timestamp < investorInfo.claimStartTime) {
+            revert ClaimPeriodHasNotStarted();
+        }
 
         uint256 totalUnlockable = _viewUnlockableTokens(msg.sender);
 
         uint256 claimable = totalUnlockable - investorInfo.claimed;
-        require(claimable > 0, "No tokens available to claim");
+        if (claimable == 0) {
+            revert NoTokensAvailableToClaimInPrivateSale();
+        }
 
         // 检查合约余额是否足够支付
         uint256 contractBalance = token.balanceOf(address(this));
@@ -175,7 +176,7 @@ contract PrivateSale is
                 contractBalance,
                 currentRound
             );
-            revert("Insufficient token balance in contract");
+            revert InsufficientTokenBalanceInContract();
         }
 
         investorInfo.claimed += claimable;

@@ -11,6 +11,7 @@ import "../../modifiers/NextSwapModifier.sol";
 import "../NextSwapToken.sol";
 import "../../events/NextSwapEvents.sol";
 import "../../structs/NextSwapStructs.sol";
+import "../../errors/NextSwapErrors.sol";
 
 /**
  * @title TeamInspire
@@ -20,13 +21,7 @@ import "../../structs/NextSwapStructs.sol";
 - ** 1年后加入的成员**：从加入时间开始 3 年线性释放（无悬崖期）
  */
 
-contract TeamInspire is
-    Ownable2Step,
-    PublicWithdrawable,
-    NextSwapModifier,
-    NextSwapEvents
-{
-    using Constants for *;
+contract TeamInspire is Ownable2Step, PublicWithdrawable, NextSwapModifier {
     using SafeERC20 for IERC20;
 
     // NextSwap 代币合约地址
@@ -50,11 +45,12 @@ contract TeamInspire is
         address _tokenAddress,
         uint256 _startTime
     ) Ownable(initialOwner) PublicWithdrawable(_tokenAddress) {
-        require(_tokenAddress != address(0), "Invalid token address");
-        require(
-            _startTime > block.timestamp,
-            "Start time must be in the future"
-        );
+        if (_tokenAddress == address(0)) {
+            revert InvalidTokenAddress();
+        }
+        if (_startTime <= block.timestamp) {
+            revert StartTimeMustBeInFuture();
+        }
 
         token = IERC20(_tokenAddress);
         startTime = _startTime;
@@ -78,12 +74,15 @@ contract TeamInspire is
     ) internal onlyOwner nonZeroAddress(memberAddress) {
         TeamMemberInspire memory member = memberAllocations[memberAddress];
 
-        require(
-            totalAllocated + allocation <= Constants.TEAM_TOTAL,
-            "Exceeds maximum team allocation"
-        );
-        require(member.allocation == 0, "Member already exists");
-        require(allocation > 0, "Allocation must be greater than zero");
+        if (totalAllocated + allocation > TEAM_TOTAL) {
+            revert ExceedsMaximumTeamAllocation();
+        }
+        if (member.allocation != 0) {
+            revert MemberAlreadyExists();
+        }
+        if (allocation == 0) {
+            revert AllocationMustBeGreaterThanZero();
+        }
 
         totalAllocated += allocation;
         member.allocation = allocation;
@@ -122,10 +121,9 @@ contract TeamInspire is
         address[] calldata membersAddress,
         uint256[] calldata allocations
     ) external onlyOwner {
-        require(
-            membersAddress.length == allocations.length,
-            "Members and allocations length mismatch"
-        );
+        if (membersAddress.length != allocations.length) {
+            revert MembersAndAllocationsLengthMismatch();
+        }
         for (uint256 i = 0; i < membersAddress.length; i++) {
             _addMemberAllocation(membersAddress[i], allocations[i]);
         }
@@ -143,15 +141,18 @@ contract TeamInspire is
     {
         TeamMemberInspire storage member = memberAllocations[msg.sender];
 
-        require(member.allocation > 0, "No allocation found");
-        require(
-            block.timestamp >= member.claimStartTime,
-            "Tokens not yet claimable"
-        );
+        if (member.allocation == 0) {
+            revert NoAllocationFound();
+        }
+        if (block.timestamp < member.claimStartTime) {
+            revert TokensNotYetClaimable();
+        }
 
         // 计算可领取数量
         uint256 claimableAmount = _calculateClaimable(msg.sender);
-        require(claimableAmount > 0, "No tokens available to claim");
+        if (claimableAmount == 0) {
+            revert NoTokensAvailableToClaim();
+        }
 
         // 更新成员状态（CEI 模式：先修改状态再转账）
         member.claimed += claimableAmount;

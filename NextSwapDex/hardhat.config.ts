@@ -19,12 +19,28 @@ const config: HardhatUserConfig = {
           evmVersion: "cancun",
         },
       },
+      {
+        version: "0.8.12", // Uniswap V3 核心合约
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 625, // runs=1: 最大化压缩字节码（优先部署成本）
+          },
+          metadata: {
+            bytecodeHash: "none", // 移除元数据哈希，减小约 53 字节
+          },
+        },
+      },
     ],
   },
   // 网络配置
   networks: {
+    hardhat: {
+      allowUnlimitedContractSize: true,
+    },
     localhost: {
       url: "http://localhost:8545",
+      allowUnlimitedContractSize: false,
     },
     // 测试网示例：Sepolia
     sepolia: {

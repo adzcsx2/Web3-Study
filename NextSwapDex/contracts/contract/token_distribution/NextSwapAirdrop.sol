@@ -19,12 +19,12 @@ import "../../events/NextSwapEvents.sol";
 import "../NextSwapToken.sol";
 import "../../modifiers/NextSwapModifier.sol";
 import "../../structs/NextSwapStructs.sol";
+import "../../errors/NextSwapErrors.sol";
 
 contract NextSwapAirdrop is
     Ownable2Step,
     PublicWithdrawable,
-    NextSwapModifier,
-    NextSwapEvents
+    NextSwapModifier
 {
     using SafeERC20 for IERC20;
 
@@ -52,13 +52,18 @@ contract NextSwapAirdrop is
         uint256 startTime,
         uint256 endTime
     ) external onlyOwner {
-        require(round > currentRound, "Invalid round number");
-        require(
-            airdropRounds[round].merkleRoot == bytes32(0),
-            "Round already exists"
-        );
-        require(startTime < endTime, "Invalid time range");
-        require(_merkleRoot != bytes32(0), "Invalid merkle root");
+        if (round <= currentRound) {
+            revert InvalidRoundNumber();
+        }
+        if (airdropRounds[round].merkleRoot != bytes32(0)) {
+            revert RoundAlreadyExists();
+        }
+        if (startTime >= endTime) {
+            revert InvalidTimeRange();
+        }
+        if (_merkleRoot == bytes32(0)) {
+            revert InvalidMerkleRoot();
+        }
 
         airdropRounds[round] = AirdropRound({
             merkleRoot: _merkleRoot,
@@ -75,7 +80,9 @@ contract NextSwapAirdrop is
      * @dev 设置空投轮次状态
      */
     function setRoundActive(uint256 round, bool _isActive) external onlyOwner {
-        require(round <= currentRound, "Round does not exist");
+        if (round > currentRound) {
+            revert RoundDoesNotExist();
+        }
         airdropRounds[round].isActive = _isActive;
     }
 
@@ -88,23 +95,31 @@ contract NextSwapAirdrop is
         uint256 amount,
         bytes32[] calldata proof
     ) internal {
-        require(
-            !hasClaimed[airdropRound][recipient],
-            "Airdrop already claimed"
-        );
-        require(amount > 0, "Amount must be greater than 0");
+        if (hasClaimed[airdropRound][recipient]) {
+            revert AirdropAlreadyClaimed();
+        }
+        if (amount == 0) {
+            revert AmountMustBeGreaterThanZeroForAirdrop();
+        }
 
         AirdropRound storage round = airdropRounds[airdropRound];
-        require(round.merkleRoot != bytes32(0), "Round does not exist");
-        require(round.isActive, "Round is not active");
-        require(block.timestamp >= round.startTime, "Airdrop not started");
-        require(block.timestamp <= round.endTime, "Airdrop ended");
+        if (round.merkleRoot == bytes32(0)) {
+            revert RoundDoesNotExist();
+        }
+        if (!round.isActive) {
+            revert RoundIsNotActive();
+        }
+        if (block.timestamp < round.startTime) {
+            revert AirdropNotStarted();
+        }
+        if (block.timestamp > round.endTime) {
+            revert AirdropEnded();
+        }
 
         bytes32 node = keccak256(abi.encode(recipient, amount));
-        require(
-            MerkleProof.verify(proof, round.merkleRoot, node),
-            "Invalid Merkle Proof"
-        );
+        if (!MerkleProof.verify(proof, round.merkleRoot, node)) {
+            revert InvalidMerkleProof();
+        }
 
         hasClaimed[airdropRound][recipient] = true;
 
@@ -118,11 +133,12 @@ contract NextSwapAirdrop is
         uint256 amount,
         bytes32[] calldata proof
     ) external nonReentrant whenNotPaused {
-        require(recipient == msg.sender, "Can only claim for yourself");
-        require(
-            token.balanceOf(address(this)) >= amount,
-            "Insufficient token balance"
-        );
+        if (recipient != msg.sender) {
+            revert CanOnlyClaimForYourself();
+        }
+        if (token.balanceOf(address(this)) < amount) {
+            revert InsufficientTokenBalanceForClaim();
+        }
         _claim(airdropRound, recipient, amount, proof);
     }
 
@@ -135,24 +151,28 @@ contract NextSwapAirdrop is
         uint256[] calldata amounts,
         bytes32[][] calldata proofs
     ) external nonReentrant whenNotPaused {
-        require(recipients.length > 0, "Empty arrays");
-        require(recipients.length == amounts.length, "Array length mismatch");
-        require(
-            recipients.length == proofs.length,
-            "Proof array length mismatch"
-        );
+        if (recipients.length == 0) {
+            revert EmptyArrays();
+        }
+        if (recipients.length != amounts.length) {
+            revert ArrayLengthMismatch();
+        }
+        if (recipients.length != proofs.length) {
+            revert ProofArrayLengthMismatch();
+        }
 
         // 计算总需要的代币数量
         uint256 totalAmount = 0;
         for (uint256 i = 0; i < amounts.length; i++) {
-            require(amounts[i] > 0, "Amount must be greater than 0");
+            if (amounts[i] == 0) {
+            revert AmountMustBeGreaterThanZeroForAirdrop();
+        }
             totalAmount += amounts[i];
         }
 
-        require(
-            token.balanceOf(address(this)) >= totalAmount,
-            "Insufficient total balance"
-        );
+        if (token.balanceOf(address(this)) < totalAmount) {
+            revert InsufficientTotalBalance();
+        }
 
         for (uint256 i = 0; i < recipients.length; i++) {
             _claim(airdropRound, recipients[i], amounts[i], proofs[i]);
@@ -163,11 +183,12 @@ contract NextSwapAirdrop is
      * @dev 提取剩余代币到生态基金
      */
     function withdrawTokens(address to, uint256 amount) external onlyOwner {
-        require(to != address(0), "Invalid recipient");
-        require(
-            token.balanceOf(address(this)) >= amount,
-            "Insufficient token balance"
-        );
+        if (to == address(0)) {
+            revert InvalidRecipient();
+        }
+        if (token.balanceOf(address(this)) < amount) {
+            revert InsufficientTokenBalanceForClaim();
+        }
 
         token.safeTransfer(to, amount);
         emit AirdropTokensWithdrawn(to, amount);

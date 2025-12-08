@@ -21,10 +21,8 @@ import "../../events/NextSwapEvents.sol";
 contract EcosystemFund is
     Ownable2Step,
     PublicWithdrawable,
-    NextSwapModifier,
-    NextSwapEvents
+    NextSwapModifier
 {
-    using Constants for *;
     using SafeERC20 for IERC20;
 
     IERC20 public immutable token;

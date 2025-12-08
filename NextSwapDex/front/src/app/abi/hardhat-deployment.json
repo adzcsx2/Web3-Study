@@ -1,0 +1,245 @@
+{
+  "network": "hardhat",
+  "chainId": "31337",
+  "lastUpdated": "2025-12-08T21:26:23.414Z",
+  "contracts": {
+    "UniswapV3Factory": {
+      "contractName": "UniswapV3Factory",
+      "proxyAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "currentVersion": "1",
+      "versions": [
+        {
+          "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+          "transactionHash": "0xdf8249402892062af28753d35641e5ede33c7a614399fd8e9ac8729f7bc523b1",
+          "blockNumber": 1,
+          "gasUsed": "5447956",
+          "version": "1",
+          "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+          "deployedAt": "2025-12-08T21:26:23.401Z",
+          "isProxy": false,
+          "isActive": true,
+          "abi": [
+            {
+              "type": "constructor",
+              "stateMutability": "undefined",
+              "payable": false,
+              "inputs": []
+            },
+            {
+              "type": "event",
+              "anonymous": false,
+              "name": "FeeAmountEnabled",
+              "inputs": [
+                {
+                  "type": "uint24",
+                  "name": "fee",
+                  "indexed": true
+                },
+                {
+                  "type": "int24",
+                  "name": "tickSpacing",
+                  "indexed": true
+                }
+              ]
+            },
+            {
+              "type": "event",
+              "anonymous": false,
+              "name": "OwnerChanged",
+              "inputs": [
+                {
+                  "type": "address",
+                  "name": "oldOwner",
+                  "indexed": true
+                },
+                {
+                  "type": "address",
+                  "name": "newOwner",
+                  "indexed": true
+                }
+              ]
+            },
+            {
+              "type": "event",
+              "anonymous": false,
+              "name": "PoolCreated",
+              "inputs": [
+                {
+                  "type": "address",
+                  "name": "token0",
+                  "indexed": true
+                },
+                {
+                  "type": "address",
+                  "name": "token1",
+                  "indexed": true
+                },
+                {
+                  "type": "uint24",
+                  "name": "fee",
+                  "indexed": true
+                },
+                {
+                  "type": "int24",
+                  "name": "tickSpacing",
+                  "indexed": false
+                },
+                {
+                  "type": "address",
+                  "name": "pool",
+                  "indexed": false
+                }
+              ]
+            },
+            {
+              "type": "function",
+              "name": "createPool",
+              "constant": false,
+              "payable": false,
+              "inputs": [
+                {
+                  "type": "address",
+                  "name": "tokenA"
+                },
+                {
+                  "type": "address",
+                  "name": "tokenB"
+                },
+                {
+                  "type": "uint24",
+                  "name": "fee"
+                }
+              ],
+              "outputs": [
+                {
+                  "type": "address",
+                  "name": "pool"
+                }
+              ]
+            },
+            {
+              "type": "function",
+              "name": "enableFeeAmount",
+              "constant": false,
+              "payable": false,
+              "inputs": [
+                {
+                  "type": "uint24",
+                  "name": "fee"
+                },
+                {
+                  "type": "int24",
+                  "name": "tickSpacing"
+                }
+              ],
+              "outputs": []
+            },
+            {
+              "type": "function",
+              "name": "feeAmountTickSpacing",
+              "constant": true,
+              "stateMutability": "view",
+              "payable": false,
+              "inputs": [
+                {
+                  "type": "uint24",
+                  "name": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "type": "int24",
+                  "name": ""
+                }
+              ]
+            },
+            {
+              "type": "function",
+              "name": "getPool",
+              "constant": true,
+              "stateMutability": "view",
+              "payable": false,
+              "inputs": [
+                {
+                  "type": "address",
+                  "name": ""
+                },
+                {
+                  "type": "address",
+                  "name": ""
+                },
+                {
+                  "type": "uint24",
+                  "name": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "type": "address",
+                  "name": ""
+                }
+              ]
+            },
+            {
+              "type": "function",
+              "name": "owner",
+              "constant": true,
+              "stateMutability": "view",
+              "payable": false,
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "address",
+                  "name": ""
+                }
+              ]
+            },
+            {
+              "type": "function",
+              "name": "parameters",
+              "constant": true,
+              "stateMutability": "view",
+              "payable": false,
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "address",
+                  "name": "factory"
+                },
+                {
+                  "type": "address",
+                  "name": "token0"
+                },
+                {
+                  "type": "address",
+                  "name": "token1"
+                },
+                {
+                  "type": "uint24",
+                  "name": "fee"
+                },
+                {
+                  "type": "int24",
+                  "name": "tickSpacing"
+                }
+              ]
+            },
+            {
+              "type": "function",
+              "name": "setOwner",
+              "constant": false,
+              "payable": false,
+              "inputs": [
+                {
+                  "type": "address",
+                  "name": "_owner"
+                }
+              ],
+              "outputs": []
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
