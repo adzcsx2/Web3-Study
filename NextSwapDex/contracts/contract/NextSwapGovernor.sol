@@ -32,7 +32,7 @@ contract NextSwapGovernor is
             /* proposalThreshold */ 0
         )
         GovernorVotes(_token)
-        //提案通过所需法定人数设置为quorum的 1%,默认是总供应链,本合约是流通量
+        // 提案通过所需法定人数设置为quorum的 1%,默认是总供应链,本合约是流通量
         GovernorVotesQuorumFraction(1)
         GovernorTimelockControl(_timelock)
     {
