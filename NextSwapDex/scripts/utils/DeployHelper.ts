@@ -59,6 +59,7 @@ export interface ContractVersionInfo {
 export interface ContractDeploymentHistory {
   contractName: string;
   proxyAddress: string; // 代理地址（不变）
+  contractPath: string; // 合约源代码路径
   isProxyContract: boolean; // 是否为代理合约
   currentVersion: string; // 当前版本
   versions: ContractVersionInfo[]; // 版本历史数组
@@ -309,6 +310,9 @@ export class DeployHelper {
     // 确定代理地址
     const proxyAddress = versionInfo.proxyAddress || versionInfo.address;
 
+    // 合约源代码路径
+    const contractPath = `contracts/${contractName}.sol:${contractName}`;
+
     // 如果是升级操作（versionInfo 包含 proxyAddress 且 isProxy=false）
     if (versionInfo.proxyAddress && !versionInfo.isProxy) {
       // 查找使用相同代理地址的合约键名
@@ -350,6 +354,7 @@ export class DeployHelper {
         deploymentInfo.contracts[storageKey] = {
           contractName,
           proxyAddress,
+          contractPath,
           isProxyContract,
           currentVersion: versionInfo.version,
           versions: [versionInfo],
@@ -366,6 +371,7 @@ export class DeployHelper {
       deploymentInfo.contracts[storageKey] = {
         contractName,
         proxyAddress,
+        contractPath,
         isProxyContract: isProxyContract,
         currentVersion: versionInfo.version,
         versions: [versionInfo],
