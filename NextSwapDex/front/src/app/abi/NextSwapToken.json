@@ -884,7 +884,7 @@
     {
       "type": "event",
       "anonymous": false,
-      "name": "WithdrawNextSwapToken",
+      "name": "WithdrawNextswapToken",
       "inputs": [
         {
           "type": "address",

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 /**
- * @title NextSwapToken
- * @dev NextSwapToken
+ * @title NextswapToken
+ * @dev NextswapToken
  */
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -12,18 +12,18 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
-import "../events/NextSwapEvents.sol";
-import "../modifiers/NextSwapModifier.sol";
+import "../events/NextswapEvents.sol";
+import "../modifiers/NextswapModifier.sol";
 import "../constants/Constants.sol";
-import "../errors/NextSwapErrors.sol";
+import "../errors/NextswapErrors.sol";
 
-contract NextSwapToken is
+contract NextswapToken is
     ERC20,
     ERC20Permit,
     ERC20Votes,
     AccessControl,
     Pausable,
-    NextSwapModifier
+    NextswapModifier
 {
     using SafeERC20 for IERC20;
     // 总量
@@ -37,8 +37,8 @@ contract NextSwapToken is
     constructor(
         address _timelock
     )
-        ERC20("NextSwap Token", "NST")
-        ERC20Permit("NextSwap Token")
+        ERC20("Nextswap Token", "NST")
+        ERC20Permit("Nextswap Token")
         nonZeroAddress(_timelock)
     {
         timelock = _timelock;

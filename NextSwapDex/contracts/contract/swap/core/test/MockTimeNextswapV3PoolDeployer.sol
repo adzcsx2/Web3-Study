@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.12 <=0.8.13;
 
-import {IUniswapV3PoolDeployer} from "../interfaces/IUniswapV3PoolDeployer.sol";
+import {
+    INextswapV3PoolDeployer
+} from "../interfaces/INextswapV3PoolDeployer.sol";
 
-import {MockTimeUniswapV3Pool} from "./MockTimeUniswapV3Pool.sol";
+import {MockTimeNextswapV3Pool} from "./MockTimeNextswapV3Pool.sol";
 
-contract MockTimeUniswapV3PoolDeployer is IUniswapV3PoolDeployer {
+contract MockTimeNextswapV3PoolDeployer is INextswapV3PoolDeployer {
     struct Parameters {
         address factory;
         address token0;
@@ -33,7 +35,7 @@ contract MockTimeUniswapV3PoolDeployer is IUniswapV3PoolDeployer {
             tickSpacing: tickSpacing
         });
         pool = address(
-            new MockTimeUniswapV3Pool{
+            new MockTimeNextswapV3Pool{
                 salt: keccak256(
                     abi.encodePacked(token0, token1, fee, tickSpacing)
                 )

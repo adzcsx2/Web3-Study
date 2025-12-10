@@ -4,11 +4,11 @@ pragma solidity >=0.8.12 <=0.8.13;
 import {IERC20Minimal} from "../interfaces/IERC20Minimal.sol";
 
 import {
-    IUniswapV3SwapCallback
-} from "../interfaces/callback/IUniswapV3SwapCallback.sol";
-import {IUniswapV3Pool} from "../interfaces/IUniswapV3Pool.sol";
+    INextswapV3SwapCallback
+} from "../interfaces/callback/INextswapV3SwapCallback.sol";
+import {INextswapV3Pool} from "../interfaces/INextswapV3Pool.sol";
 
-contract UniswapV3PoolSwapTest is IUniswapV3SwapCallback {
+contract NextswapV3PoolSwapTest is INextswapV3SwapCallback {
     int256 private _amount0Delta;
     int256 private _amount1Delta;
 
@@ -25,7 +25,7 @@ contract UniswapV3PoolSwapTest is IUniswapV3SwapCallback {
             uint160 nextSqrtRatio
         )
     {
-        (amount0Delta, amount1Delta) = IUniswapV3Pool(pool).swap(
+        (amount0Delta, amount1Delta) = INextswapV3Pool(pool).swap(
             address(0),
             zeroForOne,
             amountSpecified,
@@ -33,10 +33,10 @@ contract UniswapV3PoolSwapTest is IUniswapV3SwapCallback {
             abi.encode(msg.sender)
         );
 
-        (nextSqrtRatio, , , , , , ) = IUniswapV3Pool(pool).slot0();
+        (nextSqrtRatio, , , , , , ) = INextswapV3Pool(pool).slot0();
     }
 
-    function uniswapV3SwapCallback(
+    function nextswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
         bytes calldata data
@@ -44,13 +44,13 @@ contract UniswapV3PoolSwapTest is IUniswapV3SwapCallback {
         address sender = abi.decode(data, (address));
 
         if (amount0Delta > 0) {
-            IERC20Minimal(IUniswapV3Pool(msg.sender).token0()).transferFrom(
+            IERC20Minimal(INextswapV3Pool(msg.sender).token0()).transferFrom(
                 sender,
                 msg.sender,
                 uint256(amount0Delta)
             );
         } else if (amount1Delta > 0) {
-            IERC20Minimal(IUniswapV3Pool(msg.sender).token1()).transferFrom(
+            IERC20Minimal(INextswapV3Pool(msg.sender).token1()).transferFrom(
                 sender,
                 msg.sender,
                 uint256(amount1Delta)

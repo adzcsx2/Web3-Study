@@ -5,10 +5,10 @@ async function main() {
   console.log("📊 检查合约大小...\n");
 
   const contracts = [
-    "UniswapV3Pool",
-    "UniswapV3Factory",
-    "UniswapV3PoolDeployer",
-    "NextSwapToken",
+    "NextswapV3Pool",
+    "NextswapV3Factory",
+    "NextswapV3PoolDeployer",
+    "NextswapToken",
     "SwapRouter",
   ];
 

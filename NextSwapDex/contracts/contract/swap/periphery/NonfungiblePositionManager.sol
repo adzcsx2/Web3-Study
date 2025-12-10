@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 pragma abicoder v2;
 
-import "../core/interfaces/IUniswapV3Pool.sol";
+import "../core/interfaces/INextswapV3Pool.sol";
 import "../core/libraries/FixedPoint128.sol";
 import "../core/libraries/FullMath.sol";
 
@@ -19,7 +19,7 @@ import "./base/SelfPermit.sol";
 import "./base/PoolInitializer.sol";
 
 /// @title NFT 流动性头寸
-/// @notice 将Uniswap V3头寸封装为ERC721非同质化代币接口
+/// @notice 将Nextswap V3头寸封装为ERC721非同质化代币接口
 contract NonfungiblePositionManager is
     INonfungiblePositionManager,
     Multicall,
@@ -30,7 +30,7 @@ contract NonfungiblePositionManager is
     PeripheryValidation,
     SelfPermit
 {
-    // Uniswap头寸的详细信息
+    // Nextswap头寸的详细信息
     struct Position {
         // 许可的随机数
         uint96 nonce;
@@ -73,7 +73,7 @@ contract NonfungiblePositionManager is
         address _WETH9,
         address _tokenDescriptor_
     )
-        ERC721Permit("Uniswap V3 Positions NFT-V1", "UNI-V3-POS", "1")
+        ERC721Permit("Nextswap V3 Positions NFT-V1", "UNI-V3-POS", "1")
         PeripheryImmutableState(_factory, _WETH9)
     {
         _tokenDescriptor = _tokenDescriptor_;
@@ -147,7 +147,7 @@ contract NonfungiblePositionManager is
             uint256 amount1
         )
     {
-        IUniswapV3Pool pool;
+        INextswapV3Pool pool;
         (liquidity, amount0, amount1, pool) = addLiquidity(
             AddLiquidityParams({
                 token0: params.token0,
@@ -242,7 +242,7 @@ contract NonfungiblePositionManager is
 
         PoolAddress.PoolKey memory poolKey = _poolIdToPoolKey[position.poolId];
 
-        IUniswapV3Pool pool;
+        INextswapV3Pool pool;
         (liquidity, amount0, amount1, pool) = addLiquidity(
             AddLiquidityParams({
                 token0: poolKey.token0,
@@ -313,7 +313,7 @@ contract NonfungiblePositionManager is
         require(positionLiquidity >= params.liquidity);
 
         PoolAddress.PoolKey memory poolKey = _poolIdToPoolKey[position.poolId];
-        IUniswapV3Pool pool = IUniswapV3Pool(
+        INextswapV3Pool pool = INextswapV3Pool(
             PoolAddress.computeAddress(factory, poolKey)
         );
         (amount0, amount1) = pool.burn(
@@ -395,7 +395,7 @@ contract NonfungiblePositionManager is
 
         PoolAddress.PoolKey memory poolKey = _poolIdToPoolKey[position.poolId];
 
-        IUniswapV3Pool pool = IUniswapV3Pool(
+        INextswapV3Pool pool = INextswapV3Pool(
             PoolAddress.computeAddress(factory, poolKey)
         );
 

@@ -4,7 +4,7 @@ pragma solidity >=0.5.0;
 /// @title Pool state that is not stored
 /// @notice Contains view functions to provide information about the pool that is computed rather than stored on the
 /// blockchain. The functions here may have variable gas costs.
-interface IUniswapV3PoolDerivedState {
+interface INextswapV3PoolDerivedState {
     /// @notice Returns the cumulative tick and liquidity as of each timestamp `secondsAgo` from the current block timestamp
     /// @dev To get a time weighted average tick or liquidity-in-range, you must call this with two values, one representing
     /// the beginning of the period and another for the end of the period. E.g., to get the last hour time-weighted average tick,
@@ -15,10 +15,15 @@ interface IUniswapV3PoolDerivedState {
     /// @return tickCumulatives Cumulative tick values as of each `secondsAgos` from the current block timestamp
     /// @return secondsPerLiquidityCumulativeX128s Cumulative seconds per liquidity-in-range value as of each `secondsAgos` from the current block
     /// timestamp
-    function observe(uint32[] calldata secondsAgos)
+    function observe(
+        uint32[] calldata secondsAgos
+    )
         external
         view
-        returns (int56[] memory tickCumulatives, uint160[] memory secondsPerLiquidityCumulativeX128s);
+        returns (
+            int56[] memory tickCumulatives,
+            uint160[] memory secondsPerLiquidityCumulativeX128s
+        );
 
     /// @notice Returns a snapshot of the tick cumulative, seconds per liquidity and seconds inside a tick range
     /// @dev Snapshots must only be compared to other snapshots, taken over a period for which a position existed.
@@ -29,7 +34,10 @@ interface IUniswapV3PoolDerivedState {
     /// @return tickCumulativeInside The snapshot of the tick accumulator for the range
     /// @return secondsPerLiquidityInsideX128 The snapshot of seconds per liquidity for the range
     /// @return secondsInside The snapshot of seconds per liquidity for the range
-    function snapshotCumulativesInside(int24 tickLower, int24 tickUpper)
+    function snapshotCumulativesInside(
+        int24 tickLower,
+        int24 tickUpper
+    )
         external
         view
         returns (

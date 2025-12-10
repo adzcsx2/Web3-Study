@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity >=0.5.0;
 
-/// @title The interface for the Uniswap V3 Factory
-/// @notice The Uniswap V3 Factory facilitates creation of Uniswap V3 pools and control over the protocol fees
-interface IUniswapV3Factory {
+/// @title The interface for the Nextswap V3 Factory
+/// @notice The Nextswap V3 Factory facilitates creation of Nextswap V3 pools and control over the protocol fees
+interface INextswapV3Factory {
     /// @notice Emitted when the owner of the factory is changed
     /// @param oldOwner The owner before the owner was changed
     /// @param newOwner The owner after the owner was changed

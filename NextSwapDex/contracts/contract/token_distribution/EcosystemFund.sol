@@ -7,22 +7,18 @@ import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../lib/PublicWithdrawable.sol";
-import "../NextSwapToken.sol";
+import "../NextswapToken.sol";
 
 import "../../constants/Constants.sol";
-import "../../modifiers/NextSwapModifier.sol";
-import "../../events/NextSwapEvents.sol";
+import "../../modifiers/NextswapModifier.sol";
+import "../../events/NextswapEvents.sol";
 
 /**
  * @title EcosystemFund
  * @dev 生态基金合约
  */
 
-contract EcosystemFund is
-    Ownable2Step,
-    PublicWithdrawable,
-    NextSwapModifier
-{
+contract EcosystemFund is Ownable2Step, PublicWithdrawable, NextswapModifier {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable token;

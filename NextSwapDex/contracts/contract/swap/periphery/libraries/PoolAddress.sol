@@ -3,7 +3,8 @@ pragma solidity >=0.5.0;
 
 /// @title 提供从工厂合约、代币和手续费派生池地址的函数
 library PoolAddress {
-    bytes32 internal constant POOL_INIT_CODE_HASH = 0xa598dd2fba360510c5a8f02f44423a4468e902df5857dbce3ca162a43a3a31ff;
+    bytes32 internal constant POOL_INIT_CODE_HASH =
+        0xa598dd2fba360510c5a8f02f44423a4468e902df5857dbce3ca162a43a3a31ff;
 
     /// @notice 池的标识键
     struct PoolKey {
@@ -27,19 +28,24 @@ library PoolAddress {
     }
 
     /// @notice 确定性地计算给定工厂合约和PoolKey的池地址
-    /// @param factory Uniswap V3工厂合约地址
+    /// @param factory Nextswap V3工厂合约地址
     /// @param key PoolKey
     /// @return pool V3池的合约地址
-    function computeAddress(address factory, PoolKey memory key) internal pure returns (address pool) {
+    function computeAddress(
+        address factory,
+        PoolKey memory key
+    ) internal pure returns (address pool) {
         require(key.token0 < key.token1);
         pool = address(
             uint160(
                 uint256(
                     keccak256(
                         abi.encodePacked(
-                            hex'ff',
+                            hex"ff",
                             factory,
-                            keccak256(abi.encode(key.token0, key.token1, key.fee)),
+                            keccak256(
+                                abi.encode(key.token0, key.token1, key.fee)
+                            ),
                             POOL_INIT_CODE_HASH
                         )
                     )

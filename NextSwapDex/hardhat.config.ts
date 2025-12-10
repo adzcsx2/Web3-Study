@@ -20,7 +20,7 @@ const config: HardhatUserConfig = {
         },
       },
       {
-        version: "0.8.15", // Uniswap V3 Periphery 合约
+        version: "0.8.15", // Nextswap V3 Periphery 合约
         settings: {
           optimizer: {
             enabled: true,
@@ -32,7 +32,7 @@ const config: HardhatUserConfig = {
         },
       },
       {
-        version: "0.8.12", // Uniswap V3 核心合约
+        version: "0.8.12", // Nextswap V3 核心合约
         settings: {
           optimizer: {
             enabled: true,

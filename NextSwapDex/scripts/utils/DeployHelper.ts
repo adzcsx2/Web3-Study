@@ -153,23 +153,46 @@ export class DeployHelper {
   }
 
   /**
-   * 保存ABI到前端目录
+   * 同步 deployments 目录的所有文件到前端目录
+   * 将 deployments 目录下的所有 JSON 文件复制到前端 ABI 目录
    */
-  private async saveABIToFrontend(
-    contractName: string,
-    address: string,
-    abi: ABIItem[]
-  ): Promise<void> {
-    const abiFilePath = path.join(this.frontendAbiDir, `${contractName}.json`);
-    const abiContent = {
-      address,
-      abi,
-      network: network.name,
-      deployedAt: new Date().toISOString(),
-    };
+  async syncDeploymentsToFrontend(): Promise<void> {
+    console.log("\n🔄 开始同步部署文件到前端目录...");
 
-    fs.writeFileSync(abiFilePath, JSON.stringify(abiContent, null, 2));
-    console.log(`✅ ABI已保存到前端: ${abiFilePath}`);
+    try {
+      // 确保前端目录存在
+      if (!fs.existsSync(this.frontendAbiDir)) {
+        fs.mkdirSync(this.frontendAbiDir, { recursive: true });
+      }
+
+      // 读取 deployments 目录下的所有文件
+      const files = fs.readdirSync(this.deploymentDir);
+
+      let syncedCount = 0;
+      for (const file of files) {
+        // 只同步 JSON 文件
+        if (file.endsWith(".json")) {
+          const sourcePath = path.join(this.deploymentDir, file);
+          const targetPath = path.join(this.frontendAbiDir, file);
+
+          // 读取源文件内容
+          const content = fs.readFileSync(sourcePath, "utf-8");
+
+          // 写入到目标文件（覆盖）
+          fs.writeFileSync(targetPath, content, "utf-8");
+
+          console.log(`   ✅ 已同步: ${file}`);
+          syncedCount++;
+        }
+      }
+
+      console.log(`\n✅ 同步完成！共同步 ${syncedCount} 个文件`);
+      console.log(`   📂 源目录: ${this.deploymentDir}`);
+      console.log(`   📂 目标目录: ${this.frontendAbiDir}`);
+    } catch (error) {
+      console.error("❌ 同步部署文件失败:", error);
+      throw error;
+    }
   }
 
   /**
@@ -200,19 +223,11 @@ export class DeployHelper {
   ): Promise<void> {
     const fileName = `${hre.network.name}-deployment.json`;
     const filePath = path.join(this.deploymentDir, fileName);
-    const frontendPath = path.join(
-      this.frontendAbiDir,
-      `${hre.network.name}-deployment.json`
-    );
 
     // 写入部署目录
     fs.writeFileSync(filePath, JSON.stringify(info, null, 2), "utf-8");
 
-    // 同步到前端目录
-    fs.writeFileSync(frontendPath, JSON.stringify(info, null, 2), "utf-8");
-
     console.log(`✅ 部署信息已保存: ${filePath}`);
-    console.log(`✅ 前端部署信息已同步: ${frontendPath}`);
   }
 
   /**
@@ -369,13 +384,6 @@ export class DeployHelper {
 
     // 写入文件
     await this.writeDeploymentInfo(deploymentInfo);
-
-    // 单独保存ABI到前端（便于前端直接导入）
-    await this.saveABIToFrontend(
-      contractName,
-      versionInfo.address,
-      versionInfo.abi
-    );
   }
 
   /**

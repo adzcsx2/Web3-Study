@@ -2,8 +2,8 @@
 pragma solidity ^0.8.26;
 
 /**
- * @title NextSwapAirdrop
- * @dev NextSwapAirdrop
+ * @title NextswapAirdrop
+ * @dev NextswapAirdrop
  * 领取空投合约,基于Merkle Tree实现,多轮领取.
  * 修复版本
  */
@@ -15,17 +15,13 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "../lib/PublicWithdrawable.sol";
 
-import "../../events/NextSwapEvents.sol";
-import "../NextSwapToken.sol";
-import "../../modifiers/NextSwapModifier.sol";
-import "../../structs/NextSwapStructs.sol";
-import "../../errors/NextSwapErrors.sol";
+import "../../events/NextswapEvents.sol";
+import "../NextswapToken.sol";
+import "../../modifiers/NextswapModifier.sol";
+import "../../structs/NextswapStructs.sol";
+import "../../errors/NextswapErrors.sol";
 
-contract NextSwapAirdrop is
-    Ownable2Step,
-    PublicWithdrawable,
-    NextSwapModifier
-{
+contract NextswapAirdrop is Ownable2Step, PublicWithdrawable, NextswapModifier {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable token;
@@ -165,8 +161,8 @@ contract NextSwapAirdrop is
         uint256 totalAmount = 0;
         for (uint256 i = 0; i < amounts.length; i++) {
             if (amounts[i] == 0) {
-            revert AmountMustBeGreaterThanZeroForAirdrop();
-        }
+                revert AmountMustBeGreaterThanZeroForAirdrop();
+            }
             totalAmount += amounts[i];
         }
 

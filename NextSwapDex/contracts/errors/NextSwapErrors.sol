@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-// NextSwapToken errors
+// NextswapToken errors
 error RoleTransferToHolder(); // 不能把角色转给已有该角色的持有者
 error CannotTransferToSelf(); // 不能将角色转移给自己
 error CannotRevokeAdminRole(); // 不能撤销管理员角色
@@ -23,7 +23,7 @@ error NoTokensAvailableToClaim(); // 没有可领取的代币
 // LiquidityMiningReward errors
 error ClaimDeadlineHasNotPassed(); // 领取截止时间未到
 
-// NextSwapAirdrop errors
+// NextswapAirdrop errors
 error InvalidRoundNumber(); // 无效的轮次号
 error RoundAlreadyExists(); // 轮次已存在
 error InvalidTimeRange(); // 无效的时间范围
@@ -52,7 +52,7 @@ error ClaimPeriodHasNotStarted(); // 领取期未开始
 error NoTokensAvailableToClaimInPrivateSale(); // 私募中没有可领取的代币
 error InsufficientTokenBalanceInContract(); // 合约中代币余额不足
 
-// NextSwapModifier errors
+// NextswapModifier errors
 error DonationPeriodNotActive(); // 捐赠期未激活
 error CallerIsZeroAddress(); // 调用者是零地址
 error CannotOperateAdminRole(); // 不能操作管理员角色

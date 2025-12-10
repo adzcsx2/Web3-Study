@@ -16,20 +16,20 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
-import "../../events/NextSwapEvents.sol";
-import "../../modifiers/NextSwapModifier.sol";
-import "../../errors/NextSwapErrors.sol";
+import "../../events/NextswapEvents.sol";
+import "../../modifiers/NextswapModifier.sol";
+import "../../errors/NextswapErrors.sol";
 
 contract LiquidityMiningReward is
     AccessControl,
     ReentrancyGuard,
     Pausable,
-    NextSwapModifier
+    NextswapModifier
 {
     using SafeERC20 for IERC20;
     // 生态基金地址
     address public ecosystemFundAddress;
-    // NextSwap代币合约地址
+    // Nextswap代币合约地址
     IERC20 public immutable nextSwapToken;
 
     uint256 public immutable startTime; //开始时间

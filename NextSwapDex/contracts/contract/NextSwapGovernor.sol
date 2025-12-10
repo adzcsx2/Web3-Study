@@ -9,9 +9,9 @@ import "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFractio
 import "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
 import "@openzeppelin/contracts/governance/TimelockController.sol";
 
-import "./NextSwapToken.sol";
+import "./NextswapToken.sol";
 
-contract NextSwapGovernor is
+contract NextswapGovernor is
     Governor,
     GovernorSettings,
     GovernorCountingSimple,
@@ -19,12 +19,12 @@ contract NextSwapGovernor is
     GovernorVotesQuorumFraction,
     GovernorTimelockControl
 {
-    NextSwapToken private immutable _nextSwapToken;
+    NextswapToken private immutable _nextSwapToken;
     constructor(
         IVotes _token,
         TimelockController _timelock
     )
-        Governor("NextSwapGovernor")
+        Governor("NextswapGovernor")
         // 前期设置: 投票延迟 1 区块，投票周期约为 1 个区块，提案门槛为 0 代币
         GovernorSettings(
             /* votingDelay */ 1,
@@ -36,7 +36,7 @@ contract NextSwapGovernor is
         GovernorVotesQuorumFraction(1)
         GovernorTimelockControl(_timelock)
     {
-        _nextSwapToken = NextSwapToken(address(_token));
+        _nextSwapToken = NextswapToken(address(_token));
     }
     // 设置投票法定人数为流通量的百分比
     function quorum(

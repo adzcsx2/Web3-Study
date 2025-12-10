@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity >=0.8.12 <=0.8.13;
 
-import {IUniswapV3PoolDeployer} from "./interfaces/IUniswapV3PoolDeployer.sol";
+import {
+    INextswapV3PoolDeployer
+} from "./interfaces/INextswapV3PoolDeployer.sol";
 
-import {UniswapV3Pool} from "./UniswapV3Pool.sol";
+import {NextswapV3Pool} from "./NextswapV3Pool.sol";
 
-contract UniswapV3PoolDeployer is IUniswapV3PoolDeployer {
+contract NextswapV3PoolDeployer is INextswapV3PoolDeployer {
     struct Parameters {
         address factory;
         address token0;
@@ -14,12 +16,12 @@ contract UniswapV3PoolDeployer is IUniswapV3PoolDeployer {
         int24 tickSpacing;
     }
 
-    /// @inheritdoc IUniswapV3PoolDeployer
+    /// @inheritdoc INextswapV3PoolDeployer
     Parameters public override parameters;
 
     /// @dev Deploys a pool with the given parameters by transiently setting the parameters storage slot and then
     /// clearing it after deploying the pool.
-    /// @param factory The contract address of the Uniswap V3 factory
+    /// @param factory The contract address of the Nextswap V3 factory
     /// @param token0 The first token of the pool by address sort order
     /// @param token1 The second token of the pool by address sort order
     /// @param fee The fee collected upon every swap in the pool, denominated in hundredths of a bip
@@ -39,7 +41,7 @@ contract UniswapV3PoolDeployer is IUniswapV3PoolDeployer {
             tickSpacing: tickSpacing
         });
         pool = address(
-            new UniswapV3Pool{
+            new NextswapV3Pool{
                 salt: keccak256(abi.encode(token0, token1, fee))
             }()
         );

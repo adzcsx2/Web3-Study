@@ -3,7 +3,7 @@ pragma solidity >=0.5.0;
 
 /// @title Errors emitted by a pool
 /// @notice Contains all events emitted by the pool
-interface IUniswapV3PoolErrors {
+interface INextswapV3PoolErrors {
     error LOK();
     error TLU();
     error TLM();

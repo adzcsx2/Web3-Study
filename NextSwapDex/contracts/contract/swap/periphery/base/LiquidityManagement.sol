@@ -2,27 +2,31 @@
 pragma solidity ^0.8.20;
 pragma abicoder v2;
 
-import '../../core/interfaces/IUniswapV3Factory.sol';
-import '../../core/interfaces/callback/IUniswapV3MintCallback.sol';
-import '../../core/libraries/TickMath.sol';
+import "../../core/interfaces/INextswapV3Factory.sol";
+import "../../core/interfaces/callback/INextswapV3MintCallback.sol";
+import "../../core/libraries/TickMath.sol";
 
-import '../libraries/PoolAddress.sol';
-import '../libraries/CallbackValidation.sol';
-import '../libraries/LiquidityAmounts.sol';
+import "../libraries/PoolAddress.sol";
+import "../libraries/CallbackValidation.sol";
+import "../libraries/LiquidityAmounts.sol";
 
-import './PeripheryPayments.sol';
-import './PeripheryImmutableState.sol';
+import "./PeripheryPayments.sol";
+import "./PeripheryImmutableState.sol";
 
 /// @title Liquidity management functions
-/// @notice Internal functions for safely managing liquidity in Uniswap V3
-abstract contract LiquidityManagement is IUniswapV3MintCallback, PeripheryImmutableState, PeripheryPayments {
+/// @notice Internal functions for safely managing liquidity in Nextswap V3
+abstract contract LiquidityManagement is
+    INextswapV3MintCallback,
+    PeripheryImmutableState,
+    PeripheryPayments
+{
     struct MintCallbackData {
         PoolAddress.PoolKey poolKey;
         address payer;
     }
 
-    /// @inheritdoc IUniswapV3MintCallback
-    function uniswapV3MintCallback(
+    /// @inheritdoc INextswapV3MintCallback
+    function nextswapV3MintCallback(
         uint256 amount0Owed,
         uint256 amount1Owed,
         bytes calldata data
@@ -30,8 +34,10 @@ abstract contract LiquidityManagement is IUniswapV3MintCallback, PeripheryImmuta
         MintCallbackData memory decoded = abi.decode(data, (MintCallbackData));
         CallbackValidation.verifyCallback(factory, decoded.poolKey);
 
-        if (amount0Owed > 0) pay(decoded.poolKey.token0, decoded.payer, msg.sender, amount0Owed);
-        if (amount1Owed > 0) pay(decoded.poolKey.token1, decoded.payer, msg.sender, amount1Owed);
+        if (amount0Owed > 0)
+            pay(decoded.poolKey.token0, decoded.payer, msg.sender, amount0Owed);
+        if (amount1Owed > 0)
+            pay(decoded.poolKey.token1, decoded.payer, msg.sender, amount1Owed);
     }
 
     struct AddLiquidityParams {
@@ -48,13 +54,15 @@ abstract contract LiquidityManagement is IUniswapV3MintCallback, PeripheryImmuta
     }
 
     /// @notice Add liquidity to an initialized pool
-    function addLiquidity(AddLiquidityParams memory params)
+    function addLiquidity(
+        AddLiquidityParams memory params
+    )
         internal
         returns (
             uint128 liquidity,
             uint256 amount0,
             uint256 amount1,
-            IUniswapV3Pool pool
+            INextswapV3Pool pool
         )
     {
         PoolAddress.PoolKey memory poolKey = PoolAddress.PoolKey({
@@ -63,13 +71,17 @@ abstract contract LiquidityManagement is IUniswapV3MintCallback, PeripheryImmuta
             fee: params.fee
         });
 
-        pool = IUniswapV3Pool(PoolAddress.computeAddress(factory, poolKey));
+        pool = INextswapV3Pool(PoolAddress.computeAddress(factory, poolKey));
 
         // compute the liquidity amount
         {
             (uint160 sqrtPriceX96, , , , , , ) = pool.slot0();
-            uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(params.tickLower);
-            uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(params.tickUpper);
+            uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(
+                params.tickLower
+            );
+            uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(
+                params.tickUpper
+            );
 
             liquidity = LiquidityAmounts.getLiquidityForAmounts(
                 sqrtPriceX96,
@@ -88,6 +100,9 @@ abstract contract LiquidityManagement is IUniswapV3MintCallback, PeripheryImmuta
             abi.encode(MintCallbackData({poolKey: poolKey, payer: msg.sender}))
         );
 
-        require(amount0 >= params.amount0Min && amount1 >= params.amount1Min, 'Price slippage check');
+        require(
+            amount0 >= params.amount0Min && amount1 >= params.amount1Min,
+            "Price slippage check"
+        );
     }
 }

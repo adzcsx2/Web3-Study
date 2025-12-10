@@ -4,16 +4,16 @@ pragma solidity >=0.8.12 <=0.8.13;
 import {TickMath} from "../libraries/TickMath.sol";
 
 import {
-    IUniswapV3SwapCallback
-} from "../interfaces/callback/IUniswapV3SwapCallback.sol";
+    INextswapV3SwapCallback
+} from "../interfaces/callback/INextswapV3SwapCallback.sol";
 
-import {IUniswapV3Pool} from "../interfaces/IUniswapV3Pool.sol";
+import {INextswapV3Pool} from "../interfaces/INextswapV3Pool.sol";
 
-contract TestUniswapV3ReentrantCallee is IUniswapV3SwapCallback {
+contract TestNextswapV3ReentrantCallee is INextswapV3SwapCallback {
     string private constant expectedError = "LOK()";
 
     function swapToReenter(address pool) external {
-        IUniswapV3Pool(pool).swap(
+        INextswapV3Pool(pool).swap(
             address(0),
             false,
             1,
@@ -22,14 +22,14 @@ contract TestUniswapV3ReentrantCallee is IUniswapV3SwapCallback {
         );
     }
 
-    function uniswapV3SwapCallback(
+    function nextswapV3SwapCallback(
         int256,
         int256,
         bytes calldata
     ) external override {
         // try to reenter swap
         try
-            IUniswapV3Pool(msg.sender).swap(
+            INextswapV3Pool(msg.sender).swap(
                 address(0),
                 false,
                 1,
@@ -44,7 +44,7 @@ contract TestUniswapV3ReentrantCallee is IUniswapV3SwapCallback {
         }
         // try to reenter mint
         try
-            IUniswapV3Pool(msg.sender).mint(address(0), 0, 0, 0, new bytes(0))
+            INextswapV3Pool(msg.sender).mint(address(0), 0, 0, 0, new bytes(0))
         {} catch (bytes memory error) {
             require(
                 keccak256(error) ==
@@ -53,7 +53,7 @@ contract TestUniswapV3ReentrantCallee is IUniswapV3SwapCallback {
         }
         // try to reenter collect
         try
-            IUniswapV3Pool(msg.sender).collect(address(0), 0, 0, 0, 0)
+            INextswapV3Pool(msg.sender).collect(address(0), 0, 0, 0, 0)
         {} catch (bytes memory error) {
             require(
                 keccak256(error) ==
@@ -61,7 +61,7 @@ contract TestUniswapV3ReentrantCallee is IUniswapV3SwapCallback {
             );
         }
         // try to reenter burn
-        try IUniswapV3Pool(msg.sender).burn(0, 0, 0) {} catch (
+        try INextswapV3Pool(msg.sender).burn(0, 0, 0) {} catch (
             bytes memory error
         ) {
             require(
@@ -71,7 +71,7 @@ contract TestUniswapV3ReentrantCallee is IUniswapV3SwapCallback {
         }
         // try to reenter flash
         try
-            IUniswapV3Pool(msg.sender).flash(address(0), 0, 0, new bytes(0))
+            INextswapV3Pool(msg.sender).flash(address(0), 0, 0, new bytes(0))
         {} catch (bytes memory error) {
             require(
                 keccak256(error) ==
@@ -80,7 +80,7 @@ contract TestUniswapV3ReentrantCallee is IUniswapV3SwapCallback {
         }
         // try to reenter collectProtocol
         try
-            IUniswapV3Pool(msg.sender).collectProtocol(address(0), 0, 0)
+            INextswapV3Pool(msg.sender).collectProtocol(address(0), 0, 0)
         {} catch (bytes memory error) {
             require(
                 keccak256(error) ==

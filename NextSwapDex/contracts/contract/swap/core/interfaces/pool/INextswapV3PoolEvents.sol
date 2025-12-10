@@ -3,7 +3,7 @@ pragma solidity >=0.5.0;
 
 /// @title Events emitted by a pool
 /// @notice Contains all events emitted by the pool
-interface IUniswapV3PoolEvents {
+interface INextswapV3PoolEvents {
     /// @notice Emitted exactly once by a pool when #initialize is first called on the pool
     /// @dev Mint/Burn/Swap cannot be emitted by the pool before Initialize
     /// @param sqrtPriceX96 The initial sqrt price of the pool, as a Q64.96
@@ -110,12 +110,22 @@ interface IUniswapV3PoolEvents {
     /// @param feeProtocol1Old The previous value of the token1 protocol fee
     /// @param feeProtocol0New The updated value of the token0 protocol fee
     /// @param feeProtocol1New The updated value of the token1 protocol fee
-    event SetFeeProtocol(uint8 feeProtocol0Old, uint8 feeProtocol1Old, uint8 feeProtocol0New, uint8 feeProtocol1New);
+    event SetFeeProtocol(
+        uint8 feeProtocol0Old,
+        uint8 feeProtocol1Old,
+        uint8 feeProtocol0New,
+        uint8 feeProtocol1New
+    );
 
     /// @notice Emitted when the collected protocol fees are withdrawn by the factory owner
     /// @param sender The address that collects the protocol fees
     /// @param recipient The address that receives the collected protocol fees
     /// @param amount0 The amount of token0 protocol fees that is withdrawn
     /// @param amount0 The amount of token1 protocol fees that is withdrawn
-    event CollectProtocol(address indexed sender, address indexed recipient, uint128 amount0, uint128 amount1);
+    event CollectProtocol(
+        address indexed sender,
+        address indexed recipient,
+        uint128 amount0,
+        uint128 amount1
+    );
 }

@@ -7,9 +7,9 @@ pragma solidity ^0.8.26;
  */
 
 import "../constants/Constants.sol";
-import "../errors/NextSwapErrors.sol";
+import "../errors/NextswapErrors.sol";
 
-abstract contract NextSwapModifier {
+abstract contract NextswapModifier {
     /**
      * @notice 时间限制修饰符
      * @param startTime 开始时间戳

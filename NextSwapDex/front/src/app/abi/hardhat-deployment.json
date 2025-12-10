@@ -1,21 +1,22 @@
 {
   "network": "hardhat",
   "chainId": "31337",
-  "lastUpdated": "2025-12-10T18:27:59.779Z",
+  "lastUpdated": "2025-12-10T20:14:22.893Z",
   "contracts": {
-    "UniswapV3Factory": {
-      "contractName": "UniswapV3Factory",
+    "NextswapV3Factory": {
+      "contractName": "NextswapV3Factory",
       "proxyAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "isProxyContract": false,
       "currentVersion": "1",
       "versions": [
         {
           "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-          "transactionHash": "0xdf8249402892062af28753d35641e5ede33c7a614399fd8e9ac8729f7bc523b1",
+          "transactionHash": "0x1f2347ee5d8987b6c4248bf59e05579d8a1ad1903ee7f3ad7ed57acb5217b4f7",
           "blockNumber": 1,
           "gasUsed": "5447956",
           "version": "1",
           "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-          "deployedAt": "2025-12-08T21:26:23.401Z",
+          "deployedAt": "2025-12-10T20:14:22.881Z",
           "isProxy": false,
           "isActive": true,
           "abi": [

@@ -1,6 +1,6 @@
 import { ethers } from "hardhat";
 import { DeployHelper } from "../utils/DeployHelper";
-import { UniswapV3Factory, UniswapV3Pool } from "../../typechain-types";
+import { NextswapV3Factory, NextswapV3Pool } from "../../typechain-types";
 
 async function main() {
   const deployHelper = new DeployHelper();
@@ -11,10 +11,17 @@ async function main() {
   // 部署合约（自动保存）
 
   const { contract, versionInfo } =
-    await deployHelper.deployContract<UniswapV3Factory>("UniswapV3Factory");
+    await deployHelper.deployContract<NextswapV3Factory>("NextswapV3Factory");
 
   console.log("✅ 部署完成！");
   console.log("📍 地址:", versionInfo.address);
+
+  // 验证合约
+  await deployHelper.verifyContract(
+    versionInfo.address,
+    [],
+    "NextswapV3Factory"
+  );
 }
 
 main()

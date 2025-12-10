@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-pragma solidity >=0.8.12  <=0.8.13;
+pragma solidity >=0.8.12 <=0.8.13;
 
 import {
-    IUniswapV3PoolImmutables,
-    IUniswapV3PoolState,
-    IUniswapV3PoolActions,
-    IUniswapV3PoolDerivedState,
-    IUniswapV3PoolOwnerActions,
-    IUniswapV3Pool
-} from "./interfaces/IUniswapV3Pool.sol";
+    INextswapV3PoolImmutables,
+    INextswapV3PoolState,
+    INextswapV3PoolActions,
+    INextswapV3PoolDerivedState,
+    INextswapV3PoolOwnerActions,
+    INextswapV3Pool
+} from "./interfaces/INextswapV3Pool.sol";
 
 import {NoDelegateCall} from "./NoDelegateCall.sol";
 
@@ -25,20 +25,22 @@ import {TickMath} from "./libraries/TickMath.sol";
 import {SqrtPriceMath} from "./libraries/SqrtPriceMath.sol";
 import {SwapMath} from "./libraries/SwapMath.sol";
 
-import {IUniswapV3PoolDeployer} from "./interfaces/IUniswapV3PoolDeployer.sol";
-import {IUniswapV3Factory} from "./interfaces/IUniswapV3Factory.sol";
+import {
+    INextswapV3PoolDeployer
+} from "./interfaces/INextswapV3PoolDeployer.sol";
+import {INextswapV3Factory} from "./interfaces/INextswapV3Factory.sol";
 import {IERC20Minimal} from "./interfaces/IERC20Minimal.sol";
 import {
-    IUniswapV3MintCallback
-} from "./interfaces/callback/IUniswapV3MintCallback.sol";
+    INextswapV3MintCallback
+} from "./interfaces/callback/INextswapV3MintCallback.sol";
 import {
-    IUniswapV3SwapCallback
-} from "./interfaces/callback/IUniswapV3SwapCallback.sol";
+    INextswapV3SwapCallback
+} from "./interfaces/callback/INextswapV3SwapCallback.sol";
 import {
-    IUniswapV3FlashCallback
-} from "./interfaces/callback/IUniswapV3FlashCallback.sol";
+    INextswapV3FlashCallback
+} from "./interfaces/callback/INextswapV3FlashCallback.sol";
 
-contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
+contract NextswapV3Pool is INextswapV3Pool, NoDelegateCall {
     using SafeCast for uint256;
     using SafeCast for int256;
     using Tick for mapping(int24 => Tick.Info);
@@ -47,19 +49,19 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
     using Position for Position.Info;
     using Oracle for Oracle.Observation[65535];
 
-    /// @inheritdoc IUniswapV3PoolImmutables
+    /// @inheritdoc INextswapV3PoolImmutables
     address public immutable override factory;
-    /// @inheritdoc IUniswapV3PoolImmutables
+    /// @inheritdoc INextswapV3PoolImmutables
     address public immutable override token0;
-    /// @inheritdoc IUniswapV3PoolImmutables
+    /// @inheritdoc INextswapV3PoolImmutables
     address public immutable override token1;
-    /// @inheritdoc IUniswapV3PoolImmutables
+    /// @inheritdoc INextswapV3PoolImmutables
     uint24 public immutable override fee;
 
-    /// @inheritdoc IUniswapV3PoolImmutables
+    /// @inheritdoc INextswapV3PoolImmutables
     int24 public immutable override tickSpacing;
 
-    /// @inheritdoc IUniswapV3PoolImmutables
+    /// @inheritdoc INextswapV3PoolImmutables
     uint128 public immutable override maxLiquidityPerTick;
 
     struct Slot0 {
@@ -79,12 +81,12 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
         // whether the pool is locked
         bool unlocked;
     }
-    /// @inheritdoc IUniswapV3PoolState
+    /// @inheritdoc INextswapV3PoolState
     Slot0 public override slot0;
 
-    /// @inheritdoc IUniswapV3PoolState
+    /// @inheritdoc INextswapV3PoolState
     uint256 public override feeGrowthGlobal0X128;
-    /// @inheritdoc IUniswapV3PoolState
+    /// @inheritdoc INextswapV3PoolState
     uint256 public override feeGrowthGlobal1X128;
 
     // accumulated protocol fees in token0/token1 units
@@ -92,19 +94,19 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
         uint128 token0;
         uint128 token1;
     }
-    /// @inheritdoc IUniswapV3PoolState
+    /// @inheritdoc INextswapV3PoolState
     ProtocolFees public override protocolFees;
 
-    /// @inheritdoc IUniswapV3PoolState
+    /// @inheritdoc INextswapV3PoolState
     uint128 public override liquidity;
 
-    /// @inheritdoc IUniswapV3PoolState
+    /// @inheritdoc INextswapV3PoolState
     mapping(int24 => Tick.Info) public override ticks;
-    /// @inheritdoc IUniswapV3PoolState
+    /// @inheritdoc INextswapV3PoolState
     mapping(int16 => uint256) public override tickBitmap;
-    /// @inheritdoc IUniswapV3PoolState
+    /// @inheritdoc INextswapV3PoolState
     mapping(bytes32 => Position.Info) public override positions;
-    /// @inheritdoc IUniswapV3PoolState
+    /// @inheritdoc INextswapV3PoolState
     Oracle.Observation[65535] public override observations;
 
     /// @dev Mutually exclusive reentrancy protection into the pool to/from a method. This method also prevents entrance
@@ -117,15 +119,15 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
         slot0.unlocked = true;
     }
 
-    /// @dev Prevents calling a function from anyone except the address returned by IUniswapV3Factory#owner()
+    /// @dev Prevents calling a function from anyone except the address returned by INextswapV3Factory#owner()
     modifier onlyFactoryOwner() {
-        require(msg.sender == IUniswapV3Factory(factory).owner());
+        require(msg.sender == INextswapV3Factory(factory).owner());
         _;
     }
 
     constructor() {
         int24 _tickSpacing;
-        (factory, token0, token1, fee, _tickSpacing) = IUniswapV3PoolDeployer(
+        (factory, token0, token1, fee, _tickSpacing) = INextswapV3PoolDeployer(
             msg.sender
         ).parameters();
         tickSpacing = _tickSpacing;
@@ -175,7 +177,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
         return abi.decode(data, (uint256));
     }
 
-    /// @inheritdoc IUniswapV3PoolDerivedState
+    /// @inheritdoc INextswapV3PoolDerivedState
     function snapshotCumulativesInside(
         int24 tickLower,
         int24 tickUpper
@@ -272,7 +274,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
         }
     }
 
-    /// @inheritdoc IUniswapV3PoolDerivedState
+    /// @inheritdoc INextswapV3PoolDerivedState
     function observe(
         uint32[] calldata secondsAgos
     )
@@ -296,7 +298,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
             );
     }
 
-    /// @inheritdoc IUniswapV3PoolActions
+    /// @inheritdoc INextswapV3PoolActions
     function increaseObservationCardinalityNext(
         uint16 observationCardinalityNext
     ) external override lock noDelegateCall {
@@ -313,7 +315,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
             );
     }
 
-    /// @inheritdoc IUniswapV3PoolActions
+    /// @inheritdoc INextswapV3PoolActions
     /// @dev not locked because it initializes unlocked
     function initialize(uint160 sqrtPriceX96) external override {
         if (slot0.sqrtPriceX96 != 0) revert AI();
@@ -516,7 +518,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
         }
     }
 
-    /// @inheritdoc IUniswapV3PoolActions
+    /// @inheritdoc INextswapV3PoolActions
     /// @dev noDelegateCall is applied indirectly via _modifyPosition
     function mint(
         address recipient,
@@ -542,7 +544,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
         uint256 balance1Before;
         if (amount0 > 0) balance0Before = balance0();
         if (amount1 > 0) balance1Before = balance1();
-        IUniswapV3MintCallback(msg.sender).uniswapV3MintCallback(
+        INextswapV3MintCallback(msg.sender).nextswapV3MintCallback(
             amount0,
             amount1,
             data
@@ -561,7 +563,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
         );
     }
 
-    /// @inheritdoc IUniswapV3PoolActions
+    /// @inheritdoc INextswapV3PoolActions
     function collect(
         address recipient,
         int24 tickLower,
@@ -604,7 +606,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
         );
     }
 
-    /// @inheritdoc IUniswapV3PoolActions
+    /// @inheritdoc INextswapV3PoolActions
     /// @dev noDelegateCall is applied indirectly via _modifyPosition
     function burn(
         int24 tickLower,
@@ -696,7 +698,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
         uint256 feeAmount;
     }
 
-    /// @inheritdoc IUniswapV3PoolActions
+    /// @inheritdoc INextswapV3PoolActions
     function swap(
         address recipient,
         bool zeroForOne,
@@ -960,7 +962,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
             }
 
             uint256 balance0Before = balance0();
-            IUniswapV3SwapCallback(msg.sender).uniswapV3SwapCallback(
+            INextswapV3SwapCallback(msg.sender).nextswapV3SwapCallback(
                 amount0,
                 amount1,
                 data
@@ -977,7 +979,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
             }
 
             uint256 balance1Before = balance1();
-            IUniswapV3SwapCallback(msg.sender).uniswapV3SwapCallback(
+            INextswapV3SwapCallback(msg.sender).nextswapV3SwapCallback(
                 amount0,
                 amount1,
                 data
@@ -997,7 +999,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
         slot0.unlocked = true;
     }
 
-    /// @inheritdoc IUniswapV3PoolActions
+    /// @inheritdoc INextswapV3PoolActions
     function flash(
         address recipient,
         uint256 amount0,
@@ -1017,7 +1019,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
         if (amount1 > 0)
             TransferHelper.safeTransfer(token1, recipient, amount1);
 
-        IUniswapV3FlashCallback(msg.sender).uniswapV3FlashCallback(
+        INextswapV3FlashCallback(msg.sender).nextswapV3FlashCallback(
             fee0,
             fee1,
             data
@@ -1059,7 +1061,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
         }
     }
 
-    /// @inheritdoc IUniswapV3PoolOwnerActions
+    /// @inheritdoc INextswapV3PoolOwnerActions
     function setFeeProtocol(
         uint8 feeProtocol0,
         uint8 feeProtocol1
@@ -1082,7 +1084,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
         }
     }
 
-    /// @inheritdoc IUniswapV3PoolOwnerActions
+    /// @inheritdoc INextswapV3PoolOwnerActions
     function collectProtocol(
         address recipient,
         uint128 amount0Requested,

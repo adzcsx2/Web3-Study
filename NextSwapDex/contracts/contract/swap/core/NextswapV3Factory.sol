@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity >=0.8.12 <=0.8.13;
 
-import {IUniswapV3Factory} from "./interfaces/IUniswapV3Factory.sol";
+import {INextswapV3Factory} from "./interfaces/INextswapV3Factory.sol";
 
-import {UniswapV3PoolDeployer} from "./UniswapV3PoolDeployer.sol";
+import {NextswapV3PoolDeployer} from "./NextswapV3PoolDeployer.sol";
 import {NoDelegateCall} from "./NoDelegateCall.sol";
 
-import {UniswapV3Pool} from "./UniswapV3Pool.sol";
+import {NextswapV3Pool} from "./NextswapV3Pool.sol";
 
-/// @title Canonical Uniswap V3 factory
-/// @notice Deploys Uniswap V3 pools and manages ownership and control over pool protocol fees
-contract UniswapV3Factory is
-    IUniswapV3Factory,
-    UniswapV3PoolDeployer,
+/// @title Canonical Nextswap V3 factory
+/// @notice Deploys Nextswap V3 pools and manages ownership and control over pool protocol fees
+contract NextswapV3Factory is
+    INextswapV3Factory,
+    NextswapV3PoolDeployer,
     NoDelegateCall
 {
-    /// @inheritdoc IUniswapV3Factory
+    /// @inheritdoc INextswapV3Factory
     address public override owner;
 
-    /// @inheritdoc IUniswapV3Factory
+    /// @inheritdoc INextswapV3Factory
     mapping(uint24 => int24) public override feeAmountTickSpacing;
-    /// @inheritdoc IUniswapV3Factory
+    /// @inheritdoc INextswapV3Factory
     mapping(address => mapping(address => mapping(uint24 => address)))
         public
         override getPool;
@@ -37,7 +37,7 @@ contract UniswapV3Factory is
         emit FeeAmountEnabled(10000, 200);
     }
 
-    /// @inheritdoc IUniswapV3Factory
+    /// @inheritdoc INextswapV3Factory
     function createPool(
         address tokenA,
         address tokenB,
@@ -58,14 +58,14 @@ contract UniswapV3Factory is
         emit PoolCreated(token0, token1, fee, tickSpacing, pool);
     }
 
-    /// @inheritdoc IUniswapV3Factory
+    /// @inheritdoc INextswapV3Factory
     function setOwner(address _owner) external override {
         require(msg.sender == owner);
         emit OwnerChanged(owner, _owner);
         owner = _owner;
     }
 
-    /// @inheritdoc IUniswapV3Factory
+    /// @inheritdoc INextswapV3Factory
     function enableFeeAmount(uint24 fee, int24 tickSpacing) public override {
         require(msg.sender == owner);
         require(fee < 1000000);

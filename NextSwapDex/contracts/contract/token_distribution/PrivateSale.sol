@@ -5,22 +5,18 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "../lib/PublicWithdrawable.sol";
-import "../NextSwapToken.sol";
+import "../NextswapToken.sol";
 
 import "../../constants/Constants.sol";
-import "../../modifiers/NextSwapModifier.sol";
-import "../../events/NextSwapEvents.sol";
-import "../../structs/NextSwapStructs.sol";
-import "../../errors/NextSwapErrors.sol";
+import "../../modifiers/NextswapModifier.sol";
+import "../../events/NextswapEvents.sol";
+import "../../structs/NextswapStructs.sol";
+import "../../errors/NextswapErrors.sol";
 /**
  * @title PrivateSale
  * @dev 私募合约
  */
-contract PrivateSale is
-    Ownable2Step,
-    PublicWithdrawable,
-    NextSwapModifier
-{
+contract PrivateSale is Ownable2Step, PublicWithdrawable, NextswapModifier {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable token;
@@ -99,8 +95,7 @@ contract PrivateSale is
             revert PrivateSaleRoundIsNotActive();
         }
         if (
-            block.timestamp < round.startTime ||
-            block.timestamp > round.endTime
+            block.timestamp < round.startTime || block.timestamp > round.endTime
         ) {
             revert PrivateSaleRoundTimeNotActive();
         }

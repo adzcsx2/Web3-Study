@@ -1,16 +1,16 @@
-# NextSwap - 企业级去中心化交易所
+# Nextswap - 企业级去中心化交易所
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.26-blue.svg)](https://solidity.readthedocs.io/)
 [![Hardhat](https://img.shields.io/badge/Built%20with-Hardhat-brown.svg)](https://hardhat.org/)
 
-基于以太坊构建的生产级企业去中心化交易所，采用 Uniswap V3 风格的集中流动性、NFT 头寸质押和流动性挖矿奖励机制。
+基于以太坊构建的生产级企业去中心化交易所，采用 Nextswap V3 风格的集中流动性、NFT 头寸质押和流动性挖矿奖励机制。
 
 ## 🎯 项目概述
 
-NextSwap 是一个综合性的 DEX 解决方案，集成了以下核心功能：
+Nextswap 是一个综合性的 DEX 解决方案，集成了以下核心功能：
 
-- **集中流动性**：采用 Uniswap V3 风格的资金效率，支持多级费率
+- **集中流动性**：采用 Nextswap V3 风格的资金效率，支持多级费率
 - **NFT 头寸管理**：将流动性头寸作为 NFT 进行交易，具备完全的可组合性
 - **流动性挖矿**：质押头寸 NFT 以获得 NST 奖励
 - **企业级安全**：时间锁治理、多重签名控制和全面审计
@@ -112,8 +112,8 @@ contracts/
 │   └── LiquidityMining.sol       # NFT 质押与奖励
 ├── governance/
 │   └── TimelockController.sol    # 安全治理
-├── core/                         # Uniswap V3 核心合约
-└── periphery/                    # Uniswap V3 外围合约
+├── core/                         # Nextswap V3 核心合约
+└── periphery/                    # Nextswap V3 外围合约
 ```
 
 ### 技术栈
@@ -132,7 +132,7 @@ contracts/
 ### 阶段 1：基础设施建设（第 1 周）
 
 - [x] 初始化 Hardhat 项目
-- [x] 集成 Uniswap V3 合约
+- [x] 集成 Nextswap V3 合约
 - [x] 设计 NST 代币经济模型
 - [x] 配置多网络支持
 - [x] 搭建测试环境
@@ -142,7 +142,7 @@ contracts/
 - [x] 部署具有铸造控制的 NST Token
 - [x] 实现代币分发的线性释放
 - [x] 设置时间锁控制器
-- [ ] 与 Uniswap V3 集成
+- [ ] 与 Nextswap V3 集成
 - [ ] 开发流动性挖矿合约
 
 ### 阶段 3：测试与安全加固（第 4 周）
@@ -223,7 +223,7 @@ GRAPH_API_KEY=your_graph_api_key
 
 # 前端（在 front/.env.local 中）
 NEXT_PUBLIC_BASE_API=https://your-api-endpoint.com
-NEXT_PUBLIC_APP_TITLE=NextSwap DEX
+NEXT_PUBLIC_APP_TITLE=Nextswap DEX
 NEXT_PUBLIC_DEFAULT_LANGUAGE=zh
 NEXT_PUBLIC_SUPPORTED_LANGUAGES=zh,en
 ```
@@ -294,7 +294,7 @@ npm run slither:report
 
 ## 🔐 安全性
 
-NextSwap 通过以下方式优先保障安全：
+Nextswap 通过以下方式优先保障安全：
 
 - **多重审计**：专业安全公司审计
 - **漏洞赏金**：活跃的漏洞赏金计划
@@ -381,7 +381,7 @@ npm run verify:deployment:mainnet
 
 - **微信社区**：扫描二维码加入
 - **Discord**：[加入社区](https://discord.gg/nextswap)
-- **Twitter**：[@NextSwapDEX](https://twitter.com/nextswapdex)
+- **Twitter**：[@NextswapDEX](https://twitter.com/nextswapdex)
 - **Medium**：[博客](https://medium.com/nextswap)
 - **Telegram**：[t.me/nextswap](https://t.me/nextswap)
 
@@ -391,21 +391,21 @@ npm run verify:deployment:mainnet
 
 ## 🙏 致谢
 
-- [Uniswap V3](https://uniswap.org/) - 核心 AMM 逻辑
+- [Nextswap V3](https://nextswap.org/) - 核心 AMM 逻辑
 - [OpenZeppelin](https://openzeppelin.com/) - 安全的智能合约
 - [Hardhat](https://hardhat.org/) - 开发环境
 - [The Graph](https://thegraph.com/) - 索引协议
 
 ## ⚠️ 免责声明
 
-NextSwap 是一个实验性协议。用户应该：
+Nextswap 是一个实验性协议。用户应该：
 
 - 了解智能合约风险
 - 绝不投资超过可承受损失的金额
 - 进行自己的研究（DYOR）
 - 注意潜在的 bug 或漏洞
 
-在 NextSwap 上交易涉及金融风险。团队不对任何损失负责。
+在 Nextswap 上交易涉及金融风险。团队不对任何损失负责。
 
 ## 🇨🇳 中文支持
 
@@ -416,4 +416,4 @@ NextSwap 是一个实验性协议。用户应该：
 
 ---
 
-**由 NextSwap 团队用 ❤️ 构建**
+**由 Nextswap 团队用 ❤️ 构建**

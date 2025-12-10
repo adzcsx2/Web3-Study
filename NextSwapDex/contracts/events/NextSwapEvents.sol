@@ -52,7 +52,7 @@ event MemberAllocationAdded(
     uint256 claimEndTime,
     address indexed adminAddress
 );
-event WithdrawNextSwapToken(
+event WithdrawNextswapToken(
     address indexed to,
     uint256 amount,
     address indexed adminAddress
