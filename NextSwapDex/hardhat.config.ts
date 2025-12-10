@@ -20,6 +20,18 @@ const config: HardhatUserConfig = {
         },
       },
       {
+        version: "0.8.15", // Uniswap V3 Periphery 合约
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1000000,
+          },
+          metadata: {
+            bytecodeHash: "none",
+          },
+        },
+      },
+      {
         version: "0.8.12", // Uniswap V3 核心合约
         settings: {
           optimizer: {

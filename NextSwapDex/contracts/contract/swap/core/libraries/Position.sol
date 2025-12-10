@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.0;
 
-import {FullMath} from './FullMath.sol';
-import {FixedPoint128} from './FixedPoint128.sol';
+import {FullMath} from "./FullMath.sol";
+import {FixedPoint128} from "./FixedPoint128.sol";
 
 /// @title Position
 /// @notice Positions represent an owner address' liquidity between a lower and upper tick boundary
@@ -34,7 +34,9 @@ library Position {
         int24 tickLower,
         int24 tickUpper
     ) internal view returns (Position.Info storage position) {
-        position = self[keccak256(abi.encodePacked(owner, tickLower, tickUpper))];
+        position = self[
+            keccak256(abi.encodePacked(owner, tickLower, tickUpper))
+        ];
     }
 
     /// @notice Credits accumulated fees to a user's position
