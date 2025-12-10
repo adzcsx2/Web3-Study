@@ -1,5 +1,5 @@
-import { DeployHelper } from "./utils/DeployHelper";
-import { MyNFT, MyNFT2 } from "../typechain-types";
+import { DeployHelper } from "../utils/DeployHelper";
+import { MyNFT, MyNFT2 } from "../../typechain-types";
 import { ethers } from "hardhat";
 import hre from "hardhat";
 

@@ -3,7 +3,7 @@ import {
   getNetworkConfig,
   stringToBytes32,
   getNetworkName,
-} from "./config/network-config";
+} from "../config/network-config";
 
 /**
  * 部署 NonfungibleTokenPositionDescriptor 合约

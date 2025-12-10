@@ -1,4 +1,4 @@
-import { ethers, network, upgrades } from "hardhat";
+import { ethers, network, run, upgrades } from "hardhat";
 import hre from "hardhat";
 import type {
   ContractTransactionResponse,
@@ -767,5 +767,49 @@ export class DeployHelper {
       versionInfo,
       newImplementation,
     };
+  }
+
+  /**
+   * 验证智能合约
+   */
+  async verifyContract(
+    contractAddress: string,
+    constructorArgs: any[] = [],
+    contractPath?: string
+  ) {
+    // 本地网络不需要验证
+    if (network.name === "hardhat" || network.name === "localhost") {
+      console.log("ℹ️  本地网络跳过验证");
+      return;
+    }
+
+    console.log("\n🔍 开始验证合约...");
+    console.log("📍 合约地址:", contractAddress);
+
+    // // 等待几秒，确保 Etherscan 已索引合约 如果是自动验证需要
+    // console.log("⏳ 等待 30 秒，确保区块浏览器已索引合约...");
+    // await new Promise((resolve) => setTimeout(resolve, 30000));
+
+    try {
+      await run("verify:verify", {
+        address: contractAddress,
+        constructorArguments: constructorArgs,
+        contract: contractPath,
+      });
+      console.log("✅ 合约验证成功！");
+      console.log(
+        `🔗 查看合约: https://${network.name}.etherscan.io/address/${contractAddress}#code`
+      );
+    } catch (error: any) {
+      if (error.message.toLowerCase().includes("already verified")) {
+        console.log("ℹ️  合约已经验证过了");
+      } else {
+        console.error("❌ 验证失败:", error.message);
+        console.log("💡 你可以稍后手动验证:");
+        console.log(
+          `npx hardhat verify --network ${network.name} ${contractAddress}`
+        );
+      }
+    }
   }
 }

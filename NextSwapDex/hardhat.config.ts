@@ -80,5 +80,13 @@ const config: HardhatUserConfig = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
   },
+  // Etherscan 验证配置
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY,
+  },
+  // 源代码验证
+  sourcify: {
+    enabled: true,
+  },
 };
 export default config;

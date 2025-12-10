@@ -1,6 +1,6 @@
 import { ethers } from "hardhat";
-import { DeployHelper } from "./utils/DeployHelper";
-import { UniswapV3Factory, UniswapV3Pool } from "../typechain-types";
+import { DeployHelper } from "../utils/DeployHelper";
+import { UniswapV3Factory, UniswapV3Pool } from "../../typechain-types";
 
 async function main() {
   const deployHelper = new DeployHelper();
