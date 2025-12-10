@@ -1,13 +1,14 @@
 import { ethers } from "hardhat";
 import { DeployHelper } from "../utils/DeployHelper";
 import { getNetworkConfig, stringToBytes32 } from "../config/network-config";
-import {
-  NonfungibleTokenPositionDescriptor,
-} from "../../typechain-types";
+import { NonfungibleTokenPositionDescriptor } from "../../typechain-types";
 
 import deployment from "../../deployments/sepolia-deployment.json";
 
 const deployHelper = new DeployHelper();
+let NFTDescriptorName = "NFTDescriptor";
+let NonfungibleTokenPositionDescriptorName =
+  "NonfungibleTokenPositionDescriptor";
 
 async function main() {
   const [signer] = await ethers.getSigners();
@@ -21,36 +22,30 @@ async function main() {
 async function deployNonfungibleTokenPositionDescriptor() {
   const chainId = (await ethers.provider.getNetwork()).chainId;
   const config = getNetworkConfig(Number(chainId));
-  const NonfungibleTokenPositionDescriptorName =
-    "NonfungibleTokenPositionDescriptor";
 
-  const { name, address, fullPath, transactionHash } =
-    await deployHelper.deployLibrary("NFTDescriptor");
-
-  const { contract, versionInfo } =
-    await deployHelper.deployContract<NonfungibleTokenPositionDescriptor>(
-      NonfungibleTokenPositionDescriptorName,
-      [
-        config.WETH9,
-        stringToBytes32("ETH"),
-        config.DAI,
-        config.USDC,
-        config.USDT,
-        config.TBTC,
-        config.WBTC,
-      ],
-      {
-        libraries: {
-          [fullPath]: address,
-        },
-      }
-    );
+  const { name, address, transactionHash } = await deployHelper.deployLibrary(
+    NFTDescriptorName
+  );
   console.log("✅ 部署完成！");
-  console.log("📍 地址:", versionInfo.address);
-  console.log("📍 contract:", contract);
+  console.log("📍 地址:", address);
+  // 确保库已部署
 
-  await deployHelper.verifyContract(
-    versionInfo.address,
+  let isSuccess = await deployHelper.verifyContract(
+    deployment.contracts.NFTDescriptor.proxyAddress,
+    [],
+    NFTDescriptorName
+  );
+  if (isSuccess) {
+    console.log("✅ NFTDescriptor测试通过：库验证流程完成！");
+  } else {
+    console.log("❌ NFTDescriptor库验证失败！");
+  }
+
+  const libFullPath = await deployHelper.getContractSourcePath(
+    NFTDescriptorName
+  );
+  const { contract, versionInfo } = await deployHelper.deployContract(
+    NonfungibleTokenPositionDescriptorName,
     [
       config.WETH9,
       stringToBytes32("ETH"),
@@ -60,8 +55,40 @@ async function deployNonfungibleTokenPositionDescriptor() {
       config.TBTC,
       config.WBTC,
     ],
-    NonfungibleTokenPositionDescriptorName
+    {
+      libraries: {
+        [libFullPath]: deployment.contracts.NFTDescriptor.proxyAddress,
+      },
+    }
   );
+  console.log("✅ 部署完成！");
+  console.log("📍 地址:", versionInfo.address);
+
+  const contractAddress =
+    deployment.contracts.NonfungibleTokenPositionDescriptor.proxyAddress;
+
+  console.log("正在验证合约:", contractAddress);
+  isSuccess = await deployHelper.verifyContract(
+    contractAddress,
+    [
+      config.WETH9,
+      stringToBytes32("ETH"),
+      config.DAI,
+      config.USDC,
+      config.USDT,
+      config.TBTC,
+      config.WBTC,
+    ],
+    "NonfungibleTokenPositionDescriptor"
+  );
+
+  if (isSuccess) {
+    console.log(
+      "✅ $NonfungibleTokenPositionDescriptor测试通过：合约验证流程完成！"
+    );
+  } else {
+    console.log("❌ NonfungibleTokenPositionDescriptor合约验证失败！");
+  }
 }
 
 async function deploySwapRouter() {
