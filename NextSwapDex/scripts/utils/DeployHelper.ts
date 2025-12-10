@@ -9,6 +9,7 @@ import type {
 } from "ethers";
 import * as fs from "fs";
 import * as path from "path";
+import { libraries } from "../../typechain-types/contracts/contract/swap/core";
 
 // ABI 类型定义
 export interface ABIItem {
@@ -51,6 +52,7 @@ export interface ContractVersionInfo {
   abi: ABIItem[]; // 直接存储ABI对象数组
   isProxy?: boolean; // 是否为代理合约
   isActive: boolean; // 是否为当前激活版本
+  libraries?: Record<string, string>; // 链接的库信息（库完整路径 -> 库地址）
 }
 
 /**
@@ -105,14 +107,17 @@ export interface DeployProxyOptions {
   initializer?: string;
   unsafeAllow?: string[];
   tokenMetadata?: TokenMetadata;
+  libraries?: Record<string, string>; // 库名称 -> 库地址的映射
 }
 
 export interface UpgradeProxyOptions {
   unsafeAllow?: string[];
+  libraries?: Record<string, string>; // 库名称 -> 库地址的映射
 }
 
 export interface DeployContractOptions {
   tokenMetadata?: TokenMetadata;
+  libraries?: Record<string, string>; // 库名称 -> 库地址的映射
 }
 
 /**
@@ -131,6 +136,16 @@ export interface UpgradeResult {
   versionInfo: ContractVersionInfo;
   newImplementation: string;
 }
+
+/**
+ * 库部署结果
+ */
+export interface LibraryDeploymentResult {
+  name: string;
+  address: string;
+  transactionHash?: string;
+}
+
 export class DeployHelper {
   private readonly deploymentDir: string;
   private readonly abiDir: string;
@@ -153,11 +168,116 @@ export class DeployHelper {
   }
 
   /**
+   * 部署库合约
+   * @param libraryName 库名称
+   * @returns 库部署结果（包含 Hardhat 所需的完整路径格式）
+   */
+  async deployLibrary(libraryName: string): Promise<LibraryDeploymentResult> {
+    console.log(`📚 部署库: ${libraryName}`);
+    const [signer] = await ethers.getSigners();
+    const deployerAddress = await signer.getAddress();
+
+    const libraryFactory = await ethers.getContractFactory(libraryName, signer);
+
+    // 提前获取 ABI
+    const abiJson = libraryFactory.interface.formatJson();
+    const abi: ABIItem[] = JSON.parse(abiJson);
+
+    const library = await libraryFactory.deploy();
+    console.log(`⏳ 等待库合约部署确认...`);
+    await library.waitForDeployment();
+
+    const libraryAddress = await library.getAddress();
+    const deploymentTx = library.deploymentTransaction();
+
+    // 获取库的完整路径（Hardhat 链接库时需要）
+    const artifact = await hre.artifacts.readArtifact(libraryName);
+    const fullPath = `${artifact.sourceName}:${libraryName}`;
+
+    // 判断部署是否成功
+    let deploymentSuccess = false;
+    let gasUsed: string | undefined;
+    let blockNumber: number | undefined;
+    let transactionHash: string | undefined;
+
+    if (deploymentTx) {
+      try {
+        const receipt = await deploymentTx.wait();
+        if (receipt && receipt.status === 1) {
+          deploymentSuccess = true;
+          gasUsed = receipt.gasUsed?.toString();
+          blockNumber = receipt.blockNumber;
+          transactionHash = receipt.hash;
+          console.log(`✅ 库 ${libraryName} 部署成功`);
+          console.log(`   - 地址: ${libraryAddress}`);
+          console.log(`   - 完整路径: ${fullPath}`);
+          console.log(`   - 交易哈希: ${transactionHash}`);
+          console.log(`   - Gas 使用: ${gasUsed}`);
+        } else {
+          console.error(
+            `❌ 库 ${libraryName} 部署失败: 交易状态为 ${receipt?.status}`
+          );
+        }
+      } catch (error) {
+        console.error(`❌ 库 ${libraryName} 部署失败:`, error);
+        throw error;
+      }
+    } else {
+      console.warn(`⚠️  无法获取部署交易信息`);
+    }
+
+    // 如果部署成功，保存部署信息
+    if (deploymentSuccess) {
+      const versionInfo: ContractVersionInfo = {
+        address: libraryAddress,
+        transactionHash,
+        blockNumber,
+        gasUsed,
+        version: "1",
+        deployer: deployerAddress,
+        deployedAt: new Date().toISOString(),
+        isProxy: false,
+        isActive: true,
+        abi,
+      };
+
+      await this.saveContractDeployment(libraryName, versionInfo, false);
+      console.log(`💾 库 ${libraryName} 部署信息已保存`);
+    }
+
+    return {
+      name: libraryName,
+      address: libraryAddress,
+      transactionHash: deploymentTx?.hash,
+    };
+  }
+
+  /**
+   * 批量部署库合约
+   * @param libraryNames 库名称数组
+   * @returns 库地址映射对象（键为完整路径，值为地址）
+   */
+  async deployLibraries(
+    libraryNames: string[]
+  ): Promise<Record<string, string>> {
+    console.log(`\n📚 开始批量部署 ${libraryNames.length} 个库...\n`);
+
+    const libraries: Record<string, string> = {};
+
+    for (const libName of libraryNames) {
+      await this.deployLibrary(libName);
+    }
+
+    console.log(`\n✅ 所有库部署完成！`);
+    return libraries;
+  }
+
+  /**
    * 获取合约源文件路径（用于验证）
    * @param contractName 合约名称
    * @returns 合约源文件路径，格式如 "contracts/contract/NextswapGovernor.sol:NextswapGovernor"
    */
-  private async getContractSourcePath(contractName: string): Promise<string> {
+  async getContractSourcePath(contractName: string): Promise<string> {
     try {
       // 从 Hardhat artifacts 中读取合约信息
       const artifact = await hre.artifacts.readArtifact(contractName);
@@ -301,13 +421,16 @@ export class DeployHelper {
    * 添加或更新合约部署信息
    * @param contractName 合约名称
    * @param versionInfo 版本信息
+   * @param isProxyContract 是否为代理合约
    * @param tokenMetadata Token元数据（可选）
+   * @param libraries 链接的库信息（可选）
    */
   async saveContractDeployment(
     contractName: string,
     versionInfo: ContractVersionInfo,
     isProxyContract: boolean,
-    tokenMetadata?: TokenMetadata
+    tokenMetadata?: TokenMetadata,
+    libraries?: Record<string, string>
   ): Promise<void> {
     // 读取现有部署信息
     let deploymentInfo = this.readDeploymentInfo();
@@ -449,14 +572,29 @@ export class DeployHelper {
     const [signer] = await ethers.getSigners();
     const deployerAddress = await signer.getAddress();
 
-    console.log(`🚀 开始部署合约: ${contractName}`);
+    console.log(`🚀 开始部署代理合约: ${contractName}`);
     console.log(`📍 部署者地址: ${deployerAddress}`);
     console.log(`🌐 网络: ${network.name}`);
 
-    const contractFactory = await ethers.getContractFactory(
-      contractName,
-      signer
-    );
+    // 处理库链接
+    if (options.libraries && Object.keys(options.libraries).length > 0) {
+      console.log(`🔗 链接库:`);
+      for (const [libName, libAddress] of Object.entries(options.libraries)) {
+        console.log(`   - ${libName}: ${libAddress}`);
+      }
+    }
+
+    // 创建合约工厂，根据是否有库链接使用不同的方式
+    let contractFactory;
+    if (options.libraries && Object.keys(options.libraries).length > 0) {
+      // 有库链接时，传递 libraries 对象
+      contractFactory = await ethers.getContractFactory(contractName, {
+        libraries: options.libraries,
+      });
+    } else {
+      // 无库链接时，正常创建
+      contractFactory = await ethers.getContractFactory(contractName, signer);
+    }
 
     // 提前获取 ABI
     const abiJson = contractFactory.interface.formatJson();
@@ -523,6 +661,10 @@ export class DeployHelper {
       isProxy: true,
       isActive: true, // 新部署的版本默认激活
       abi,
+      ...(options.libraries &&
+        Object.keys(options.libraries).length > 0 && {
+          libraries: options.libraries,
+        }),
     };
 
     console.log(`✅ 代理合约部署成功:`);
@@ -530,6 +672,14 @@ export class DeployHelper {
     console.log(`   - 实现地址: ${implementationAddress}`);
     console.log(`   - 交易哈希: ${deploymentTx?.hash}`);
     console.log(`   - 版本: ${version}`);
+
+    // 显示链接的库信息
+    if (options.libraries && Object.keys(options.libraries).length > 0) {
+      console.log(`   - 链接的库: ${Object.keys(options.libraries).length} 个`);
+      for (const [libPath, libAddr] of Object.entries(options.libraries)) {
+        console.log(`     • ${libPath}: ${libAddr}`);
+      }
+    }
 
     // 获取并显示合约大小
     try {
@@ -548,7 +698,8 @@ export class DeployHelper {
       contractName,
       versionInfo,
       true,
-      options.tokenMetadata
+      options.tokenMetadata,
+      options.libraries // 传递库信息
     );
 
     return { contract: deployedContract, versionInfo };
@@ -558,7 +709,7 @@ export class DeployHelper {
    * 部署普通合约（非代理合约，自动保存部署信息）
    * @param contractName 合约名称
    * @param args 构造函数参数
-   * @param options 部署选项
+   * @param options 部署选项（包含 libraries 和 tokenMetadata）
    */
   async deployContract<T extends BaseContract>(
     contractName: string,
@@ -571,14 +722,30 @@ export class DeployHelper {
     console.log(`🚀 开始部署普通合约: ${contractName}`);
     console.log(`📍 部署者地址: ${deployerAddress}`);
     console.log(`🌐 网络: ${network.name}`);
+
     if (args.length > 0) {
       console.log(`📦 构造函数参数:`, args);
     }
 
-    const contractFactory = await ethers.getContractFactory(
-      contractName,
-      signer
-    );
+    // 处理库链接
+    if (options.libraries && Object.keys(options.libraries).length > 0) {
+      console.log(`🔗 链接库:`);
+      for (const [libName, libAddress] of Object.entries(options.libraries)) {
+        console.log(`   - ${libName}: ${libAddress}`);
+      }
+    }
+
+    // 创建合约工厂，根据是否有库链接使用不同的方式
+    let contractFactory;
+    if (options.libraries && Object.keys(options.libraries).length > 0) {
+      // 有库链接时，传递 libraries 对象
+      contractFactory = await ethers.getContractFactory(contractName, {
+        libraries: options.libraries,
+      });
+    } else {
+      // 无库链接时，正常创建
+      contractFactory = await ethers.getContractFactory(contractName, signer);
+    }
 
     // 提前获取 ABI
     const abiJson = contractFactory.interface.formatJson();
@@ -632,6 +799,10 @@ export class DeployHelper {
       isProxy: false,
       isActive: true,
       abi,
+      ...(options.libraries &&
+        Object.keys(options.libraries).length > 0 && {
+          libraries: options.libraries,
+        }),
     };
 
     console.log(`✅ 普通合约 ${contractName} 部署成功:`);
@@ -640,6 +811,14 @@ export class DeployHelper {
     console.log(`   - 区块号: ${blockNumber}`);
     console.log(`   - Gas 使用: ${gasUsed}`);
     console.log(`   - 版本: ${version}`);
+
+    // 显示链接的库信息
+    if (options.libraries && Object.keys(options.libraries).length > 0) {
+      console.log(`   - 链接的库: ${Object.keys(options.libraries).length} 个`);
+      for (const [libPath, libAddr] of Object.entries(options.libraries)) {
+        console.log(`     • ${libPath}: ${libAddr}`);
+      }
+    }
 
     // 获取并显示合约大小
     try {
@@ -658,7 +837,8 @@ export class DeployHelper {
       contractName,
       versionInfo,
       false,
-      options.tokenMetadata
+      options.tokenMetadata,
+      options.libraries // 传递库信息
     );
 
     return { contract: deployedContract, versionInfo };
@@ -682,10 +862,28 @@ export class DeployHelper {
     console.log(`📍 代理地址: ${proxyAddress}`);
     console.log(`📍 升级者地址: ${deployerAddress}`);
 
-    const contractFactory = await ethers.getContractFactory(
-      newContractName,
-      signer
-    );
+    // 处理库链接
+    if (options.libraries && Object.keys(options.libraries).length > 0) {
+      console.log(`🔗 链接库:`);
+      for (const [libName, libAddress] of Object.entries(options.libraries)) {
+        console.log(`   - ${libName}: ${libAddress}`);
+      }
+    }
+
+    // 创建合约工厂，根据是否有库链接使用不同的方式
+    let contractFactory;
+    if (options.libraries && Object.keys(options.libraries).length > 0) {
+      // 有库链接时，传递 libraries 对象
+      contractFactory = await ethers.getContractFactory(newContractName, {
+        libraries: options.libraries,
+      });
+    } else {
+      // 无库链接时，正常创建
+      contractFactory = await ethers.getContractFactory(
+        newContractName,
+        signer
+      );
+    }
 
     // 提前获取 ABI
     const abiJson = contractFactory.interface.formatJson();
@@ -769,6 +967,10 @@ export class DeployHelper {
       isProxy: false, // 这是实现合约
       isActive: true, // 升级后的新版本默认激活
       abi,
+      ...(options.libraries &&
+        Object.keys(options.libraries).length > 0 && {
+          libraries: options.libraries,
+        }),
     };
 
     console.log(`✅ ${newContractName} 合约升级成功:`);
@@ -776,6 +978,14 @@ export class DeployHelper {
     console.log(`   - 新实现地址: ${newImplementation}`);
     console.log(`   - 版本: ${version}`);
     console.log(`   - 交易哈希: ${transactionHash}`);
+
+    // 显示链接的库信息
+    if (options.libraries && Object.keys(options.libraries).length > 0) {
+      console.log(`   - 链接的库: ${Object.keys(options.libraries).length} 个`);
+      for (const [libPath, libAddr] of Object.entries(options.libraries)) {
+        console.log(`     • ${libPath}: ${libAddr}`);
+      }
+    }
 
     // 获取并显示新实现的合约大小
     try {
@@ -790,7 +1000,13 @@ export class DeployHelper {
     }
 
     // 自动保存升级历史
-    await this.saveContractDeployment(newContractName, versionInfo, true);
+    await this.saveContractDeployment(
+      newContractName,
+      versionInfo,
+      true,
+      undefined, // tokenMetadata
+      options.libraries // 传递库信息
+    );
 
     return {
       contract: upgradedContract,
@@ -811,11 +1027,11 @@ export class DeployHelper {
     constructorArgs: any[] = [],
     contractName?: string,
     delayToVerify: number = 0
-  ) {
+  ): Promise<boolean> {
     // 本地网络不需要验证
     if (network.name === "hardhat" || network.name === "localhost") {
       console.log("ℹ️  本地网络跳过验证");
-      return;
+      return false;
     }
 
     console.log("\n🔍 开始验证合约...");
@@ -836,21 +1052,29 @@ export class DeployHelper {
     }
 
     try {
-      await run("verify:verify", {
-        address: contractAddress,
-        constructorArguments: constructorArgs,
-        contract: finalContractPath,
-      });
+      // 使用 Promise 包装，验证成功后立即返回，不等待插件完全结束
+      await Promise.race([
+        run("verify:verify", {
+          address: contractAddress,
+          constructorArguments: constructorArgs,
+          contract: finalContractPath,
+        }),
+        // 备用：如果 run 挂起，30秒后自动返回
+        new Promise((resolve) => setTimeout(resolve, 30000)),
+      ]);
+
       console.log("✅ 合约验证成功！");
       console.log(
         `🔗 查看合约: https://${network.name}.etherscan.io/address/${contractAddress}#code`
       );
+      return true;
     } catch (error: any) {
       const errorMessage = error?.message?.toLowerCase() || "";
 
       // 检查是否为"已验证"错误（支持多种表述）
       if (
         errorMessage.includes("already verified") ||
+        errorMessage.includes("has already been verified") ||
         errorMessage.includes("already been verified") ||
         errorMessage.includes("contract source code already verified")
       ) {
@@ -865,8 +1089,10 @@ export class DeployHelper {
           `npx hardhat verify --network ${network.name} ${contractAddress}`
         );
       }
+      return false;
     }
 
     console.log("✅ 验证流程完成\n");
+    return true;
   }
 }

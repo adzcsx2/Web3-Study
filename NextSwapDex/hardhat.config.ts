@@ -11,6 +11,7 @@ const sepoliaRpcUrl =
     "https://eth-sepolia.g.alchemy.com/v2/" + process.env.ALCHEMY_ID,
     "https://sepolia.infura.io/v3/" + process.env.INFURA_ID,
   ][Math.floor(Math.random() * 2)] || "";
+console.log("🎲 SepoliaRpcUrl:", sepoliaRpcUrl);
 
 // 随机选择一个可用的主网 RPC URL
 const url_mainnet =

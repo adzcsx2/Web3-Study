@@ -2,28 +2,34 @@ import { ethers } from "hardhat";
 import { DeployHelper } from "../utils/DeployHelper";
 import { getNetworkConfig, stringToBytes32 } from "../config/network-config";
 import {
-  NextswapV3Factory,
-  NextswapV3Pool,
   NonfungibleTokenPositionDescriptor,
 } from "../../typechain-types";
 
-import "../../deployments/sepolia-deployment.json"
+import deployment from "../../deployments/sepolia-deployment.json";
+
+const deployHelper = new DeployHelper();
 
 async function main() {
-  const deployHelper = new DeployHelper();
   const [signer] = await ethers.getSigners();
   const ownerAddress = await signer.getAddress();
   console.log("Deploying contracts with the account:", ownerAddress);
 
-  // 部署合约（自动保存）
-
-  const chainId = (await ethers.provider.getNetwork()).chainId;
-
   // 部署 NonfungibleTokenPositionDescriptor
+  await deployNonfungibleTokenPositionDescriptor();
+}
+// 部署 NonfungibleTokenPositionDescriptor
+async function deployNonfungibleTokenPositionDescriptor() {
+  const chainId = (await ethers.provider.getNetwork()).chainId;
   const config = getNetworkConfig(Number(chainId));
+  const NonfungibleTokenPositionDescriptorName =
+    "NonfungibleTokenPositionDescriptor";
+
+  const { name, address, fullPath, transactionHash } =
+    await deployHelper.deployLibrary("NFTDescriptor");
+
   const { contract, versionInfo } =
     await deployHelper.deployContract<NonfungibleTokenPositionDescriptor>(
-      "NonfungibleTokenPositionDescriptor",
+      NonfungibleTokenPositionDescriptorName,
       [
         config.WETH9,
         stringToBytes32("ETH"),
@@ -32,14 +38,39 @@ async function main() {
         config.USDT,
         config.TBTC,
         config.WBTC,
-      ]
+      ],
+      {
+        libraries: {
+          [fullPath]: address,
+        },
+      }
     );
   console.log("✅ 部署完成！");
   console.log("📍 地址:", versionInfo.address);
+  console.log("📍 contract:", contract);
+
+  await deployHelper.verifyContract(
+    versionInfo.address,
+    [
+      config.WETH9,
+      stringToBytes32("ETH"),
+      config.DAI,
+      config.USDC,
+      config.USDT,
+      config.TBTC,
+      config.WBTC,
+    ],
+    NonfungibleTokenPositionDescriptorName
+  );
+}
+
+async function deploySwapRouter() {
+  const chainId = (await ethers.provider.getNetwork()).chainId;
+  const config = getNetworkConfig(Number(chainId));
   //部署SwapRouter
   const { contract: swapRouterContract, versionInfo: swapRouterVersionInfo } =
     await deployHelper.deployContract("SwapRouter", [
-      config.UNISWAP_V3_FACTORY,
+      deployment.contracts.NextswapV3Factory.proxyAddress,
       config.WETH9,
     ]);
   console.log("✅ 部署完成！");
