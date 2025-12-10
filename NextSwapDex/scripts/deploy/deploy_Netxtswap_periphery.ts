@@ -7,6 +7,8 @@ import {
   NonfungibleTokenPositionDescriptor,
 } from "../../typechain-types";
 
+import "../../deployments/sepolia-deployment.json"
+
 async function main() {
   const deployHelper = new DeployHelper();
   const [signer] = await ethers.getSigners();

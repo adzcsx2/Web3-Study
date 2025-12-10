@@ -779,11 +779,16 @@ export class DeployHelper {
 
   /**
    * 验证智能合约
+   * @param contractAddress 合约地址
+   * @param constructorArgs 构造函数参数
+   * @param delayToVerify 等待时间（秒），确保区块浏览器已索引合约
+   * @param contractPath 合约路径（可选），用于指定非标准路径的合约
    */
   async verifyContract(
     contractAddress: string,
     constructorArgs: any[] = [],
-    contractPath?: string
+    contractPath?: string,
+    delayToVerify: number = 0
   ) {
     // 本地网络不需要验证
     if (network.name === "hardhat" || network.name === "localhost") {
@@ -794,9 +799,9 @@ export class DeployHelper {
     console.log("\n🔍 开始验证合约...");
     console.log("📍 合约地址:", contractAddress);
 
-    // // 等待几秒，确保 Etherscan 已索引合约 如果是自动验证需要
-    // console.log("⏳ 等待 30 秒，确保区块浏览器已索引合约...");
-    // await new Promise((resolve) => setTimeout(resolve, 30000));
+    // 等待几秒，确保 Etherscan 已索引合约 如果是自动验证需要
+    console.log(`⏳ 等待 ${delayToVerify} 秒，确保区块浏览器已索引合约...`);
+    await new Promise((resolve) => setTimeout(resolve, delayToVerify * 1000));
 
     try {
       await run("verify:verify", {

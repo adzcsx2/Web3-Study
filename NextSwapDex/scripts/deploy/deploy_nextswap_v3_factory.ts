@@ -20,7 +20,8 @@ async function main() {
   await deployHelper.verifyContract(
     versionInfo.address,
     [],
-    "NextswapV3Factory"
+    "NextswapV3Factory",
+    60
   );
 }
 
