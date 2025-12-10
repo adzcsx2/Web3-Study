@@ -11,13 +11,10 @@ async function main() {
   require("../../deployments/sepolia-deployment.json");
   // 部署合约（自动保存）
 
-  const contractPath =
-    "contracts/contract/swap/core/NextswapV3Factory.sol:NextswapV3Factory";
-
   await deployHelper.verifyContract(
     deployment.contracts.NextswapV3Factory.proxyAddress,
     [],
-    contractPath
+    deployment.contracts.NextswapV3Factory.contractName
   );
 }
 

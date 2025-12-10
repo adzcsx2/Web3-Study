@@ -40,7 +40,6 @@ export interface ABIOutput {
  */
 export interface ContractVersionInfo {
   address: string; // 代理地址（首次部署）或实现地址（升级）
-  contractPath?: string; // 合约源代码路径
   implementationAddress?: string; // 实现合约地址
   proxyAddress?: string; // 代理地址（升级时使用，避免混淆）
   transactionHash?: string;
@@ -151,6 +150,28 @@ export class DeployHelper {
         fs.mkdirSync(dir, { recursive: true });
       }
     });
+  }
+
+  /**
+   * 获取合约源文件路径（用于验证）
+   * @param contractName 合约名称
+   * @returns 合约源文件路径，格式如 "contracts/contract/NextswapGovernor.sol:NextswapGovernor"
+   */
+  private async getContractSourcePath(contractName: string): Promise<string> {
+    try {
+      // 从 Hardhat artifacts 中读取合约信息
+      const artifact = await hre.artifacts.readArtifact(contractName);
+
+      // artifact.sourceName 包含源文件相对路径，如 "contracts/contract/NextswapGovernor.sol"
+      if (artifact.sourceName) {
+        return `${artifact.sourceName}:${contractName}`;
+      }
+    } catch (error) {
+      console.warn(`⚠️  无法从 artifacts 获取合约路径: ${error}`);
+    }
+
+    // 降级方案：假设合约在 contracts 根目录
+    return `contracts/${contractName}.sol:${contractName}`;
   }
 
   /**
@@ -600,11 +621,8 @@ export class DeployHelper {
       // 普通合约可能没有版本号，使用默认值
     }
 
-    // 合约源代码路径
-    const contractPath = `contracts/${contractName}.sol:${contractName}`;
     const versionInfo: ContractVersionInfo = {
       address: contractAddress,
-      contractPath,
       transactionHash,
       blockNumber,
       gasUsed,
@@ -785,13 +803,13 @@ export class DeployHelper {
    * 验证智能合约
    * @param contractAddress 合约地址
    * @param constructorArgs 构造函数参数
+   * @param contractName 合约名称（可选），当未提供 contractPath 时用于自动获取路径
    * @param delayToVerify 等待时间（秒），确保区块浏览器已索引合约
-   * @param contractPath 合约路径（可选），用于指定非标准路径的合约
    */
   async verifyContract(
     contractAddress: string,
     constructorArgs: any[] = [],
-    contractPath?: string,
+    contractName?: string,
     delayToVerify: number = 0
   ) {
     // 本地网络不需要验证
@@ -803,23 +821,43 @@ export class DeployHelper {
     console.log("\n🔍 开始验证合约...");
     console.log("📍 合约地址:", contractAddress);
 
+    // 如果未提供 contractPath 但提供了 contractName，自动获取路径
+    let finalContractPath = "";
+    if (!finalContractPath && contractName) {
+      console.log(`📦 自动获取合约路径: ${contractName}`);
+      finalContractPath = await this.getContractSourcePath(contractName);
+      console.log(`   - 路径: ${finalContractPath}`);
+    }
+
     // 等待几秒，确保 Etherscan 已索引合约 如果是自动验证需要
-    console.log(`⏳ 等待 ${delayToVerify} 秒，确保区块浏览器已索引合约...`);
-    await new Promise((resolve) => setTimeout(resolve, delayToVerify * 1000));
+    if (delayToVerify > 0) {
+      console.log(`⏳ 等待 ${delayToVerify} 秒，确保区块浏览器已索引合约...`);
+      await new Promise((resolve) => setTimeout(resolve, delayToVerify * 1000));
+    }
 
     try {
       await run("verify:verify", {
         address: contractAddress,
         constructorArguments: constructorArgs,
-        contract: contractPath,
+        contract: finalContractPath,
       });
       console.log("✅ 合约验证成功！");
       console.log(
         `🔗 查看合约: https://${network.name}.etherscan.io/address/${contractAddress}#code`
       );
     } catch (error: any) {
-      if (error.message.toLowerCase().includes("already verified")) {
+      const errorMessage = error?.message?.toLowerCase() || "";
+
+      // 检查是否为"已验证"错误（支持多种表述）
+      if (
+        errorMessage.includes("already verified") ||
+        errorMessage.includes("already been verified") ||
+        errorMessage.includes("contract source code already verified")
+      ) {
         console.log("ℹ️  合约已经验证过了");
+        console.log(
+          `🔗 查看合约: https://${network.name}.etherscan.io/address/${contractAddress}#code`
+        );
       } else {
         console.error("❌ 验证失败:", error.message);
         console.log("💡 你可以稍后手动验证:");
@@ -828,5 +866,7 @@ export class DeployHelper {
         );
       }
     }
+
+    console.log("✅ 验证流程完成\n");
   }
 }

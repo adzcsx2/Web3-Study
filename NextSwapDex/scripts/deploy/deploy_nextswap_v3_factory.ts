@@ -10,24 +10,22 @@ async function main() {
 
   // 部署合约（自动保存）
 
+  const contractName = "NextswapV3Factory";
+
   const { contract, versionInfo } =
-    await deployHelper.deployContract<NextswapV3Factory>("NextswapV3Factory");
+    await deployHelper.deployContract<NextswapV3Factory>(contractName);
 
   console.log("✅ 部署完成！");
   console.log("📍 地址:", versionInfo.address);
 
   // 验证合约
-  await deployHelper.verifyContract(
-    versionInfo.address,
-    [],
-    versionInfo
-    30
-  );
+  await deployHelper.verifyContract(versionInfo.address, [], contractName, 30);
 }
 
 main()
-  .then(() => process.exit(0))
+  .then(() => process.exit(0))                                       
   .catch((error) => {
+    console.log("error");
     console.error(error);
     process.exit(1);
   });

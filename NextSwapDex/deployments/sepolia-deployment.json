@@ -1,7 +1,7 @@
 {
   "network": "sepolia",
   "chainId": "11155111",
-  "lastUpdated": "2025-12-10T20:23:38.000Z",
+  "lastUpdated": "2025-12-10T21:14:51.593Z",
   "contracts": {
     "DAI": {
       "contractName": "DAI",

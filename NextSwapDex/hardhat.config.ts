@@ -5,6 +5,20 @@ import "@openzeppelin/hardhat-upgrades";
 import * as dotenv from "dotenv";
 dotenv.config(); // 加载环境变量
 
+// 随机选择一个可用的 Sepolia RPC URL
+const sepoliaRpcUrl =
+  [
+    "https://eth-sepolia.g.alchemy.com/v2/" + process.env.ALCHEMY_SEPOLIA_RPC,
+    "https://sepolia.infura.io/v3/" + process.env.INFURA_SEPOLIA_RPC,
+  ][Math.floor(Math.random() * 2)] || "";
+
+// 随机选择一个可用的主网 RPC URL
+const url_mainnet =
+  [
+    "https://eth-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_MAINNET_RPC,
+    "https://mainnet.infura.io/v3/" + process.env.INFURA_MAINNET_RPC,
+  ][Math.floor(Math.random() * 2)] || "";
+
 const config: HardhatUserConfig = {
   solidity: {
     compilers: [
@@ -56,11 +70,7 @@ const config: HardhatUserConfig = {
     },
     // 测试网示例：Sepolia
     sepolia: {
-      url:
-        process.env.SEPOLIA_RPC_URL ||
-        (process.env.INFURA_PROJECT_ID
-          ? `https://sepolia.infura.io/v3/${process.env.INFURA_PROJECT_ID}`
-          : ""),
+      url: sepoliaRpcUrl,
       accounts: [
         process.env.PRIVATE_KEY,
         process.env.PRIVATE_KEY_USER1,
@@ -74,9 +84,7 @@ const config: HardhatUserConfig = {
 
     // 主网示例
     mainnet: {
-      url: process.env.INFURA_PROJECT_ID
-        ? `https://mainnet.infura.io/v3/${process.env.INFURA_PROJECT_ID}`
-        : "",
+      url: url_mainnet,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
   },
