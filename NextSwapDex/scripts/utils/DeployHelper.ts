@@ -59,6 +59,7 @@ export interface ContractVersionInfo {
 export interface ContractDeploymentHistory {
   contractName: string;
   proxyAddress: string; // 代理地址（不变）
+  isProxyContract: boolean; // 是否为代理合约
   currentVersion: string; // 当前版本
   versions: ContractVersionInfo[]; // 版本历史数组
 }
@@ -268,6 +269,7 @@ export class DeployHelper {
   async saveContractDeployment(
     contractName: string,
     versionInfo: ContractVersionInfo,
+    isProxyContract: boolean,
     tokenMetadata?: TokenMetadata
   ): Promise<void> {
     // 读取现有部署信息
@@ -333,6 +335,7 @@ export class DeployHelper {
         deploymentInfo.contracts[storageKey] = {
           contractName,
           proxyAddress,
+          isProxyContract,
           currentVersion: versionInfo.version,
           versions: [versionInfo],
         };
@@ -348,6 +351,7 @@ export class DeployHelper {
       deploymentInfo.contracts[storageKey] = {
         contractName,
         proxyAddress,
+        isProxyContract: isProxyContract,
         currentVersion: versionInfo.version,
         versions: [versionInfo],
       };
@@ -379,6 +383,7 @@ export class DeployHelper {
    * @deprecated 使用 saveContractDeployment 替代
    */
   async saveDeploymentInfo(
+    isProxyContract: boolean,
     deployments: Record<
       string,
       {
@@ -390,7 +395,12 @@ export class DeployHelper {
     for (const [contractName, { versionInfo, token }] of Object.entries(
       deployments
     )) {
-      await this.saveContractDeployment(contractName, versionInfo, token);
+      await this.saveContractDeployment(
+        contractName,
+        versionInfo,
+        isProxyContract,
+        token
+      );
     }
   }
 
@@ -507,6 +517,7 @@ export class DeployHelper {
     await this.saveContractDeployment(
       contractName,
       versionInfo,
+      true,
       options.tokenMetadata
     );
 
@@ -616,6 +627,7 @@ export class DeployHelper {
     await this.saveContractDeployment(
       contractName,
       versionInfo,
+      false,
       options.tokenMetadata
     );
 
@@ -748,7 +760,7 @@ export class DeployHelper {
     }
 
     // 自动保存升级历史
-    await this.saveContractDeployment(newContractName, versionInfo);
+    await this.saveContractDeployment(newContractName, versionInfo, true);
 
     return {
       contract: upgradedContract,

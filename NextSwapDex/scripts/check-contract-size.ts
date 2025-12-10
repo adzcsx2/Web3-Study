@@ -9,6 +9,7 @@ async function main() {
     "UniswapV3Factory",
     "UniswapV3PoolDeployer",
     "NextSwapToken",
+    "SwapRouter",
   ];
 
   const MAX_SIZE = 24576; // 24 KB 限制

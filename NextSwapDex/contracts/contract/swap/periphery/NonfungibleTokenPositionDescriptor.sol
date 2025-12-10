@@ -2,33 +2,56 @@
 pragma solidity ^0.8.20;
 pragma abicoder v2;
 
-import '../core/interfaces/IUniswapV3Pool.sol';
+import "../core/interfaces/IUniswapV3Pool.sol";
 
-import './libraries/SafeERC20Namer.sol';
-import './libraries/ChainId.sol';
-import './interfaces/INonfungiblePositionManager.sol';
-import './interfaces/INonfungibleTokenPositionDescriptor.sol';
-import './interfaces/IERC20Metadata.sol';
-import './libraries/PoolAddress.sol';
-import './libraries/NFTDescriptor.sol';
-import './libraries/TokenRatioSortOrder.sol';
+import "./libraries/SafeERC20Namer.sol";
+import "./libraries/ChainId.sol";
+import "./interfaces/INonfungiblePositionManager.sol";
+import "./interfaces/INonfungibleTokenPositionDescriptor.sol";
+import "./interfaces/IERC20Metadata.sol";
+import "./libraries/PoolAddress.sol";
+import "./libraries/NFTDescriptor.sol";
+import "./libraries/TokenRatioSortOrder.sol";
 
 /// @title Describes NFT token positions
 /// @notice Produces a string containing the data URI for a JSON metadata string
-contract NonfungibleTokenPositionDescriptor is INonfungibleTokenPositionDescriptor {
-    address private constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
-    address private constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-    address private constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
-    address private constant TBTC = 0x8dAEBADE922dF735c38C80C7eBD708Af50815fAa;
-    address private constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+contract NonfungibleTokenPositionDescriptor is
+    INonfungibleTokenPositionDescriptor
+{
+    // 主要稳定币地址（通过构造函数设置，支持不同网络）
+    address public immutable DAI;
+    address public immutable USDC;
+    address public immutable USDT;
+    address public immutable TBTC;
+    address public immutable WBTC;
 
     address public immutable WETH9;
     /// @dev A null-terminated string
     bytes32 public immutable nativeCurrencyLabelBytes;
 
-    constructor(address _WETH9, bytes32 _nativeCurrencyLabelBytes) {
+    /// @param _WETH9 WETH9 token address
+    /// @param _nativeCurrencyLabelBytes Native currency label as bytes32
+    /// @param _DAI DAI token address
+    /// @param _USDC USDC token address
+    /// @param _USDT USDT token address
+    /// @param _TBTC TBTC token address
+    /// @param _WBTC WBTC token address
+    constructor(
+        address _WETH9,
+        bytes32 _nativeCurrencyLabelBytes,
+        address _DAI,
+        address _USDC,
+        address _USDT,
+        address _TBTC,
+        address _WBTC
+    ) {
         WETH9 = _WETH9;
         nativeCurrencyLabelBytes = _nativeCurrencyLabelBytes;
+        DAI = _DAI;
+        USDC = _USDC;
+        USDT = _USDT;
+        TBTC = _TBTC;
+        WBTC = _WBTC;
     }
 
     /// @notice Returns the native currency label as a string
@@ -45,14 +68,24 @@ contract NonfungibleTokenPositionDescriptor is INonfungibleTokenPositionDescript
     }
 
     /// @inheritdoc INonfungibleTokenPositionDescriptor
-    function tokenURI(INonfungiblePositionManager positionManager, uint256 tokenId)
-        external
-        view
-        override
-        returns (string memory)
-    {
-        (, , address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, , , , , ) = positionManager
-            .positions(tokenId);
+    function tokenURI(
+        INonfungiblePositionManager positionManager,
+        uint256 tokenId
+    ) external view override returns (string memory) {
+        (
+            ,
+            ,
+            address token0,
+            address token1,
+            uint24 fee,
+            int24 tickLower,
+            int24 tickUpper,
+            ,
+            ,
+            ,
+            ,
+
+        ) = positionManager.positions(tokenId);
 
         IUniswapV3Pool pool = IUniswapV3Pool(
             PoolAddress.computeAddress(
@@ -78,8 +111,10 @@ contract NonfungibleTokenPositionDescriptor is INonfungibleTokenPositionDescript
                     baseTokenSymbol: baseTokenAddress == WETH9
                         ? nativeCurrencyLabel()
                         : SafeERC20Namer.tokenSymbol(baseTokenAddress),
-                    quoteTokenDecimals: IERC20Metadata(quoteTokenAddress).decimals(),
-                    baseTokenDecimals: IERC20Metadata(baseTokenAddress).decimals(),
+                    quoteTokenDecimals: IERC20Metadata(quoteTokenAddress)
+                        .decimals(),
+                    baseTokenDecimals: IERC20Metadata(baseTokenAddress)
+                        .decimals(),
                     flipRatio: _flipRatio,
                     tickLower: tickLower,
                     tickUpper: tickUpper,
@@ -96,10 +131,15 @@ contract NonfungibleTokenPositionDescriptor is INonfungibleTokenPositionDescript
         address token1,
         uint256 chainId
     ) public view returns (bool) {
-        return tokenRatioPriority(token0, chainId) > tokenRatioPriority(token1, chainId);
+        return
+            tokenRatioPriority(token0, chainId) >
+            tokenRatioPriority(token1, chainId);
     }
 
-    function tokenRatioPriority(address token, uint256 chainId) public view returns (int256) {
+    function tokenRatioPriority(
+        address token,
+        uint256 chainId
+    ) public view returns (int256) {
         if (token == WETH9) {
             return TokenRatioSortOrder.DENOMINATOR;
         }
