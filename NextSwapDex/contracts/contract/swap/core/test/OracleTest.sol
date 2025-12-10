@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity =0.8.12;
+pragma solidity >=0.8.12 <=0.8.13;
 
-import {Oracle} from '../libraries/Oracle.sol';
+import {Oracle} from "../libraries/Oracle.sol";
 
 contract OracleTest {
     using Oracle for Oracle.Observation[65535];
@@ -22,7 +22,7 @@ contract OracleTest {
     }
 
     function initialize(InitializeParams calldata params) external {
-        require(cardinality == 0, 'already initialized');
+        require(cardinality == 0, "already initialized");
         time = params.time;
         tick = params.tick;
         liquidity = params.liquidity;
@@ -44,7 +44,14 @@ contract OracleTest {
     // write an observation, then change tick and liquidity
     function update(UpdateParams calldata params) external {
         advanceTime(params.advanceTimeBy);
-        (index, cardinality) = observations.write(index, time, tick, liquidity, cardinality, cardinalityNext);
+        (index, cardinality) = observations.write(
+            index,
+            time,
+            tick,
+            liquidity,
+            cardinality,
+            cardinalityNext
+        );
         tick = params.tick;
         liquidity = params.liquidity;
     }
@@ -84,18 +91,45 @@ contract OracleTest {
         cardinalityNext = observations.grow(cardinalityNext, _cardinalityNext);
     }
 
-    function observe(uint32[] calldata secondsAgos)
+    function observe(
+        uint32[] calldata secondsAgos
+    )
         external
         view
-        returns (int56[] memory tickCumulatives, uint160[] memory secondsPerLiquidityCumulativeX128s)
+        returns (
+            int56[] memory tickCumulatives,
+            uint160[] memory secondsPerLiquidityCumulativeX128s
+        )
     {
-        return observations.observe(time, secondsAgos, tick, index, liquidity, cardinality);
+        return
+            observations.observe(
+                time,
+                secondsAgos,
+                tick,
+                index,
+                liquidity,
+                cardinality
+            );
     }
 
-    function getGasCostOfObserve(uint32[] calldata secondsAgos) external view returns (uint256) {
-        (uint32 _time, int24 _tick, uint128 _liquidity, uint16 _index) = (time, tick, liquidity, index);
+    function getGasCostOfObserve(
+        uint32[] calldata secondsAgos
+    ) external view returns (uint256) {
+        (uint32 _time, int24 _tick, uint128 _liquidity, uint16 _index) = (
+            time,
+            tick,
+            liquidity,
+            index
+        );
         uint256 gasBefore = gasleft();
-        observations.observe(_time, secondsAgos, _tick, _index, _liquidity, cardinality);
+        observations.observe(
+            _time,
+            secondsAgos,
+            _tick,
+            _index,
+            _liquidity,
+            cardinality
+        );
         return gasBefore - gasleft();
     }
 }

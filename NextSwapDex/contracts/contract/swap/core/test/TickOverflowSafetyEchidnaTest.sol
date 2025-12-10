@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity =0.8.12;
+pragma solidity >=0.8.12 <=0.8.13;
 
-import {Tick} from '../libraries/Tick.sol';
+import {Tick} from "../libraries/Tick.sol";
 
 contract TickOverflowSafetyEchidnaTest {
     using Tick for mapping(int24 => Tick.Info);
@@ -97,11 +97,25 @@ contract TickOverflowSafetyEchidnaTest {
         while (tick != target) {
             if (tick < target) {
                 if (ticks[tick + 1].liquidityGross > 0)
-                    ticks.cross(tick + 1, feeGrowthGlobal0X128, feeGrowthGlobal1X128, 0, 0, uint32(block.timestamp));
+                    ticks.cross(
+                        tick + 1,
+                        feeGrowthGlobal0X128,
+                        feeGrowthGlobal1X128,
+                        0,
+                        0,
+                        uint32(block.timestamp)
+                    );
                 tick++;
             } else {
                 if (ticks[tick].liquidityGross > 0)
-                    ticks.cross(tick, feeGrowthGlobal0X128, feeGrowthGlobal1X128, 0, 0, uint32(block.timestamp));
+                    ticks.cross(
+                        tick,
+                        feeGrowthGlobal0X128,
+                        feeGrowthGlobal1X128,
+                        0,
+                        0,
+                        uint32(block.timestamp)
+                    );
                 tick--;
             }
         }

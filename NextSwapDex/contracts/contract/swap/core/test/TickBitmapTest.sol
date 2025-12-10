@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity =0.8.12;
+pragma solidity >=0.8.12 <=0.8.13;
 
-import {TickBitmap} from '../libraries/TickBitmap.sol';
+import {TickBitmap} from "../libraries/TickBitmap.sol";
 
 contract TickBitmapTest {
     using TickBitmap for mapping(int16 => uint256);
@@ -18,15 +18,17 @@ contract TickBitmapTest {
         return gasBefore - gasleft();
     }
 
-    function nextInitializedTickWithinOneWord(int24 tick, bool lte)
-        external
-        view
-        returns (int24 next, bool initialized)
-    {
+    function nextInitializedTickWithinOneWord(
+        int24 tick,
+        bool lte
+    ) external view returns (int24 next, bool initialized) {
         return bitmap.nextInitializedTickWithinOneWord(tick, 1, lte);
     }
 
-    function getGasCostOfNextInitializedTickWithinOneWord(int24 tick, bool lte) external view returns (uint256) {
+    function getGasCostOfNextInitializedTickWithinOneWord(
+        int24 tick,
+        bool lte
+    ) external view returns (uint256) {
         uint256 gasBefore = gasleft();
         bitmap.nextInitializedTickWithinOneWord(tick, 1, lte);
         return gasBefore - gasleft();
@@ -34,7 +36,8 @@ contract TickBitmapTest {
 
     // returns whether the given tick is initialized
     function isInitialized(int24 tick) external view returns (bool) {
-        (int24 next, bool initialized) = bitmap.nextInitializedTickWithinOneWord(tick, 1, true);
+        (int24 next, bool initialized) = bitmap
+            .nextInitializedTickWithinOneWord(tick, 1, true);
         return next == tick ? initialized : false;
     }
 }

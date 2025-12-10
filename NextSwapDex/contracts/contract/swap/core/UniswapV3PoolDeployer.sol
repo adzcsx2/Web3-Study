@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-pragma solidity =0.8.12;
+pragma solidity >=0.8.12 <=0.8.13;
 
 import {IUniswapV3PoolDeployer} from "./interfaces/IUniswapV3PoolDeployer.sol";
 

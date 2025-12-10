@@ -1,24 +1,30 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity =0.8.12;
+pragma solidity >=0.8.12 <=0.8.13;
 
-import {TickMath} from '../libraries/TickMath.sol';
+import {TickMath} from "../libraries/TickMath.sol";
 
 contract TickMathTest {
     function getSqrtRatioAtTick(int24 tick) external pure returns (uint160) {
         return TickMath.getSqrtRatioAtTick(tick);
     }
 
-    function getGasCostOfGetSqrtRatioAtTick(int24 tick) external view returns (uint256) {
+    function getGasCostOfGetSqrtRatioAtTick(
+        int24 tick
+    ) external view returns (uint256) {
         uint256 gasBefore = gasleft();
         TickMath.getSqrtRatioAtTick(tick);
         return gasBefore - gasleft();
     }
 
-    function getTickAtSqrtRatio(uint160 sqrtPriceX96) external pure returns (int24) {
+    function getTickAtSqrtRatio(
+        uint160 sqrtPriceX96
+    ) external pure returns (int24) {
         return TickMath.getTickAtSqrtRatio(sqrtPriceX96);
     }
 
-    function getGasCostOfGetTickAtSqrtRatio(uint160 sqrtPriceX96) external view returns (uint256) {
+    function getGasCostOfGetTickAtSqrtRatio(
+        uint160 sqrtPriceX96
+    ) external view returns (uint256) {
         uint256 gasBefore = gasleft();
         TickMath.getTickAtSqrtRatio(sqrtPriceX96);
         return gasBefore - gasleft();

@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity =0.8.12;
+pragma solidity >=0.8.12 <=0.8.13;
 
-import {NoDelegateCall} from '../NoDelegateCall.sol';
+import {NoDelegateCall} from "../NoDelegateCall.sol";
 
 contract NoDelegateCallTest is NoDelegateCall {
     function canBeDelegateCalled() public view returns (uint256) {
         return block.timestamp / 5;
     }
 
-    function cannotBeDelegateCalled() public view noDelegateCall returns (uint256) {
+    function cannotBeDelegateCalled()
+        public
+        view
+        noDelegateCall
+        returns (uint256)
+    {
         return block.timestamp / 5;
     }
 
@@ -18,7 +23,11 @@ contract NoDelegateCallTest is NoDelegateCall {
         return gasBefore - gasleft();
     }
 
-    function getGasCostOfCannotBeDelegateCalled() external view returns (uint256) {
+    function getGasCostOfCannotBeDelegateCalled()
+        external
+        view
+        returns (uint256)
+    {
         uint256 gasBefore = gasleft();
         cannotBeDelegateCalled();
         return gasBefore - gasleft();

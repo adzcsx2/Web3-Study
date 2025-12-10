@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity =0.8.12;
+pragma solidity >=0.8.12 <=0.8.13;
 
-import {IERC20Minimal} from '../interfaces/IERC20Minimal.sol';
+import {IERC20Minimal} from "../interfaces/IERC20Minimal.sol";
 
-import {IUniswapV3SwapCallback} from '../interfaces/callback/IUniswapV3SwapCallback.sol';
-import {IUniswapV3Pool} from '../interfaces/IUniswapV3Pool.sol';
+import {
+    IUniswapV3SwapCallback
+} from "../interfaces/callback/IUniswapV3SwapCallback.sol";
+import {IUniswapV3Pool} from "../interfaces/IUniswapV3Pool.sol";
 
 contract UniswapV3PoolSwapTest is IUniswapV3SwapCallback {
     int256 private _amount0Delta;
@@ -42,9 +44,17 @@ contract UniswapV3PoolSwapTest is IUniswapV3SwapCallback {
         address sender = abi.decode(data, (address));
 
         if (amount0Delta > 0) {
-            IERC20Minimal(IUniswapV3Pool(msg.sender).token0()).transferFrom(sender, msg.sender, uint256(amount0Delta));
+            IERC20Minimal(IUniswapV3Pool(msg.sender).token0()).transferFrom(
+                sender,
+                msg.sender,
+                uint256(amount0Delta)
+            );
         } else if (amount1Delta > 0) {
-            IERC20Minimal(IUniswapV3Pool(msg.sender).token1()).transferFrom(sender, msg.sender, uint256(amount1Delta));
+            IERC20Minimal(IUniswapV3Pool(msg.sender).token1()).transferFrom(
+                sender,
+                msg.sender,
+                uint256(amount1Delta)
+            );
         }
     }
 }

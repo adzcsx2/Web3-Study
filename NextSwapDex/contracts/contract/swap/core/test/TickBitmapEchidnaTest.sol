@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity =0.8.12;
+pragma solidity >=0.8.12 <=0.8.13;
 
-import {TickBitmap} from '../libraries/TickBitmap.sol';
+import {TickBitmap} from "../libraries/TickBitmap.sol";
 
 contract TickBitmapEchidnaTest {
     using TickBitmap for mapping(int16 => uint256);
@@ -10,7 +10,8 @@ contract TickBitmapEchidnaTest {
 
     // returns whether the given tick is initialized
     function isInitialized(int24 tick) private view returns (bool) {
-        (int24 next, bool initialized) = bitmap.nextInitializedTickWithinOneWord(tick, 1, true);
+        (int24 next, bool initialized) = bitmap
+            .nextInitializedTickWithinOneWord(tick, 1, true);
         return next == tick ? initialized : false;
     }
 
@@ -20,8 +21,12 @@ contract TickBitmapEchidnaTest {
         assert(isInitialized(tick) == !before);
     }
 
-    function checkNextInitializedTickWithinOneWordInvariants(int24 tick, bool lte) external view {
-        (int24 next, bool initialized) = bitmap.nextInitializedTickWithinOneWord(tick, 1, lte);
+    function checkNextInitializedTickWithinOneWordInvariants(
+        int24 tick,
+        bool lte
+    ) external view {
+        (int24 next, bool initialized) = bitmap
+            .nextInitializedTickWithinOneWord(tick, 1, lte);
         if (lte) {
             // type(int24).min + 256
             require(tick >= -8388352);

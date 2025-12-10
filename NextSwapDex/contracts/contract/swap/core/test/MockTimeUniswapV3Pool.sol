@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity =0.8.12;
+pragma solidity >=0.8.12 <=0.8.13;
 
-import {UniswapV3Pool} from '../UniswapV3Pool.sol';
+import {UniswapV3Pool} from "../UniswapV3Pool.sol";
 
 // used for testing time dependent behavior
 contract MockTimeUniswapV3Pool is UniswapV3Pool {
