@@ -8,15 +8,15 @@ dotenv.config(); // 加载环境变量
 // 随机选择一个可用的 Sepolia RPC URL
 const sepoliaRpcUrl =
   [
-    "https://eth-sepolia.g.alchemy.com/v2/" + process.env.ALCHEMY_SEPOLIA_RPC,
-    "https://sepolia.infura.io/v3/" + process.env.INFURA_SEPOLIA_RPC,
+    "https://eth-sepolia.g.alchemy.com/v2/" + process.env.ALCHEMY_ID,
+    "https://sepolia.infura.io/v3/" + process.env.INFURA_ID,
   ][Math.floor(Math.random() * 2)] || "";
 
 // 随机选择一个可用的主网 RPC URL
 const url_mainnet =
   [
-    "https://eth-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_MAINNET_RPC,
-    "https://mainnet.infura.io/v3/" + process.env.INFURA_MAINNET_RPC,
+    "https://eth-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_ID,
+    "https://mainnet.infura.io/v3/" + process.env.INFURA_ID,
   ][Math.floor(Math.random() * 2)] || "";
 
 const config: HardhatUserConfig = {
