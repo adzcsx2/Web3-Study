@@ -40,6 +40,7 @@ export interface ABIOutput {
  */
 export interface ContractVersionInfo {
   address: string; // 代理地址（首次部署）或实现地址（升级）
+  contractPath?: string; // 合约源代码路径
   implementationAddress?: string; // 实现合约地址
   proxyAddress?: string; // 代理地址（升级时使用，避免混淆）
   transactionHash?: string;
@@ -59,7 +60,6 @@ export interface ContractVersionInfo {
 export interface ContractDeploymentHistory {
   contractName: string;
   proxyAddress: string; // 代理地址（不变）
-  contractPath: string; // 合约源代码路径
   isProxyContract: boolean; // 是否为代理合约
   currentVersion: string; // 当前版本
   versions: ContractVersionInfo[]; // 版本历史数组
@@ -310,9 +310,6 @@ export class DeployHelper {
     // 确定代理地址
     const proxyAddress = versionInfo.proxyAddress || versionInfo.address;
 
-    // 合约源代码路径
-    const contractPath = `contracts/${contractName}.sol:${contractName}`;
-
     // 如果是升级操作（versionInfo 包含 proxyAddress 且 isProxy=false）
     if (versionInfo.proxyAddress && !versionInfo.isProxy) {
       // 查找使用相同代理地址的合约键名
@@ -354,7 +351,6 @@ export class DeployHelper {
         deploymentInfo.contracts[storageKey] = {
           contractName,
           proxyAddress,
-          contractPath,
           isProxyContract,
           currentVersion: versionInfo.version,
           versions: [versionInfo],
@@ -371,7 +367,6 @@ export class DeployHelper {
       deploymentInfo.contracts[storageKey] = {
         contractName,
         proxyAddress,
-        contractPath,
         isProxyContract: isProxyContract,
         currentVersion: versionInfo.version,
         versions: [versionInfo],
@@ -605,8 +600,11 @@ export class DeployHelper {
       // 普通合约可能没有版本号，使用默认值
     }
 
+    // 合约源代码路径
+    const contractPath = `contracts/${contractName}.sol:${contractName}`;
     const versionInfo: ContractVersionInfo = {
       address: contractAddress,
+      contractPath,
       transactionHash,
       blockNumber,
       gasUsed,
