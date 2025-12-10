@@ -10,7 +10,7 @@ async function main() {
 
   // 部署合约（自动保存）
 
-  await deployTokens(["WETH9"]);
+  await deployTokens(["DAI", "TBTC", "USDC", "USDT", "WBTC", "WETH9"]);
 }
 
 async function deployTokens(contracts: string[]) {
