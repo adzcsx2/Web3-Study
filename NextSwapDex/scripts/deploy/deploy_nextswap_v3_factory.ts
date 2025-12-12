@@ -19,7 +19,7 @@ async function main() {
   console.log("📍 地址:", versionInfo.address);
 
   // 验证合约
-  await deployHelper.verifyContract(versionInfo.address, [], contractName, 30);
+  await deployHelper.verifyContract(contractName, versionInfo.address, [], 30);
 }
 
 main()

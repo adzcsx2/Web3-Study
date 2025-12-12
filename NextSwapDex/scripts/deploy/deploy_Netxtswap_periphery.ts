@@ -31,9 +31,9 @@ async function deployNonfungibleTokenPositionDescriptor() {
   // 确保库已部署
 
   let isSuccess = await deployHelper.verifyContract(
+    NFTDescriptorName,
     deployment.contracts.NFTDescriptor.proxyAddress,
-    [],
-    NFTDescriptorName
+    []
   );
   if (isSuccess) {
     console.log("✅ NFTDescriptor测试通过：库验证流程完成！");
@@ -69,6 +69,7 @@ async function deployNonfungibleTokenPositionDescriptor() {
 
   console.log("正在验证合约:", contractAddress);
   isSuccess = await deployHelper.verifyContract(
+    "NonfungibleTokenPositionDescriptor",
     contractAddress,
     [
       config.WETH9,
@@ -78,8 +79,7 @@ async function deployNonfungibleTokenPositionDescriptor() {
       config.USDT,
       config.TBTC,
       config.WBTC,
-    ],
-    "NonfungibleTokenPositionDescriptor"
+    ]
   );
 
   if (isSuccess) {

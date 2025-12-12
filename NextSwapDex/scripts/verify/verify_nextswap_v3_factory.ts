@@ -12,9 +12,9 @@ async function main() {
   // 部署合约（自动保存）
 
   await deployHelper.verifyContract(
+    deployment.contracts.NextswapV3Factory.contractName,
     deployment.contracts.NextswapV3Factory.proxyAddress,
-    [],
-    deployment.contracts.NextswapV3Factory.contractName
+    []
   );
 }
 
@@ -30,7 +30,7 @@ async function verifyTokens(
     // ✅ 关键：指定合约路径，避免字节码匹配多个合约
     const contractPath = `contracts/contract/mock/${name}.sol:${name}`;
 
-    await deployHelper.verifyContract(address, args, contractPath);
+    await deployHelper.verifyContract(name, address, args);
     console.log(`✅ ${name} 验证完成！args: ${JSON.stringify(args)}`);
     console.log("---");
   }

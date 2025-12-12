@@ -1017,15 +1017,15 @@ export class DeployHelper {
 
   /**
    * 验证智能合约
+   * @param contractName 合约名称（可选），当未提供 contractPath 时用于自动获取路径
    * @param contractAddress 合约地址
    * @param constructorArgs 构造函数参数
-   * @param contractName 合约名称（可选），当未提供 contractPath 时用于自动获取路径
    * @param delayToVerify 等待时间（秒），确保区块浏览器已索引合约
    */
   async verifyContract(
+    contractName: string,
     contractAddress: string,
     constructorArgs: any[] = [],
-    contractName?: string,
     delayToVerify: number = 0
   ): Promise<boolean> {
     // 本地网络不需要验证
