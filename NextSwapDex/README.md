@@ -313,11 +313,140 @@ Nextswap 通过以下方式优先保障安全：
 
 ## 🌐 部署
 
-### Sepolia 测试网
+### 🔑 核心概念：POOL_INIT_CODE_HASH
+
+在部署之前，必须理解 **POOL_INIT_CODE_HASH** 的重要性：
+
+- **定义**：NextswapV3Pool 合约字节码的 keccak256 哈希值
+- **用途**：用于 CREATE2 模式计算池子地址
+- **关键**：必须在部署所有外围合约（NPM、SwapRouter、QuoterV2）之前确定
+
+**何时需要更新 POOL_INIT_CODE_HASH：**
+
+| 操作                          | 是否影响哈希 | 需要重新部署外围合约        |
+| ----------------------------- | ------------ | --------------------------- |
+| 重新编译（无改动）            | ❌ 不变      | ❌ 不需要                   |
+| 修改 NextswapV3Pool.sol 代码  | ✅ 改变      | ✅ **需要**                 |
+| 修改编译器版本或优化设置      | ✅ 改变      | ✅ **需要**                 |
+| 修改 Pool 依赖的 Library      | ✅ 改变      | ✅ **需要**                 |
+| 修改其他合约（NPM/Router 等） | ❌ 不变      | ⚠️ 仅需重新部署被修改的合约 |
+
+### 📋 完整部署流程
+
+#### 阶段 0️⃣：准备工作（关键步骤）
 
 ```bash
-# 部署所有合约
-npm run deploy:all:sepolia
+# 1. 编译所有合约
+npx hardhat compile
+
+# 2. 检查 POOL_INIT_CODE_HASH 是否匹配
+npx hardhat run scripts/check_pool_init_code_hash.ts
+```
+
+**如果输出显示不匹配：**
+
+```bash
+# 输出示例：
+# ❌ 不匹配！需要更新 PoolAddress.sol
+# 请将 PoolAddress.sol 中的 POOL_INIT_CODE_HASH 更新为:
+# bytes32 internal constant POOL_INIT_CODE_HASH = 0x88c776ac...;
+
+# 3. 复制新哈希值到 contracts/contract/swap/periphery/libraries/PoolAddress.sol
+# 手动更新以下行：
+# bytes32 internal constant POOL_INIT_CODE_HASH = 0x新的哈希值;
+
+# 4. 重新编译（重要！）
+npx hardhat compile
+```
+
+#### 阶段 1️⃣：部署核心合约
+
+```bash
+# 步骤 1: 部署 NextswapV3Factory
+npx hardhat test .\test\deploy_netxtswap.test.ts --network localhost --grep "应该能部署NextswapV3Factory"
+
+# 输出：Factory 地址
+# 手动操作：复制地址到 deployments/localhost-deployment.json
+```
+
+**依赖关系：** 无  
+**输出文件：** `deployments/localhost-deployment.json`
+
+```json
+{
+  "contracts": {
+    "NextswapV3Factory": {
+      "proxyAddress": "0x..." // ← 粘贴 Factory 地址
+    }
+  }
+}
+```
+
+#### 阶段 2️⃣：部署 NFT 相关库和合约
+
+```bash
+# 步骤 2: 部署 NFTDescriptor 库
+npx hardhat test .\test\deploy_netxtswap.test.ts --network localhost --grep "应该可以部署NFTDescriptor库"
+
+# 步骤 3: 部署 NonfungibleTokenPositionDescriptor
+npx hardhat test .\test\deploy_netxtswap.test.ts --network localhost --grep "应该可以部署NonfungibleTokenPositionDescriptor"
+```
+
+**依赖关系：**
+
+- ✅ NFTDescriptor（步骤 2）
+- ✅ 网络配置（WETH9, DAI, USDC 等）
+
+#### 阶段 3️⃣：部署外围合约（使用 PoolAddress）
+
+⚠️ **重要：这些合约都依赖 PoolAddress.POOL_INIT_CODE_HASH，必须在阶段 0 完成后部署！**
+
+```bash
+# 步骤 4: 部署 SwapRouter
+npx hardhat test .\test\deploy_netxtswap.test.ts --network localhost --grep "应该能部署deploySwapRouter"
+
+# 步骤 5: 部署 QuoterV2
+npx hardhat test .\test\deploy_netxtswap.test.ts --network localhost --grep "应该能部署Quoter"
+
+# 步骤 6: 部署 NonfungiblePositionManager
+npx hardhat test .\test\deploy_netxtswap.test.ts --network localhost --grep "应该能部署 NonfungiblePositionManager"
+```
+
+**依赖关系：**
+
+- ✅ NextswapV3Factory（阶段 1）
+- ✅ NonfungibleTokenPositionDescriptor（阶段 2）
+- ✅ PoolAddress.POOL_INIT_CODE_HASH（阶段 0）
+
+#### 📊 部署依赖关系图
+
+```
+阶段 0: 编译 & 确定 POOL_INIT_CODE_HASH
+    ↓
+阶段 1: NextswapV3Factory
+    ↓
+阶段 2: NFTDescriptor → NonfungibleTokenPositionDescriptor
+    ↓
+阶段 3: SwapRouter, QuoterV2, NonfungiblePositionManager
+```
+
+#### 🔍 每次部署后的操作
+
+1. **复制输出的合约地址**
+2. **更新 `deployments/localhost-deployment.json`**
+3. **确认下一个合约的依赖已就绪**
+
+### Sepolia 测试网部署
+
+```bash
+# 阶段 0: 准备工作
+npx hardhat compile
+npx hardhat run scripts/check_pool_init_code_hash.ts
+# 如需要，更新 PoolAddress.sol 并重新编译
+
+# 阶段 1-3: 按顺序部署（将 --network localhost 改为 --network sepolia）
+npx hardhat test .\test\deploy_netxtswap.test.ts --network sepolia --grep "应该能部署NextswapV3Factory"
+# ... 依次执行其他步骤
 
 # 验证合约
 npm run verify:deployment:sepolia
@@ -326,21 +455,46 @@ npm run verify:deployment:sepolia
 npm run copy:abis
 ```
 
-### 主网生产环境
+### 主网生产环境部署
 
 ```bash
-# 确保所有测试通过
+# 1. 确保所有测试通过
 npm run test:all
 
-# 运行安全分析
+# 2. 运行安全分析
 npm run security
 
-# 部署（需要多重签名批准）
-npm run deploy:all:mainnet
+# 3. 检查 POOL_INIT_CODE_HASH
+npx hardhat run scripts/check_pool_init_code_hash.ts --network mainnet
 
-# 部署后检查
+# 4. 部署（需要多重签名批准）
+# 按照阶段 0-3 的顺序逐步部署到主网
+npx hardhat test .\test\deploy_netxtswap.test.ts --network mainnet --grep "应该能部署NextswapV3Factory"
+# ... 依次执行
+
+# 5. 部署后检查
 npm run verify:deployment:mainnet
 ```
+
+### ⚠️ 重要提示
+
+1. **POOL_INIT_CODE_HASH 只需在以下情况更新：**
+
+   - 修改 NextswapV3Pool.sol 代码
+   - 更改编译器版本或优化设置
+   - 修改 Pool 依赖的 Library
+
+2. **如果哈希不匹配：**
+
+   - ❌ 流动性添加会失败（"Transaction reverted without a reason string"）
+   - ❌ PoolAddress.computeAddress() 会计算错误的池地址
+   - ❌ 所有依赖 PoolAddress 的合约（NPM、SwapRouter、QuoterV2）都需要重新部署
+
+3. **验证命令：**
+   ```bash
+   # 随时运行此命令检查哈希是否正确
+   npx hardhat run scripts/check_pool_init_code_hash.ts
+   ```
 
 ## 🤝 贡献
 

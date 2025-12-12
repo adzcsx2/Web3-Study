@@ -2,6 +2,7 @@
  * 不同网络的代币地址配置
  * 用于部署 NonfungibleTokenPositionDescriptor 合约
  */
+import local_deployment from "../../deployments/localhost-deployment.json";
 
 export interface NetworkTokenAddresses {
   WETH9: string;
@@ -109,14 +110,26 @@ export const networkConfig: NetworkConfig = {
     nativeCurrencyLabel: "ETH",
   },
 
-  // Hardhat 本地网络 (chainId: 31337)
+  // Hardhat 本地网络 (chainId: 31337)// 需要在本地部署
   31337: {
-    WETH9: ZERO_ADDRESS, // 需要在本地部署
-    DAI: ZERO_ADDRESS,
-    USDC: ZERO_ADDRESS,
-    USDT: ZERO_ADDRESS,
-    TBTC: ZERO_ADDRESS,
-    WBTC: ZERO_ADDRESS,
+    WETH9: local_deployment
+      ? local_deployment.contracts.WETH9.proxyAddress
+      : ZERO_ADDRESS,
+    DAI: local_deployment
+      ? local_deployment.contracts.DAI.proxyAddress
+      : ZERO_ADDRESS,
+    USDC: local_deployment
+      ? local_deployment.contracts.USDC.proxyAddress
+      : ZERO_ADDRESS,
+    USDT: local_deployment
+      ? local_deployment.contracts.USDT.proxyAddress
+      : ZERO_ADDRESS,
+    TBTC: local_deployment
+      ? local_deployment.contracts.TBTC.proxyAddress
+      : ZERO_ADDRESS,
+    WBTC: local_deployment
+      ? local_deployment.contracts.WBTC.proxyAddress
+      : ZERO_ADDRESS,
     nativeCurrencyLabel: "ETH",
   },
 };

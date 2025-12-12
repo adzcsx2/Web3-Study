@@ -4,7 +4,7 @@ pragma solidity >=0.5.0;
 /// @title 提供从工厂合约、代币和手续费派生池地址的函数
 library PoolAddress {
     bytes32 internal constant POOL_INIT_CODE_HASH =
-        0xa598dd2fba360510c5a8f02f44423a4468e902df5857dbce3ca162a43a3a31ff;
+        0x88c776ac574f9c98badd86a3d72e882e641c0bf605c76ddd4c33a45303a0668b;
 
     /// @notice 池的标识键
     struct PoolKey {

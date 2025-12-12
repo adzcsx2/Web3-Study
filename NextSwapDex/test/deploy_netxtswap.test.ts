@@ -6,13 +6,16 @@ import {
   NetworkTokenAddresses,
 } from "../scripts/config/network-config";
 
-import deployment from "../deployments/sepolia-deployment.json";
+import deployment_sepolia from "../deployments/sepolia-deployment.json";
+import deployment_localhost from "../deployments/localhost-deployment.json";
+
 import { expect } from "chai";
 
 describe("Deploy NetxtSwap Periphery Contracts", function () {
   this.timeout(600000); // 设置超时时间为 10 分钟
   let deployHelper: DeployHelper;
   let config: NetworkTokenAddresses;
+  let deployment: any;
 
   const NextswapV3FactoryName = "NextswapV3Factory";
   const NFTDescriptorName = "NFTDescriptor";
@@ -27,8 +30,16 @@ describe("Deploy NetxtSwap Periphery Contracts", function () {
     // 在每个测试前初始化 config
     const chainId = (await ethers.provider.getNetwork()).chainId;
     config = getNetworkConfig(Number(chainId));
-  });
 
+    deployment =
+      Number(chainId) === 11155111 ? deployment_sepolia : deployment_localhost;
+  });
+  afterEach(async function () {
+    // 跳过 pending 或 skipped 测试（可选）
+    if (this.currentTest?.state !== "passed") return;
+
+    await new Promise((resolve) => setTimeout(resolve, 0)); // 暂停 1000ms = 1秒
+  });
   it.only("应该能部署NextswapV3Factory", async function () {
     //部署SwapRouter
     const { contract, versionInfo } = await deployHelper.deployContract(
@@ -50,7 +61,7 @@ describe("Deploy NetxtSwap Periphery Contracts", function () {
     console.log("✅ 测试通过：合约验证流程完成！");
   });
 
-  it("应该可以部署NFTDescriptor库", async function () {
+  it.only("应该可以部署NFTDescriptor库", async function () {
     const { name, address, transactionHash } = await deployHelper.deployLibrary(
       NFTDescriptorName
     );
@@ -74,7 +85,7 @@ describe("Deploy NetxtSwap Periphery Contracts", function () {
     console.log("✅ 测试通过：库验证流程完成！");
   });
 
-  it("应该可以部署NonfungibleTokenPositionDescriptor", async function () {
+  it.only("应该可以部署NonfungibleTokenPositionDescriptor", async function () {
     const libFullPath = await deployHelper.getContractSourcePath(
       NFTDescriptorName
     );
@@ -129,7 +140,50 @@ describe("Deploy NetxtSwap Periphery Contracts", function () {
     console.log("✅ 测试通过：合约验证流程完成！");
   });
 
-  it("应该能部署 NonfungiblePositionManager 合约", async function () {
+  it.only("应该能部署deploySwapRouter", async function () {
+    //部署SwapRouter
+    const { contract: swapRouterContract, versionInfo: swapRouterVersionInfo } =
+      await deployHelper.deployContract(SwapRouterName, [
+        deployment.contracts.NextswapV3Factory.proxyAddress,
+        config.WETH9,
+      ]);
+    console.log("✅ 部署完成！");
+    console.log("📍 地址:", swapRouterVersionInfo.address);
+    expect(swapRouterVersionInfo.address).to.be.a("string").that.is.not;
+  });
+
+  it("应该能验证deploySwapRouter", async function () {
+    const isSuccess = await deployHelper.verifyContract(
+      SwapRouterName,
+      deployment.contracts.SwapRouter.proxyAddress,
+      [deployment.contracts.NextswapV3Factory.proxyAddress, config.WETH9]
+    );
+    expect(isSuccess).to.be.true;
+    console.log("✅ 测试通过：合约验证流程完成！");
+  });
+
+  it.only("应该能部署Quoter", async function () {
+    //部署SwapRouter
+    const { contract, versionInfo } = await deployHelper.deployContract(
+      QuoterName,
+      [deployment.contracts.NextswapV3Factory.proxyAddress, config.WETH9]
+    );
+    console.log("✅ 部署完成！");
+    console.log("📍 地址:", versionInfo.address);
+    expect(versionInfo.address).to.be.a("string").that.is.not;
+  });
+
+  it("应该能验证Quoter", async function () {
+    const isSuccess = await deployHelper.verifyContract(
+      QuoterName,
+      deployment.contracts.QuoterV2.proxyAddress,
+      [deployment.contracts.NextswapV3Factory.proxyAddress, config.WETH9]
+    );
+    expect(isSuccess).to.be.true;
+    console.log("✅ 测试通过：合约验证流程完成！");
+  });
+
+  it.only("应该能部署 NonfungiblePositionManager 合约", async function () {
     //部署SwapRouter
     const { contract, versionInfo } = await deployHelper.deployContract(
       NonfungiblePositionManagerName,
@@ -153,49 +207,6 @@ describe("Deploy NetxtSwap Periphery Contracts", function () {
         config.WETH9,
         deployment.contracts.NonfungibleTokenPositionDescriptor.proxyAddress,
       ]
-    );
-    expect(isSuccess).to.be.true;
-    console.log("✅ 测试通过：合约验证流程完成！");
-  });
-
-  it("应该能部署deploySwapRouter", async function () {
-    //部署SwapRouter
-    const { contract: swapRouterContract, versionInfo: swapRouterVersionInfo } =
-      await deployHelper.deployContract(SwapRouterName, [
-        deployment.contracts.NextswapV3Factory.proxyAddress,
-        config.WETH9,
-      ]);
-    console.log("✅ 部署完成！");
-    console.log("📍 地址:", swapRouterVersionInfo.address);
-    expect(swapRouterVersionInfo.address).to.be.a("string").that.is.not;
-  });
-
-  it("应该能验证deploySwapRouter", async function () {
-    const isSuccess = await deployHelper.verifyContract(
-      SwapRouterName,
-      deployment.contracts.SwapRouter.proxyAddress,
-      [deployment.contracts.NextswapV3Factory.proxyAddress, config.WETH9]
-    );
-    expect(isSuccess).to.be.true;
-    console.log("✅ 测试通过：合约验证流程完成！");
-  });
-
-  it("应该能部署Quoter", async function () {
-    //部署SwapRouter
-    const { contract, versionInfo } = await deployHelper.deployContract(
-      QuoterName,
-      [deployment.contracts.NextswapV3Factory.proxyAddress, config.WETH9]
-    );
-    console.log("✅ 部署完成！");
-    console.log("📍 地址:", versionInfo.address);
-    expect(versionInfo.address).to.be.a("string").that.is.not;
-  });
-
-  it("应该能验证Quoter", async function () {
-    const isSuccess = await deployHelper.verifyContract(
-      QuoterName,
-      deployment.contracts.QuoterV2.proxyAddress,
-      [deployment.contracts.NextswapV3Factory.proxyAddress, config.WETH9]
     );
     expect(isSuccess).to.be.true;
     console.log("✅ 测试通过：合约验证流程完成！");
