@@ -41,24 +41,14 @@ describe("Liquidity Add Test", function () {
   let npmContract: NonfungiblePositionManager;
   let nextswapFactroy: NextswapV3Factory;
 
-  let usdcContract: ERC20,
-    daiContract: ERC20,
-    usdtContract: ERC20,
-    tbtcContract: ERC20,
-    wbtcContract: ERC20,
-    wethContract: WETH9;
-  //稳定币tick
-  // 使用 ±0.1% 的价格范围 需要计算对应的 tick 范围
-  // USDC (6位) DAI (18位) 1:1 价格范围
-  // 例 : stableTickLower = priceToTick(USDC, DAI, 6, 18, 0.999, 10);
-  let stableTickLower: number;
-  let stableTickUper: number;
   //一亿token
   const oneHundredMillionTokens = "100000";
 
-  const pool_fee = 500; // 0.3%
-
-  const spacing = getSpacingFromFee(pool_fee);
+  enum PoolFee {
+    LOW = 500, // 0.05%
+    MEDIUM = 3000, // 0.3%
+    HIGH = 10000, // 1%
+  }
 
   this.beforeEach(async function () {
     [signer, user1, user2, user3] = await ethers.getSigners();
@@ -68,13 +58,6 @@ describe("Liquidity Add Test", function () {
     deployment =
       Number(chainId) === 11155111 ? deployment_sepolia : deployment_localhost;
     npmAddress = deployment.contracts.NonfungiblePositionManager.proxyAddress;
-
-    wethContract = await ethers.getContractAt("WETH9", config.WETH9);
-    usdcContract = await ethers.getContractAt("ERC20", config.USDC);
-    daiContract = await ethers.getContractAt("ERC20", config.DAI);
-    usdtContract = await ethers.getContractAt("ERC20", config.USDT);
-    tbtcContract = await ethers.getContractAt("ERC20", config.TBTC);
-    wbtcContract = await ethers.getContractAt("ERC20", config.WBTC);
 
     npmContract = (await ethers.getContractAt(
       "NonfungiblePositionManager",
@@ -104,39 +87,157 @@ describe("Liquidity Add Test", function () {
   });
 
   it("能创建USDC-DAI池子吗？", async function () {
-    const isSkip = await createPool(config.USDC, config.DAI, pool_fee);
-    if (isSkip) this.skip();
+    await createPool(config.USDC, config.DAI, PoolFee.LOW);
   });
   it("初始化池子价格为1:1,需对齐decimal", async function () {
-    const isSkip = await initializePool(
-      config.USDC,
-      config.DAI,
-      6,
-      18,
-      pool_fee,
-      1
-    );
-    if (isSkip) this.skip();
+    await initializePool(config.USDC, config.DAI, 6, 18, PoolFee.LOW, 1);
   });
   it("能添加USDC-DAI流动性吗？", async function () {
-    const isSkip = await addLiquidity(
+    await addLiquidity(
       config.USDC,
       config.DAI,
       6,
       18,
+      PoolFee.LOW,
+      1,
       oneHundredMillionTokens,
       oneHundredMillionTokens,
       0.99,
       1.01
     );
-    if (isSkip) this.skip();
+  });
+  it("能添加USDC-DAI 0.3%费率的流动性吗", async function () {
+    await createPool(config.USDC, config.DAI, PoolFee.MEDIUM);
+    await initializePool(config.USDC, config.DAI, 6, 18, PoolFee.MEDIUM, 1);
+    await addLiquidity(
+      config.USDC,
+      config.DAI,
+      6,
+      18,
+      PoolFee.MEDIUM,
+      1,
+      oneHundredMillionTokens,
+      oneHundredMillionTokens,
+      0.99,
+      1.01
+    );
   });
 
-  async function createPool(
-    tokenA: string,
-    tokenB: string,
-    pool_fee: number
-  ): Promise<boolean> {
+  it("应该可以查看TokenId对应的流动性信息", async function () {
+    const tokenId = 8; // 替换为你想查询的 Token ID
+    try {
+      const position = await npmContract.positions(tokenId);
+      console.log(`Token ID: ${tokenId} 的流动性信息:`);
+      console.log(`  流动性: ${position.liquidity.toString()}`);
+      console.log(`  operator: ${position.operator}`);
+      console.log(`  token0: ${position.token0}`);
+      console.log(`  token1: ${position.token1}`);
+      console.log(`  fee: ${position.fee}`);
+      console.log(`  tickLower: ${position.tickLower}`);
+      console.log(`  tickUpper: ${position.tickUpper}`);
+      console.log(`  liquidity: ${position.liquidity}`);
+      console.log(
+        `  feeGrowthInside0LastX128: ${position.feeGrowthInside0LastX128}`
+      );
+      console.log(
+        `  feeGrowthInside1LastX128: ${position.feeGrowthInside1LastX128}`
+      );
+      console.log(`  tokensOwed0: ${position.tokensOwed0}`);
+      console.log(`  tokensOwed1: ${position.tokensOwed1}`);
+    } catch (error: any) {
+      console.error("❌ 查询流动性信息失败:", error.message);
+      throw error;
+    }
+  });
+
+  it("应该能创建USDC-USDT", async function () {
+    await createAndAddLiquidity(
+      config.USDC,
+      config.USDT,
+      6,
+      18,
+      oneHundredMillionTokens,
+      oneHundredMillionTokens,
+      PoolFee.LOW,
+      1, //TokenA/TokenB
+      0.99,
+      1.01
+    );
+  });
+  it("应该能创建USDC-TBTC", async function () {
+    await createAndAddLiquidity(
+      config.USDC,
+      config.TBTC,
+      6,
+      18,
+      oneHundredMillionTokens,
+      oneHundredMillionTokens,
+      PoolFee.LOW,
+      1, //TokenA/TokenB
+      0.99,
+      1.01
+    );
+  });
+  it("应该能创建USDC-WBTC", async function () {
+    await createAndAddLiquidity(
+      config.USDC,
+      config.WBTC,
+      6,
+      8,
+      oneHundredMillionTokens,
+      oneHundredMillionTokens,
+      PoolFee.LOW,
+      1, //TokenA/TokenB
+      0.99,
+      1.01
+    );
+  });
+  it.only("应该能创建USDC-WETH", async function () {
+    await createAndAddLiquidity(
+      config.USDC,
+      config.WETH9,
+      6,
+      18,
+      "100000000", // 一亿USDC
+      "100000000", // 一亿ETH 实际应该只有 33000 ETH
+      PoolFee.MEDIUM,
+      3000, //TokenA/TokenB
+      2500,
+      3500
+    );
+  });
+
+  //-----------------------------------functions---------------------------------------
+
+  async function createAndAddLiquidity(
+    TokenA: string,
+    TokenB: string,
+    decimalsA: number,
+    decimalsB: number,
+    TokenAYouProvide: string,
+    TokenBYouProvide: string,
+    fee: PoolFee,
+    price: number, //TokenA/TokenB
+    liquidityRangePriceLow: number,
+    liquidityRangePriceHigh: number
+  ) {
+    await createPool(TokenA, TokenB, fee);
+    await initializePool(TokenA, TokenB, decimalsA, decimalsB, fee, price);
+    await addLiquidity(
+      TokenA,
+      TokenB,
+      decimalsA,
+      decimalsB,
+      fee,
+      price,
+      TokenAYouProvide,
+      TokenBYouProvide,
+      liquidityRangePriceLow,
+      liquidityRangePriceHigh
+    );
+  }
+
+  async function createPool(tokenA: string, tokenB: string, pool_fee: number) {
     const nextswapFactroyAddress =
       deployment.contracts.NextswapV3Factory.proxyAddress;
     const [token0, token1] = sortTokens(tokenA, tokenB);
@@ -149,7 +250,7 @@ describe("Liquidity Add Test", function () {
     const factoryCode = await ethers.provider.getCode(nextswapFactroyAddress);
     if (factoryCode === "0x") {
       console.log("❌ Factory 合约未部署，跳过测试");
-      return true;
+      return;
     }
 
     try {
@@ -162,7 +263,7 @@ describe("Liquidity Add Test", function () {
 
       if (existingPool !== ethers.ZeroAddress) {
         console.log("✅ 池子已存在，地址:", existingPool);
-        return true;
+        return;
       }
 
       console.log("池子不存在，开始创建...");
@@ -195,7 +296,7 @@ describe("Liquidity Add Test", function () {
       console.log("Gas used:", receipt?.gasUsed.toString());
 
       console.log("✅ 池子初始化成功！");
-      return false;
+      return;
     } catch (error: any) {
       console.error("❌ 创建池子失败:", error.message);
       if (error.data) {
@@ -211,22 +312,26 @@ describe("Liquidity Add Test", function () {
    * @param tokenB 代币B地址
    * @param decimalsA 代币A的小数位数
    * @param decimalsB 代币B的小数位数
+   * @param pool_fee 池子费率
+   * @param price 初始价格 (TokenA/TokenB)
    * @param amountA 代币A的数量（字符串格式，不含小数位）
    * @param amountB 代币B的数量（字符串格式，不含小数位）
-   * @param priceLowerMultiplier 价格下限倍数（相对于初始价格，如 0.99 表示 -1%）
-   * @param priceUpperMultiplier 价格上限倍数（相对于初始价格，如 1.01 表示 +1%）
-   * @returns Promise<boolean> - true 表示跳过测试，false 表示成功添加
+   * @param liquidityRangePriceLow 流动性价格下限 (TokenA/TokenB)，例如 2970
+   * @param liquidityRangePriceHigh 流动性价格上限 (TokenA/TokenB)，例如 3030
+   * @returns Promise<void>
    */
   async function addLiquidity(
     tokenA: string,
     tokenB: string,
     decimalsA: number,
     decimalsB: number,
+    pool_fee: number,
+    price: number, //TokenA/TokenB
     amountA: string,
     amountB: string,
-    priceLowerMultiplier: number = 0.99,
-    priceUpperMultiplier: number = 1.01
-  ): Promise<boolean> {
+    liquidityRangePriceLow: number,
+    liquidityRangePriceHigh: number
+  ) {
     console.log("\n=== 开始添加流动性 ===");
 
     // 获取代币合约
@@ -241,7 +346,7 @@ describe("Liquidity Add Test", function () {
 
     if (balanceA === 0n || balanceB === 0n) {
       console.log("❌ 余额不足，跳过测试");
-      return true;
+      return;
     }
 
     // 检查池子状态
@@ -250,7 +355,7 @@ describe("Liquidity Add Test", function () {
 
     if (poolAddress === ethers.ZeroAddress) {
       console.log("❌ 池子不存在，请先创建池子");
-      return true;
+      return;
     }
 
     const pool = await ethers.getContractAt("INextswapV3Pool", poolAddress);
@@ -260,7 +365,7 @@ describe("Liquidity Add Test", function () {
 
     if (slot0.sqrtPriceX96 === 0n) {
       console.log("❌ 池子未初始化，请先初始化池子");
-      return true;
+      return;
     }
 
     // 解析金额
@@ -307,18 +412,29 @@ describe("Liquidity Add Test", function () {
     const decimals0 = isTokenAToken0 ? decimalsA : decimalsB;
     const decimals1 = isTokenAToken0 ? decimalsB : decimalsA;
 
-    // 根据当前价格计算价格范围
-    const sqrtPriceX96Lower = isTokenAToken0
-      ? priceToSqrtRatioX96(decimals0, decimals1, priceLowerMultiplier)
-      : priceToSqrtRatioX96(decimals0, decimals1, 1 / priceUpperMultiplier);
+    console.log(`初始价格 (TokenA/TokenB): ${price}`);
+    console.log(`价格下限 (TokenA/TokenB): ${liquidityRangePriceLow}`);
+    console.log(`价格上限 (TokenA/TokenB): ${liquidityRangePriceHigh}`);
 
-    const sqrtPriceX96Upper = isTokenAToken0
-      ? priceToSqrtRatioX96(decimals0, decimals1, priceUpperMultiplier)
-      : priceToSqrtRatioX96(decimals0, decimals1, 1 / priceLowerMultiplier);
+    // 根据价格范围计算 sqrtPriceX96
+    // 如果 tokenA 是 token0，需要转换为 token1/token0 的价格（取倒数）
+    // 注意：取倒数后大小关系会颠倒！
+    const sqrtPrice1 = isTokenAToken0
+      ? priceToSqrtRatioX96(decimals0, decimals1, 1 / liquidityRangePriceHigh)
+      : priceToSqrtRatioX96(decimals0, decimals1, liquidityRangePriceHigh);
+
+    const sqrtPrice2 = isTokenAToken0
+      ? priceToSqrtRatioX96(decimals0, decimals1, 1 / liquidityRangePriceLow)
+      : priceToSqrtRatioX96(decimals0, decimals1, liquidityRangePriceLow);
+
+    // 确保 sqrtPriceX96Lower < sqrtPriceX96Upper
+    const sqrtPriceX96Lower = sqrtPrice1 < sqrtPrice2 ? sqrtPrice1 : sqrtPrice2;
+    const sqrtPriceX96Upper = sqrtPrice1 < sqrtPrice2 ? sqrtPrice2 : sqrtPrice1;
 
     const tickLower = TickMath.getTickAtSqrtRatio(sqrtPriceX96Lower);
     const tickUpper = TickMath.getTickAtSqrtRatio(sqrtPriceX96Upper);
 
+    const spacing = getSpacingFromFee(pool_fee);
     const nearestTickLower = nearestUsableTick(tickLower, spacing);
     const nearestTickUpper = nearestUsableTick(tickUpper, spacing);
 
@@ -379,7 +495,7 @@ describe("Liquidity Add Test", function () {
       console.log("当前池子总流动性:", poolLiquidity.toString());
       console.log("✅ 添加流动性成功！Gas used:", receipt?.gasUsed.toString());
 
-      return false;
+      return;
     } catch (error: any) {
       console.error("❌ 添加流动性失败:");
       console.error("错误信息:", error.message);
@@ -415,7 +531,7 @@ describe("Liquidity Add Test", function () {
     decimalsB: number,
     pool_fee: number,
     initialPrice: number = 1
-  ): Promise<boolean> {
+  ) {
     const [token0, token1] = sortTokens(tokenA, tokenB);
     console.log("正在初始化池子价格...");
 
@@ -427,7 +543,7 @@ describe("Liquidity Add Test", function () {
 
     if (!verifyContractCode(actualPoolAddress)) {
       console.log("❌ 池子合约未部署，跳过测试");
-      return true;
+      return;
     }
 
     const pool = await ethers.getContractAt(
@@ -439,7 +555,7 @@ describe("Liquidity Add Test", function () {
     const slot0 = await pool.slot0();
     if (slot0.sqrtPriceX96 !== 0n) {
       console.log("✅ 池子已初始化，跳过初始化步骤");
-      return true;
+      return;
     }
 
     // 根据排序后的 token0/token1 确定对应的小数位数
@@ -483,6 +599,6 @@ describe("Liquidity Add Test", function () {
       "✅ 池子价格初始化成功！ Gas used:",
       receipt?.gasUsed.toString()
     );
-    return false;
+    return;
   }
 });

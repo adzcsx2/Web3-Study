@@ -96,8 +96,6 @@ export function sortTokens(a: string, b: string): [string, string] {
 
 export function getSpacingFromFee(fee: number): number {
   switch (fee) {
-    case 100:
-      return 1;
     case 500:
       return 10;
     case 3000:
