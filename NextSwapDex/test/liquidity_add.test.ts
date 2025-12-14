@@ -104,123 +104,20 @@ describe("Liquidity Add Test", function () {
   });
 
   it("能创建USDC-DAI池子吗？", async function () {
-    const nextswapFactroyAddress =
-      deployment.contracts.NextswapV3Factory.proxyAddress;
-    const [token0, token1] = sortTokens(config.USDC, config.DAI);
-    console.log("Token0:", token0);
-    console.log("Token1:", token1);
-    console.log("Fee: pool_fee " + pool_fee);
-    console.log("Factory地址:", nextswapFactroyAddress);
-
-    // 验证 factory 合约是否有代码
-    const factoryCode = await ethers.provider.getCode(nextswapFactroyAddress);
-    if (factoryCode === "0x") {
-      console.log("❌ Factory 合约未部署，跳过测试");
-      this.skip();
-    }
-
-    try {
-      console.log("正在检查池子是否已存在...");
-      const existingPool = await nextswapFactroy.getPool(
-        token0,
-        token1,
-        pool_fee
-      );
-
-      if (existingPool !== ethers.ZeroAddress) {
-        console.log("✅ 池子已存在，地址:", existingPool);
-        return;
-      }
-
-      console.log("池子不存在，开始创建...");
-
-      // 先用 staticCall 模拟获取返回的池子地址
-      const poolAddress = await nextswapFactroy.createPool.staticCall(
-        token0,
-        token1,
-        pool_fee
-      );
-      console.log("✅ 模拟创建池子成功！ 池子ID:", poolAddress);
-      expect(poolAddress).to.be.a("string").that.is.not.empty;
-
-      const tx = await nextswapFactroy.createPool(token0, token1, pool_fee);
-      const receipt = await tx.wait();
-      expect(receipt?.status).to.equal(1);
-
-      // 验证实际创建的池子地址是否与模拟的一致
-      const actualPoolAddress = await nextswapFactroy.getPool(
-        token0,
-        token1,
-        pool_fee
-      );
-      expect(actualPoolAddress).to.equal(poolAddress);
-
-      console.log("✅ 池子创建成功！");
-      console.log("模拟地址:", poolAddress);
-      console.log("实际地址:", actualPoolAddress);
-      console.log("地址一致:", poolAddress === actualPoolAddress);
-      console.log("Gas used:", receipt?.gasUsed.toString());
-
-      console.log("✅ 池子初始化成功！");
-    } catch (error: any) {
-      console.error("❌ 创建池子失败:", error.message);
-      if (error.data) {
-        console.error("错误数据:", error.data);
-      }
-      throw error;
-    }
+    const isSkip = await createPool(config.USDC, config.DAI, pool_fee);
+    if (isSkip) this.skip();
   });
   it("初始化池子价格为1:1,需对齐decimal", async function () {
-    // 初始化池子价格 (稳定币对设为 1:1)
-    const [token0, token1] = sortTokens(config.USDC, config.DAI);
-    console.log("正在初始化池子价格...");
-    const actualPoolAddress = await nextswapFactroy.getPool(
-      token0,
-      token1,
-      pool_fee
+    const isSkip = await initializePool(
+      config.USDC,
+      config.DAI,
+      6,
+      18,
+      pool_fee,
+      1
     );
-    if (!verifyContractCode(actualPoolAddress)) {
-      console.log("❌ 池子合约未部署，跳过测试");
-      this.skip();
-    }
-
-    const pool = await ethers.getContractAt(
-      "INextswapV3Pool",
-      actualPoolAddress
-    );
-
-    // 检查池子是否已初始化
-    const slot0 = await pool.slot0();
-    if (slot0.sqrtPriceX96 !== 0n) {
-      console.log("✅ 池子已初始化，跳过初始化步骤");
-      this.skip();
-    }
-
-    // USDC (6位) 和 DAI (18位) 1:1 美元价格
-    // encodeSqrtRatioX96(amount1, amount0) 表示 sqrt(amount1/amount0) * 2^96
-    // 对于 1:1 价格，需要考虑小数位差异
-    const isUSDCToken0 = token0 === config.USDC;
-
-    // 如果 USDC 是 token0 (6位)，DAI 是 token1 (18位)
-    // price = token1/token0 = (1 DAI) / (1 USDC) = 1e18 / 1e6 = 1e12
-    // 如果 DAI 是 token0 (18位)，USDC 是 token1 (6位)
-    // price = token1/token0 = (1 USDC) / (1 DAI) = 1e6 / 1e18 = 1e-12
-    const sqrtPriceX96 = isUSDCToken0
-      ? priceToSqrtRatioX96(6, 18, 1) // sqrt(1e12)
-      : priceToSqrtRatioX96(18, 6, 1); // sqrt(1e6/1e18) = sqrt(1e-12)
-
-    console.log("Token0:", token0, isUSDCToken0 ? "(USDC)" : "(DAI)");
-    console.log("Token1:", token1, !isUSDCToken0 ? "(USDC)" : "(DAI)");
-    console.log("初始化价格 sqrtPriceX96:", sqrtPriceX96.toString());
-    const initTx = await pool.initialize(BigInt(sqrtPriceX96.toString()));
-    const receipt = await initTx.wait();
-    expect(receipt?.status).to.equal(1);
-    console.log(
-      "✅ 池子价格初始化成功！ Gas used:",
-      receipt?.gasUsed.toString()
-    );
+    if (isSkip) this.skip();
   });
-
   it("能添加USDC-DAI流动性吗？", async function () {
     // 检查余额
     const usdcBalance = await usdcContract.balanceOf(signer.address);
@@ -439,4 +336,164 @@ describe("Liquidity Add Test", function () {
       throw error;
     }
   });
+
+  async function createPool(
+    tokenA: string,
+    tokenB: string,
+    pool_fee: number
+  ): Promise<boolean> {
+    const nextswapFactroyAddress =
+      deployment.contracts.NextswapV3Factory.proxyAddress;
+    const [token0, token1] = sortTokens(tokenA, tokenB);
+    console.log("Token0:", token0);
+    console.log("Token1:", token1);
+    console.log("Fee: pool_fee " + pool_fee);
+    console.log("Factory地址:", nextswapFactroyAddress);
+
+    // 验证 factory 合约是否有代码
+    const factoryCode = await ethers.provider.getCode(nextswapFactroyAddress);
+    if (factoryCode === "0x") {
+      console.log("❌ Factory 合约未部署，跳过测试");
+      return true;
+    }
+
+    try {
+      console.log("正在检查池子是否已存在...");
+      const existingPool = await nextswapFactroy.getPool(
+        token0,
+        token1,
+        pool_fee
+      );
+
+      if (existingPool !== ethers.ZeroAddress) {
+        console.log("✅ 池子已存在，地址:", existingPool);
+        return true;
+      }
+
+      console.log("池子不存在，开始创建...");
+
+      // 先用 staticCall 模拟获取返回的池子地址
+      const poolAddress = await nextswapFactroy.createPool.staticCall(
+        token0,
+        token1,
+        pool_fee
+      );
+      console.log("✅ 模拟创建池子成功！ 池子ID:", poolAddress);
+      expect(poolAddress).to.be.a("string").that.is.not.empty;
+
+      const tx = await nextswapFactroy.createPool(token0, token1, pool_fee);
+      const receipt = await tx.wait();
+      expect(receipt?.status).to.equal(1);
+
+      // 验证实际创建的池子地址是否与模拟的一致
+      const actualPoolAddress = await nextswapFactroy.getPool(
+        token0,
+        token1,
+        pool_fee
+      );
+      expect(actualPoolAddress).to.equal(poolAddress);
+
+      console.log("✅ 池子创建成功！");
+      console.log("模拟地址:", poolAddress);
+      console.log("实际地址:", actualPoolAddress);
+      console.log("地址一致:", poolAddress === actualPoolAddress);
+      console.log("Gas used:", receipt?.gasUsed.toString());
+
+      console.log("✅ 池子初始化成功！");
+      return false;
+    } catch (error: any) {
+      console.error("❌ 创建池子失败:", error.message);
+      if (error.data) {
+        console.error("错误数据:", error.data);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 初始化交易池价格
+   * @param tokenA 代币A地址
+   * @param tokenB 代币B地址
+   * @param decimalsA 代币A的小数位数
+   * @param decimalsB 代币B的小数位数
+   * @param initialPrice 初始兑换比例 (TokenA/TokenB)，默认 1:1
+   * @returns Promise<boolean> - true 表示跳过测试，false 表示成功初始化
+   */
+  async function initializePool(
+    tokenA: string,
+    tokenB: string,
+    decimalsA: number,
+    decimalsB: number,
+    pool_fee: number,
+    initialPrice: number = 1
+  ): Promise<boolean> {
+    const [token0, token1] = sortTokens(tokenA, tokenB);
+    console.log("正在初始化池子价格...");
+
+    const actualPoolAddress = await nextswapFactroy.getPool(
+      token0,
+      token1,
+      pool_fee
+    );
+
+    if (!verifyContractCode(actualPoolAddress)) {
+      console.log("❌ 池子合约未部署，跳过测试");
+      return true;
+    }
+
+    const pool = await ethers.getContractAt(
+      "INextswapV3Pool",
+      actualPoolAddress
+    );
+
+    // 检查池子是否已初始化
+    const slot0 = await pool.slot0();
+    if (slot0.sqrtPriceX96 !== 0n) {
+      console.log("✅ 池子已初始化，跳过初始化步骤");
+      return true;
+    }
+
+    // 根据排序后的 token0/token1 确定对应的小数位数
+    const isTokenAToken0 = token0 === tokenA;
+    const decimals0 = isTokenAToken0 ? decimalsA : decimalsB;
+    const decimals1 = isTokenAToken0 ? decimalsB : decimalsA;
+
+    // 计算 token1/token0 的价格比例
+    // 如果 tokenA 是 token0: price = token1/token0 = tokenB/tokenA = 1/initialPrice
+    // 如果 tokenB 是 token0: price = token1/token0 = tokenA/tokenB = initialPrice
+    const priceToken1OverToken0 = isTokenAToken0
+      ? 1 / initialPrice
+      : initialPrice;
+
+    // 根据价格和小数位数计算 sqrtPriceX96
+    const sqrtPriceX96 = priceToSqrtRatioX96(
+      decimals0,
+      decimals1,
+      priceToken1OverToken0
+    );
+
+    console.log(
+      "Token0:",
+      token0,
+      `(${isTokenAToken0 ? "TokenA" : "TokenB"}, decimals: ${decimals0})`
+    );
+    console.log(
+      "Token1:",
+      token1,
+      `(${isTokenAToken0 ? "TokenB" : "TokenA"}, decimals: ${decimals1})`
+    );
+    console.log("初始兑换比例 (TokenA/TokenB):", initialPrice);
+    console.log("实际价格 (Token1/Token0):", priceToken1OverToken0);
+    console.log("初始化价格 sqrtPriceX96:", sqrtPriceX96.toString());
+
+    const initTx = await pool.initialize(BigInt(sqrtPriceX96.toString()));
+    const receipt = await initTx.wait();
+    expect(receipt?.status).to.equal(1);
+
+    console.log(
+      "✅ 池子价格初始化成功！ Gas used:",
+      receipt?.gasUsed.toString()
+    );
+    return false;
+  }
 });

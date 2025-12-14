@@ -1,10 +1,4 @@
-import { ethers } from "hardhat";
 import { DeployHelper } from "../scripts/utils/DeployHelper";
-import {
-  getNetworkConfig,
-  stringToBytes32,
-  NetworkTokenAddresses,
-} from "../scripts/config/network-config";
 
 import { expect } from "chai";
 
