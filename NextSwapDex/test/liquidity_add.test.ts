@@ -119,222 +119,17 @@ describe("Liquidity Add Test", function () {
     if (isSkip) this.skip();
   });
   it("能添加USDC-DAI流动性吗？", async function () {
-    // 检查余额
-    const usdcBalance = await usdcContract.balanceOf(signer.address);
-    const daiBalance = await daiContract.balanceOf(signer.address);
-    console.log("USDC余额:", ethers.formatUnits(usdcBalance, 6));
-    console.log("DAI余额:", ethers.formatUnits(daiBalance, 18));
-
-    // 确保有足够的余额
-    if (usdcBalance === 0n || daiBalance === 0n) {
-      console.log("❌ 余额不足，跳过测试");
-      this.skip();
-    }
-
-    // 检查池子状态
-    const [token0, token1] = sortTokens(config.USDC, config.DAI);
-    const poolAddress = await nextswapFactroy.getPool(token0, token1, pool_fee);
-    if (poolAddress === ethers.ZeroAddress) {
-      console.log("❌ 池子不存在，请先创建池子");
-      this.skip();
-    }
-
-    const pool = await ethers.getContractAt("INextswapV3Pool", poolAddress);
-    const slot0 = await pool.slot0();
-    console.log("当前池子价格 sqrtPriceX96:", slot0.sqrtPriceX96.toString());
-    console.log("当前 tick:", slot0.tick.toString());
-
-    if (slot0.sqrtPriceX96 === 0n) {
-      console.log("❌ 池子未初始化，请先初始化池子");
-      this.skip();
-    }
-
-    // Uniswap V3 对最小流动性有要求，太小的数量可能导致失败
-    const testUSDCAmount = ethers.parseUnits(oneHundredMillionTokens, 6);
-    const testDAIAmount = ethers.parseUnits(oneHundredMillionTokens, 18);
-
-    console.log("测试金额 - USDC:", ethers.formatUnits(testUSDCAmount, 6));
-    console.log("测试金额 - DAI:", ethers.formatUnits(testDAIAmount, 18));
-
-    // 授权最大值
-    const approveTx1 = await usdcContract.approve(
-      npmAddress,
-      ethers.MaxUint256
+    const isSkip = await addLiquidity(
+      config.USDC,
+      config.DAI,
+      6,
+      18,
+      oneHundredMillionTokens,
+      oneHundredMillionTokens,
+      0.99,
+      1.01
     );
-    await approveTx1.wait();
-    const approveTx2 = await daiContract.approve(npmAddress, ethers.MaxUint256);
-    await approveTx2.wait();
-    console.log("✅ 授权成功");
-
-    // 调用NonfungiblePositionManager的mint函数添加流动性
-    const npmContract = await ethers.getContractAt(
-      "NonfungiblePositionManager",
-      npmAddress
-    );
-
-    // 获取当前池子的 tick，围绕当前 tick 设置流动性范围
-    const currentSlot = await pool.slot0();
-    const currentTick = Number(currentSlot.tick);
-
-    // 设置围绕当前价格的 tick 范围（±10个 tick spacing）
-    // spacing = 60 (for 0.3% fee)
-    let sqrtPriceX96Lower: JSBI;
-    let sqrtPriceX96Upper: JSBI;
-    if (token0 === config.USDC) {
-      sqrtPriceX96Lower = priceToSqrtRatioX96(6, 18, 0.99);
-      sqrtPriceX96Upper = priceToSqrtRatioX96(6, 18, 1.01);
-    } else {
-      sqrtPriceX96Lower = priceToSqrtRatioX96(18, 6, 0.99);
-      sqrtPriceX96Upper = priceToSqrtRatioX96(18, 6, 1.01);
-    }
-
-    const tickLower = TickMath.getTickAtSqrtRatio(sqrtPriceX96Lower);
-    const tickUpper = TickMath.getTickAtSqrtRatio(sqrtPriceX96Upper);
-
-    const nearestTickLower = nearestUsableTick(tickLower, spacing);
-    const nearestTickUpper = nearestUsableTick(tickUpper, spacing);
-
-    console.log("当前 Tick:", currentTick);
-    console.log("Token0:", token0);
-    console.log("Token1:", token1);
-    console.log("TickLower:", nearestTickLower);
-    console.log("TickUpper:", nearestTickUpper);
-
-    // 根据 token0/token1 顺序设置数量
-
-    let amount0Desired, amount1Desired;
-    if (token0 === config.USDC) {
-      amount0Desired = testUSDCAmount;
-      amount1Desired = testDAIAmount;
-    } else {
-      amount0Desired = testDAIAmount;
-      amount1Desired = testUSDCAmount;
-    }
-
-    console.log("Amount0Desired:", amount0Desired.toString());
-    console.log("Amount1Desired:", amount1Desired.toString());
-
-    // 在测试环境放宽下限，避免因区间/价格导致实际填充远小于期望而回滚
-    const amount0Min = 0n;
-    const amount1Min = 0n;
-
-    const mintParams = {
-      token0: token0,
-      token1: token1,
-      fee: pool_fee,
-      tickLower: nearestTickLower,
-      tickUpper: nearestTickUpper,
-      amount0Desired: amount0Desired,
-      amount1Desired: amount1Desired,
-      amount0Min: amount0Min,
-      amount1Min: amount1Min,
-      recipient: await signer.getAddress(),
-      deadline: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 180, // 180天后过期
-    };
-
-    console.log("准备添加流动性，参数:", mintParams);
-
-    console.log("准备调用 mint.staticCall...");
-
-    // 再次检查池子状态
-    const currentSlot0 = await pool.slot0();
-    console.log("最新池子价格:", currentSlot0.sqrtPriceX96.toString());
-    console.log("最新 tick:", currentSlot0.tick.toString());
-    console.log("流动性范围:", `[${nearestTickLower}, ${nearestTickUpper}]`);
-    console.log(
-      "当前 tick 是否在范围内:",
-      currentSlot0.tick >= nearestTickLower &&
-        currentSlot0.tick <= nearestTickUpper
-    );
-
-    // 先检查代币余额和授权
-    const token0Contract = await ethers.getContractAt("ERC20", token0);
-    const token1Contract = await ethers.getContractAt("ERC20", token1);
-
-    const balance0 = await token0Contract.balanceOf(signer.address);
-    const balance1 = await token1Contract.balanceOf(signer.address);
-    const allowance0 = await token0Contract.allowance(
-      signer.address,
-      npmAddress
-    );
-    const allowance1 = await token1Contract.allowance(
-      signer.address,
-      npmAddress
-    );
-
-    console.log(
-      "Token0 余额:",
-      balance0.toString(),
-      "授权:",
-      allowance0.toString()
-    );
-    console.log(
-      "Token1 余额:",
-      balance1.toString(),
-      "授权:",
-      allowance1.toString()
-    );
-    console.log("需要 Token0:", amount0Desired.toString());
-    console.log("需要 Token1:", amount1Desired.toString());
-
-    // 现在测试 NPM
-    console.log("\n=== 测试 NPM ===");
-
-    // 验证 PoolAddress.computeAddress 计算的地址是否正确
-    console.log("\n检查池子地址计算:");
-    console.log("Factory:", await npmContract.factory());
-    console.log("Token0:", token0);
-    console.log("Token1:", token1);
-    console.log("Fee:", pool_fee);
-    console.log("实际池子地址:", poolAddress);
-
-    // 尝试从 factory 计算池子地址
-    const factoryContract = await ethers.getContractAt(
-      "INextswapV3Factory",
-      await npmContract.factory()
-    );
-    const computedPool = await factoryContract.getPool(
-      token0,
-      token1,
-      pool_fee
-    );
-    console.log("Factory.getPool 返回:", computedPool);
-    console.log("地址匹配:", computedPool === poolAddress);
-
-    try {
-      const { tokenId, liquidity, amount0, amount1 } =
-        await npmContract.mint.staticCall(mintParams);
-
-      console.log(
-        `✅ 模拟添加流动性成功！ Token ID: ${tokenId}, 流动性: ${liquidity.toString()}, 实际添加的amount0: ${amount0.toString()}, 实际添加的amount1: ${amount1.toString()}`
-      );
-
-      const tx = await npmContract.mint(mintParams);
-      const receipt = await tx.wait();
-      expect(receipt?.status).to.equal(1);
-      //当前池子流动性
-      const poolLiquidity = await pool.liquidity();
-      console.log("当前池子总流动性:", poolLiquidity.toString());
-      console.log(
-        "✅ 添加USDC-DAI流动性成功！Gas used:",
-        receipt?.gasUsed.toString()
-      );
-    } catch (error: any) {
-      console.error("❌ 添加流动性失败:");
-      console.error("错误信息:", error.message);
-
-      if (error.error) {
-        console.error("详细错误:", error.error);
-      }
-      if (error.reason) {
-        console.error("失败原因:", error.reason);
-      }
-      if (error.code) {
-        console.error("错误代码:", error.code);
-      }
-
-      throw error;
-    }
+    if (isSkip) this.skip();
   });
 
   async function createPool(
@@ -411,11 +206,205 @@ describe("Liquidity Add Test", function () {
   }
 
   /**
+   * 添加流动性到交易池
+   * @param tokenA 代币A地址
+   * @param tokenB 代币B地址
+   * @param decimalsA 代币A的小数位数
+   * @param decimalsB 代币B的小数位数
+   * @param amountA 代币A的数量（字符串格式，不含小数位）
+   * @param amountB 代币B的数量（字符串格式，不含小数位）
+   * @param priceLowerMultiplier 价格下限倍数（相对于初始价格，如 0.99 表示 -1%）
+   * @param priceUpperMultiplier 价格上限倍数（相对于初始价格，如 1.01 表示 +1%）
+   * @returns Promise<boolean> - true 表示跳过测试，false 表示成功添加
+   */
+  async function addLiquidity(
+    tokenA: string,
+    tokenB: string,
+    decimalsA: number,
+    decimalsB: number,
+    amountA: string,
+    amountB: string,
+    priceLowerMultiplier: number = 0.99,
+    priceUpperMultiplier: number = 1.01
+  ): Promise<boolean> {
+    console.log("\n=== 开始添加流动性 ===");
+
+    // 获取代币合约
+    const tokenAContract = await ethers.getContractAt("ERC20", tokenA);
+    const tokenBContract = await ethers.getContractAt("ERC20", tokenB);
+
+    // 检查余额
+    const balanceA = await tokenAContract.balanceOf(signer.address);
+    const balanceB = await tokenBContract.balanceOf(signer.address);
+    console.log(`TokenA余额: ${ethers.formatUnits(balanceA, decimalsA)}`);
+    console.log(`TokenB余额: ${ethers.formatUnits(balanceB, decimalsB)}`);
+
+    if (balanceA === 0n || balanceB === 0n) {
+      console.log("❌ 余额不足，跳过测试");
+      return true;
+    }
+
+    // 检查池子状态
+    const [token0, token1] = sortTokens(tokenA, tokenB);
+    const poolAddress = await nextswapFactroy.getPool(token0, token1, pool_fee);
+
+    if (poolAddress === ethers.ZeroAddress) {
+      console.log("❌ 池子不存在，请先创建池子");
+      return true;
+    }
+
+    const pool = await ethers.getContractAt("INextswapV3Pool", poolAddress);
+    const slot0 = await pool.slot0();
+    console.log("当前池子价格 sqrtPriceX96:", slot0.sqrtPriceX96.toString());
+    console.log("当前 tick:", slot0.tick.toString());
+
+    if (slot0.sqrtPriceX96 === 0n) {
+      console.log("❌ 池子未初始化，请先初始化池子");
+      return true;
+    }
+
+    // 解析金额
+    const testAmountA = ethers.parseUnits(amountA, decimalsA);
+    const testAmountB = ethers.parseUnits(amountB, decimalsB);
+
+    console.log(
+      `添加金额 - TokenA: ${ethers.formatUnits(testAmountA, decimalsA)}`
+    );
+    console.log(
+      `添加金额 - TokenB: ${ethers.formatUnits(testAmountB, decimalsB)}`
+    );
+
+    // 授权代币
+    const allowanceA = await tokenAContract.allowance(
+      signer.address,
+      npmAddress
+    );
+    const allowanceB = await tokenBContract.allowance(
+      signer.address,
+      npmAddress
+    );
+
+    if (allowanceA < testAmountA) {
+      const approveTxA = await tokenAContract.approve(
+        npmAddress,
+        ethers.MaxUint256
+      );
+      await approveTxA.wait();
+      console.log("✅ TokenA 授权成功");
+    }
+
+    if (allowanceB < testAmountB) {
+      const approveTxB = await tokenBContract.approve(
+        npmAddress,
+        ethers.MaxUint256
+      );
+      await approveTxB.wait();
+      console.log("✅ TokenB 授权成功");
+    }
+
+    // 计算价格范围的 tick
+    const isTokenAToken0 = token0 === tokenA;
+    const decimals0 = isTokenAToken0 ? decimalsA : decimalsB;
+    const decimals1 = isTokenAToken0 ? decimalsB : decimalsA;
+
+    // 根据当前价格计算价格范围
+    const sqrtPriceX96Lower = isTokenAToken0
+      ? priceToSqrtRatioX96(decimals0, decimals1, priceLowerMultiplier)
+      : priceToSqrtRatioX96(decimals0, decimals1, 1 / priceUpperMultiplier);
+
+    const sqrtPriceX96Upper = isTokenAToken0
+      ? priceToSqrtRatioX96(decimals0, decimals1, priceUpperMultiplier)
+      : priceToSqrtRatioX96(decimals0, decimals1, 1 / priceLowerMultiplier);
+
+    const tickLower = TickMath.getTickAtSqrtRatio(sqrtPriceX96Lower);
+    const tickUpper = TickMath.getTickAtSqrtRatio(sqrtPriceX96Upper);
+
+    const nearestTickLower = nearestUsableTick(tickLower, spacing);
+    const nearestTickUpper = nearestUsableTick(tickUpper, spacing);
+
+    console.log("Token0:", token0, `(${isTokenAToken0 ? "TokenA" : "TokenB"})`);
+    console.log("Token1:", token1, `(${isTokenAToken0 ? "TokenB" : "TokenA"})`);
+    console.log("TickLower:", nearestTickLower);
+    console.log("TickUpper:", nearestTickUpper);
+    console.log("当前 Tick:", slot0.tick.toString());
+
+    // 根据 token0/token1 顺序设置数量
+    let amount0Desired, amount1Desired;
+    if (isTokenAToken0) {
+      amount0Desired = testAmountA;
+      amount1Desired = testAmountB;
+    } else {
+      amount0Desired = testAmountB;
+      amount1Desired = testAmountA;
+    }
+
+    console.log("Amount0Desired:", amount0Desired.toString());
+    console.log("Amount1Desired:", amount1Desired.toString());
+
+    // 构建 mint 参数
+    const mintParams = {
+      token0: token0,
+      token1: token1,
+      fee: pool_fee,
+      tickLower: nearestTickLower,
+      tickUpper: nearestTickUpper,
+      amount0Desired: amount0Desired,
+      amount1Desired: amount1Desired,
+      amount0Min: 0n, // 测试环境放宽下限
+      amount1Min: 0n,
+      recipient: await signer.getAddress(),
+      deadline: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 180, // 180天后过期
+    };
+
+    try {
+      // 模拟调用
+      const { tokenId, liquidity, amount0, amount1 } =
+        await npmContract.mint.staticCall(mintParams);
+
+      console.log(
+        `✅ 模拟添加流动性成功！\n` +
+          `   Token ID: ${tokenId}\n` +
+          `   流动性: ${liquidity.toString()}\n` +
+          `   实际 amount0: ${amount0.toString()}\n` +
+          `   实际 amount1: ${amount1.toString()}`
+      );
+
+      // 实际执行
+      const tx = await npmContract.mint(mintParams);
+      const receipt = await tx.wait();
+      expect(receipt?.status).to.equal(1);
+
+      // 查询池子流动性
+      const poolLiquidity = await pool.liquidity();
+      console.log("当前池子总流动性:", poolLiquidity.toString());
+      console.log("✅ 添加流动性成功！Gas used:", receipt?.gasUsed.toString());
+
+      return false;
+    } catch (error: any) {
+      console.error("❌ 添加流动性失败:");
+      console.error("错误信息:", error.message);
+
+      if (error.error) {
+        console.error("详细错误:", error.error);
+      }
+      if (error.reason) {
+        console.error("失败原因:", error.reason);
+      }
+      if (error.code) {
+        console.error("错误代码:", error.code);
+      }
+
+      throw error;
+    }
+  }
+
+  /**
    * 初始化交易池价格
    * @param tokenA 代币A地址
    * @param tokenB 代币B地址
    * @param decimalsA 代币A的小数位数
    * @param decimalsB 代币B的小数位数
+   * @param pool_fee 池子费率
    * @param initialPrice 初始兑换比例 (TokenA/TokenB)，默认 1:1
    * @returns Promise<boolean> - true 表示跳过测试，false 表示成功初始化
    */
