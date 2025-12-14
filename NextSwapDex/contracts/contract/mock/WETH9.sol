@@ -8,7 +8,7 @@ contract WETH9 is ERC20 {
     uint256 constant _decimals = 18;
 
     constructor() ERC20("Wrapped Ether 9", "WETH9") {
-        _mint(msg.sender, _initialSupply);
+        _mint(msg.sender, _initialSupply / (10 ** (18 - _decimals)));
     }
 
     function decimals() public pure override returns (uint8) {
@@ -21,11 +21,11 @@ contract WETH9 is ERC20 {
     }
 
     /// @notice Withdraw wrapped ether to get ether
-    function withdraw(uint256) external {
-        uint256 balance = balanceOf(msg.sender);
-        require(balance >= 0, "WETH: insufficient balance");
-        _burn(msg.sender, balance);
-        (bool success, ) = payable(msg.sender).call{value: balance}("");
+    function withdraw(uint256 amount) external {
+        require(amount > 0, "WETH: amount must be greater than 0");
+        require(balanceOf(msg.sender) >= amount, "WETH: insufficient balance");
+        _burn(msg.sender, amount);
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
         require(success, "WETH: transfer failed");
     }
 }

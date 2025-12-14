@@ -155,7 +155,7 @@ describe("Liquidity Add Test", function () {
       config.USDC,
       config.USDT,
       6,
-      18,
+      6,
       oneHundredMillionTokens,
       oneHundredMillionTokens,
       PoolFee.LOW,
