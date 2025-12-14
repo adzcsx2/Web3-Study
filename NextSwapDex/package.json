@@ -19,6 +19,9 @@
     "post-deploy:copy-abis": "npm run copy:abis"
   },
   "devDependencies": {
+    "@ethersproject/abstract-provider": "^5.8.0",
+    "@ethersproject/abstract-signer": "^5.8.0",
+    "@ethersproject/constants": "^5.8.0",
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
     "@nomicfoundation/hardhat-ethers": "^3.1.0",
     "@nomicfoundation/hardhat-ignition": "^0.15.13",
@@ -36,7 +39,6 @@
     "@types/node": "^24.7.2",
     "chai": "^4.5.0",
     "dotenv": "^17.2.3",
-    "ethers": "^6.15.0",
     "hardhat": "2.27.0",
     "hardhat-gas-reporter": "^2.3.0",
     "solidity-coverage": "^0.8.16",
@@ -45,11 +47,14 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "ethers": "^6.15.0",
+    "ethers-v5": "npm:ethers@^5.7.2",
     "@openzeppelin/contracts": "^5.4.0",
     "@openzeppelin/contracts-upgradeable": "^5.4.0",
+    "@uniswap/router-sdk": "^2.2.0",
+    "@uniswap/smart-order-router": "^4.22.38",
     "@uniswap/v3-core": "^1.0.1",
     "@uniswap/v3-sdk": "^3.26.0",
-    "base64-sol": "^1.1.0",
-    "jsbi": "^4.3.2"
+    "base64-sol": "^1.1.0"
   }
 }

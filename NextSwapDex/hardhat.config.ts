@@ -64,10 +64,15 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       allowUnlimitedContractSize: true,
+      // 关键：启用 revert 原因
+      throwOnTransactionFailures: true,
+      throwOnCallFailures: true,
     },
     localhost: {
       url: "http://localhost:8545",
-      allowUnlimitedContractSize: false,
+      allowUnlimitedContractSize: false, // 关键：启用 revert 原因
+      throwOnTransactionFailures: true,
+      throwOnCallFailures: true,
     },
     // 测试网示例：Sepolia
     sepolia: {

@@ -28,6 +28,7 @@ import {
 import { verifyContractCode } from "./utils/VerifyUtils";
 import { get } from "http";
 import JSBI from "jsbi";
+import { Decimals } from "../scripts/types/Enum";
 
 describe("Liquidity Add Test", function () {
   let deployment: any;
@@ -192,7 +193,7 @@ describe("Liquidity Add Test", function () {
       1.01
     );
   });
-  it.only("应该能创建USDC-WETH", async function () {
+  it("应该能创建USDC-WETH", async function () {
     await createAndAddLiquidity(
       config.USDC,
       config.WETH9,
@@ -204,6 +205,20 @@ describe("Liquidity Add Test", function () {
       3000, //TokenA/TokenB
       2500,
       3500
+    );
+  });
+  it.only("应该能创建DAI-USDT", async function () {
+    await createAndAddLiquidity(
+      config.DAI,
+      config.USDT,
+      Decimals.DAI,
+      Decimals.USDT,
+      "100000", // 一亿USDC
+      "100000", // 一亿ETH 实际应该只有 33000 ETH
+      PoolFee.LOW,
+      1, //TokenA/TokenB
+      0.99,
+      1.01
     );
   });
 

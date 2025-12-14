@@ -25,7 +25,12 @@
       "Bash(find:*)",
       "Bash(powershell -Command:*)",
       "Bash(python:*)",
-      "Bash(del:*)"
+      "Bash(del:*)",
+      "Bash(if exist node_modules rmdir /s /q node_modules)",
+      "Bash(npm cache clean:*)",
+      "Bash(node:*)",
+      "Bash(npm outdated @uniswap/v4-sdk @uniswap/universal-router-sdk @uniswap/router-sdk @uniswap/smart-order-router)",
+      "Bash(npm view:*)"
     ],
     "deny": [],
     "ask": []

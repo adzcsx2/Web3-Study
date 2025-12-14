@@ -13,7 +13,6 @@ import { ERC20, WETH9 } from "../typechain-types";
 import { NonfungiblePositionManager } from "../typechain-types/contracts/contract/swap/periphery/NonfungiblePositionManager";
 import { NextswapV3Factory } from "../typechain-types/contracts/contract/swap/core/NextswapV3Factory";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import { sign, verify } from "crypto";
 import {
   priceToSqrtRatioX96,
   sortTokens,
@@ -21,15 +20,18 @@ import {
 } from "../scripts/utils/Maths";
 import {
   ADDRESS_ZERO,
+  encodeRouteToPath,
   encodeSqrtRatioX96,
   nearestUsableTick,
+  SwapRouter,
   TickMath,
 } from "@uniswap/v3-sdk";
-import { verifyContractCode } from "./utils/VerifyUtils";
-import { get } from "http";
-import JSBI from "jsbi";
-import { PoolFee } from "../scripts/types/Enum";
+import { Percent, Token, TradeType } from "@uniswap/sdk-core";
+import { encodeV3Path } from "../scripts/utils/Maths";
 
+import { verifyContractCode } from "./utils/VerifyUtils";
+import JSBI from "jsbi";
+import { Decimals, PoolFee } from "../scripts/types/Enum";
 describe("Swap 合约测试", function () {
   let deployment: any;
   this.timeout(600000); // 设置超时时间为 10 分钟
@@ -42,6 +44,14 @@ describe("Swap 合约测试", function () {
   let npmContract: NonfungiblePositionManager;
   let nextswapFactroy: NextswapV3Factory;
 
+  // 定义代币（以太坊主网）
+  let DAI: Token;
+  let USDC: Token;
+  let WETH: Token;
+  let USDT: Token;
+  let WBTC: Token;
+  let TBTC: Token;
+
   //一亿token
   const oneHundredMillionTokens = "100000";
 
@@ -52,13 +62,21 @@ describe("Swap 合约测试", function () {
   let tbtcAddress: string;
   let wbtcAddress: string;
 
+  let chainId: number;
+  let signerAddress: string;
+
   this.beforeEach(async function () {
     [signer, user1, user2, user3] = await ethers.getSigners();
+    signerAddress = await signer.getAddress();
+    const network = await ethers.provider.getNetwork();
+    chainId = Number(network.chainId);
 
-    const chainId = (await ethers.provider.getNetwork()).chainId;
-    config = getNetworkConfig(Number(chainId));
+    // 对于 localhost，使用 31337 作为 chainId
+    const effectiveChainId = chainId === 31337 ? 31337 : chainId;
+
+    config = getNetworkConfig(effectiveChainId);
     deployment =
-      Number(chainId) === 11155111 ? deployment_sepolia : deployment_localhost;
+      effectiveChainId === 11155111 ? deployment_sepolia : deployment_localhost;
     npmAddress = deployment.contracts.NonfungiblePositionManager.proxyAddress;
 
     npmContract = (await ethers.getContractAt(
@@ -76,6 +94,15 @@ describe("Swap 合约测试", function () {
     usdtAddress = config.USDT;
     tbtcAddress = config.TBTC;
     wbtcAddress = config.WBTC;
+
+    // 使用正确的 chainId 创建 Token 对象
+    const tokenChainId = chainId === 31337 ? 31337 : chainId;
+    WETH = new Token(tokenChainId, wethAddress, Decimals.WETH9);
+    DAI = new Token(tokenChainId, daiAddress, Decimals.DAI);
+    USDC = new Token(tokenChainId, usdcAddress, Decimals.USDC);
+    USDT = new Token(tokenChainId, usdtAddress, Decimals.USDT);
+    WBTC = new Token(tokenChainId, wbtcAddress, Decimals.WBTC);
+    TBTC = new Token(tokenChainId, tbtcAddress, Decimals.TBTC);
   });
   afterEach(async function () {
     // 跳过 pending 或 skipped 测试（可选）
@@ -174,7 +201,9 @@ describe("Swap 合约测试", function () {
       .reverted;
   });
 
-  it.only("应该可以swap USDC-DAI", async function () {
+  it("应该可以swap USDC-DAI", async function () {
+    console.log("USDC地址:", usdcAddress);
+    console.log("DAI地址:", daiAddress);
     //获取USDC-DAI池子地址
     const poolAddress = await nextswapFactroy.getPool(
       usdcAddress,
@@ -182,26 +211,279 @@ describe("Swap 合约测试", function () {
       PoolFee.LOW
     );
     console.log("USDC-DAI池子地址:", poolAddress);
-    expect(poolAddress).to.not.equal(ADDRESS_ZERO);
     //获取swap路由合约
-    const swapRouterAddress =
-      deployment.contracts.NextswapV3SwapRouter.proxyAddress;
+    const swapRouterAddress = deployment.contracts.SwapRouter.proxyAddress;
     console.log("Swap路由合约地址:", swapRouterAddress);
-    expect(swapRouterAddress).to.be.a("string").that.is.not.empty;
+
+    // 单一ERC交换 交换数量 100 USDC
+    // 初始余额
+    const usdcBefore = await getTokenBalance(signer.address, usdcAddress, 6);
+    const daiBefore = await getTokenBalance(signer.address, daiAddress, 18);
+
+    const exchangeAmount = 1;
+
+    const amountIn = ethers.parseUnits(exchangeAmount.toString(), 6); // 100 USDC
+    //批准Swap路由合约花费USDC
+    await approveERC20("USDC", usdcAddress, swapRouterAddress, amountIn);
+    //执行swap
+    const swapRouterContract = await ethers.getContractAt(
+      "SwapRouter",
+      swapRouterAddress
+    );
+
+    const params = {
+      tokenIn: usdcAddress,
+      tokenOut: daiAddress,
+      fee: PoolFee.LOW,
+      recipient: signer.address,
+      deadline: Math.floor(Date.now() / 1000) + 60 * 10, // 10分钟后过期
+      amountIn: amountIn,
+      amountOutMinimum: 0, // 最小接受数量设为0以简化测试（实际使用中应设置合理值以防滑点）
+      sqrtPriceLimitX96: 0, // 不设置价格限制
+    };
+    const tx = await swapRouterContract
+      .connect(signer)
+      .exactInputSingle(params);
+    await tx.wait();
+    console.log("Swap交易已提交，交易哈希:", tx.hash);
+    // 交换后余额
+    const usdcAfter = await getTokenBalance(signer.address, usdcAddress, 6);
+    const daiAfter = await getTokenBalance(signer.address, daiAddress, 18);
+    console.log("--------------------------------------------------");
+    console.log("交换数量", exchangeAmount);
+    console.log("USDC 交换前余额:", usdcBefore);
+    console.log("USDC 交换后余额:", usdcAfter);
+    console.log("DAI 交换前余额:", daiBefore);
+    console.log("DAI 交换后余额:", daiAfter);
+
+    expect(usdcAfter).to.closeTo(usdcBefore - exchangeAmount, 0.01); // 考虑到手续费，允许有一定误差
+    expect(daiAfter).to.closeTo(daiBefore + exchangeAmount, 0.01); // 考虑到手续费，允许有一定误差
+  });
+
+  it("应该可以swap DAI-USDC", async function () {
+    console.log("USDC地址:", usdcAddress);
+    console.log("DAI地址:", daiAddress);
+    //获取USDC-DAI池子地址
+    const poolAddress = await nextswapFactroy.getPool(
+      usdcAddress,
+      daiAddress,
+      PoolFee.LOW
+    );
+    console.log("USDC-DAI池子地址:", poolAddress);
+    //获取swap路由合约
+    const swapRouterAddress = deployment.contracts.SwapRouter.proxyAddress;
+    console.log("Swap路由合约地址:", swapRouterAddress);
+
+    // 单一ERC交换 交换数量 100 USDC
+    // 初始余额
+    const usdcBefore = await getTokenBalance(signer.address, usdcAddress, 6);
+    const daiBefore = await getTokenBalance(signer.address, daiAddress, 18);
+
+    const exchangeAmount = 1;
+
+    const amountIn = ethers.parseUnits(exchangeAmount.toString(), 18); // 1 DAI
+    //批准Swap路由合约花费DAI
+    await approveERC20("DAI", daiAddress, swapRouterAddress, amountIn);
+    //执行swap
+    const swapRouterContract = await ethers.getContractAt(
+      "SwapRouter",
+      swapRouterAddress
+    );
+
+    const params = {
+      tokenIn: daiAddress,
+      tokenOut: usdcAddress,
+      fee: PoolFee.LOW,
+      recipient: signer.address,
+      deadline: Math.floor(Date.now() / 1000) + 60 * 10, // 10分钟后过期
+      amountIn: amountIn,
+      amountOutMinimum: 0, // 最小接受数量设为0以简化测试（实际使用中应设置合理值以防滑点）
+      sqrtPriceLimitX96: 0, // 不设置价格限制
+    };
+    const tx = await swapRouterContract
+      .connect(signer)
+      .exactInputSingle(params);
+    await tx.wait();
+    console.log("Swap交易已提交，交易哈希:", tx.hash);
+    // 交换后余额
+    const usdcAfter = await getTokenBalance(signer.address, usdcAddress, 6);
+    const daiAfter = await getTokenBalance(signer.address, daiAddress, 18);
+    console.log("--------------------------------------------------");
+    console.log("交换数量", exchangeAmount);
+    console.log("USDC 交换前余额:", usdcBefore);
+    console.log("USDC 交换后余额:", usdcAfter);
+    console.log("DAI 交换前余额:", daiBefore);
+    console.log("DAI 交换后余额:", daiAfter);
+
+    expect(usdcAfter).to.closeTo(usdcBefore + exchangeAmount, 0.01); // 考虑到手续费，允许有一定误差
+    expect(daiAfter).to.closeTo(daiBefore - exchangeAmount, 0.01); // 考虑到手续费，允许有一定误差
+  });
+
+  it.only("应该可以执行多跳交换 USDC-DAI-USDT", async function () {
+    console.log("USDC地址:", usdcAddress);
+    console.log("DAI地址:", daiAddress);
+    console.log("USDT地址:", usdtAddress);
+
+    // 获取swap路由合约
+    const swapRouterAddress = deployment.contracts.SwapRouter.proxyAddress;
+    console.log("Swap路由合约地址:", swapRouterAddress);
+
+    // 记录初始余额
+    const usdcBefore = await getTokenBalance(
+      signer.address,
+      usdcAddress,
+      Decimals.USDC
+    );
+    const daiBefore = await getTokenBalance(
+      signer.address,
+      daiAddress,
+      Decimals.DAI
+    );
+    const usdtBefore = await getTokenBalance(
+      signer.address,
+      usdtAddress,
+      Decimals.USDT
+    );
+
+    // 设置交换数量：1 USDC（降低测试数量）
+    const exchangeAmount = 1;
+    const amountIn = ethers.parseUnits(
+      exchangeAmount.toString(),
+      Decimals.USDC
+    ); // 1 USDC
+
+    // 批准Swap路由合约花费USDC
+    await approveERC20("USDC", usdcAddress, swapRouterAddress, amountIn);
+
+    // 获取SwapRouter合约实例
+    const swapRouterContract = await ethers.getContractAt(
+      "SwapRouter",
+      swapRouterAddress
+    );
+
+    console.log("开始执行多跳交换...");
+    console.log("输入:", exchangeAmount, "USDC");
+    console.log("期望路径: USDC -> DAI -> USDT");
+
+    // 使用 encodeV3Path 编码多跳路径：USDC -> DAI -> USDT
+    const path = encodeV3Path(
+      [usdcAddress, daiAddress, usdtAddress],
+      [PoolFee.LOW, PoolFee.LOW]
+    );
+
+    console.log("编码的路径:", path);
+
+    const multiHopParams = {
+      path: path,
+      recipient: signer.address,
+      deadline: Math.floor(Date.now() / 1000) + 60 * 10, // 10分钟后过期
+      amountIn: amountIn,
+      amountOutMinimum: 0, // 最小接受数量设为0以简化测试（实际使用中应设置合理值以防滑点）
+    };
+
+    // 执行多跳交换
+    const tx = await swapRouterContract
+      .connect(signer)
+      .exactInput(multiHopParams);
+    await tx.wait();
+    console.log("多跳交换交易已提交，交易哈希:", tx.hash);
+
+    // 记录交换后余额
+    const usdcAfter = await getTokenBalance(
+      signer.address,
+      usdcAddress,
+      Decimals.USDC
+    );
+    const daiAfter = await getTokenBalance(
+      signer.address,
+      daiAddress,
+      Decimals.DAI
+    );
+    const usdtAfter = await getTokenBalance(
+      signer.address,
+      usdtAddress,
+      Decimals.USDT
+    );
+
+    console.log("\n=== 交换结果 ===");
+    console.log("USDC 交换前余额:", usdcBefore);
+    console.log("USDC 交换后余额:", usdcAfter);
+    console.log("USDC 消耗:", (usdcBefore - usdcAfter).toFixed(6));
+
+    console.log("\nDAI 交换前余额:", daiBefore);
+    console.log("DAI 交换后余额:", daiAfter);
+    console.log("DAI 变化:", (daiAfter - daiBefore).toFixed(6));
+
+    console.log("\nUSDT 交换前余额:", usdtBefore);
+    console.log("USDT 交换后余额:", usdtAfter);
+    console.log("USDT 获得:", (usdtAfter - usdtBefore).toFixed(6));
+
+    // 验证交换结果
+    expect(usdcAfter).to.be.lessThan(usdcBefore); // USDC应该减少
+    expect(usdtAfter).to.be.greaterThan(usdtBefore); // USDT应该增加
+    expect(usdcAfter).to.closeTo(usdcBefore - exchangeAmount, 1); // 允许1 USDC误差
+    // DAI余额应该基本不变（只是中间代币）
+    expect(daiAfter).to.closeTo(daiBefore, 1);
   });
 
   //------------------------------------------- functions -------------------------------------------------
+  // 显示ERC20代币余额
   async function showTokenBalance(
     tokenName: string,
     tokenAddress: string,
     decimals: number,
     owner: string
   ) {
+    const balance = await getTokenBalance(owner, tokenAddress, decimals);
+    console.log(tokenName, "余额:", balance);
+  }
+
+  async function getTokenBalance(
+    owner: string,
+    tokenAddress: string,
+    decimals: number
+  ): Promise<number> {
     const erc20Contract = (await ethers.getContractAt(
       "ERC20",
       tokenAddress
     )) as ERC20;
     const balance = await erc20Contract.balanceOf(owner);
-    console.log(tokenName, "余额:", ethers.formatUnits(balance, decimals));
+    return Number(ethers.formatUnits(balance, decimals));
+  }
+
+  //批准ERC20代币
+  async function approveERC20(
+    tokenName: string,
+    tokenAddress: string,
+    spender: string,
+    amount: bigint
+  ) {
+    const erc20Contract = (await ethers.getContractAt(
+      "ERC20",
+      tokenAddress
+    )) as ERC20;
+    const tx = await erc20Contract.connect(signer).approve(spender, amount);
+    await tx.wait();
+    console.log(
+      `${tokenName} 已批准 ${spender} 花费 ${ethers.formatUnits(amount)}`
+    );
+  }
+  //构建简单的params
+  function buildParams(
+    tokenIn: string,
+    tokenOut: string,
+    fee: PoolFee,
+    amountIn: bigint
+  ) {
+    return {
+      tokenIn: tokenIn,
+      tokenOut: tokenOut,
+      fee: fee,
+      recipient: signer.address,
+      deadline: Math.floor(Date.now() / 1000) + 60 * 10, // 10分钟后过期
+      amountIn: amountIn,
+      amountOutMinimum: 0, // 最小接受数量设为0以简化测试（实际使用中应设置合理值以防滑点）
+      sqrtPriceLimitX96: 0, // 不设置价格限制
+    };
   }
 });
