@@ -28,6 +28,8 @@ import {
 import { verifyContractCode } from "./utils/VerifyUtils";
 import { get } from "http";
 import JSBI from "jsbi";
+import { PoolFee } from "../scripts/types/Enum";
+
 describe("Swap 合约测试", function () {
   let deployment: any;
   this.timeout(600000); // 设置超时时间为 10 分钟
@@ -42,12 +44,6 @@ describe("Swap 合约测试", function () {
 
   //一亿token
   const oneHundredMillionTokens = "100000";
-
-  enum PoolFee {
-    LOW = 500, // 0.05%
-    MEDIUM = 3000, // 0.3%
-    HIGH = 10000, // 1%
-  }
 
   let wethAddress: string;
   let daiAddress: string;
@@ -144,9 +140,8 @@ describe("Swap 合约测试", function () {
     const ethBalanceBefore = await ethers.provider.getBalance(signer.address);
     console.log("WETH初始余额:", ethers.formatUnits(wethBalanceBefore, 18));
     console.log("ETH初始余额:", ethers.formatEther(ethBalanceBefore));
-    const withdrawAmount = ethers.parseEther("0.5");
+    const withdrawAmount = ethers.parseEther("1");
 
-    // WETH的withdraw不需要approve，直接从自己的余额中提取
     await wethContract.connect(signer).withdraw(withdrawAmount);
     const wethBalanceAfter = await wethContract.balanceOf(signer.address);
     const ethBalanceAfter = await ethers.provider.getBalance(signer.address);
@@ -154,6 +149,45 @@ describe("Swap 合约测试", function () {
     console.log("ETH转化后余额:", ethers.formatEther(ethBalanceAfter));
     expect(wethBalanceAfter).to.equal(wethBalanceBefore - withdrawAmount);
     expect(ethBalanceAfter).to.closeTo(ethBalanceBefore + withdrawAmount, 1e15); // 考虑到gas费用，允许有一定误差
+  });
+  it("WETH转化为ETH错误数量应该失败", async function () {
+    const wethContract = (await ethers.getContractAt(
+      "WETH9",
+      wethAddress
+    )) as WETH9;
+    const wethBalanceBefore = await wethContract.balanceOf(signer.address);
+    const ethBalanceBefore = await ethers.provider.getBalance(signer.address);
+    console.log("WETH初始余额:", ethers.formatUnits(wethBalanceBefore, 18));
+    console.log("ETH初始余额:", ethers.formatEther(ethBalanceBefore));
+    const withdrawAmount = ethers.parseEther("100"); // 故意设置一个过大的数量
+
+    //合约地址剩余的ETH余额
+    const remain = await ethers.provider.getBalance(wethAddress);
+    console.log("WETH合约地址剩余ETH余额:", ethers.formatEther(remain));
+
+    console.log(
+      "提取后合约ETH余额:",
+      ethers.formatUnits(remain - withdrawAmount)
+    );
+    // 应该失败
+    await expect(wethContract.connect(signer).withdraw(withdrawAmount)).to.be
+      .reverted;
+  });
+
+  it.only("应该可以swap USDC-DAI", async function () {
+    //获取USDC-DAI池子地址
+    const poolAddress = await nextswapFactroy.getPool(
+      usdcAddress,
+      daiAddress,
+      PoolFee.LOW
+    );
+    console.log("USDC-DAI池子地址:", poolAddress);
+    expect(poolAddress).to.not.equal(ADDRESS_ZERO);
+    //获取swap路由合约
+    const swapRouterAddress =
+      deployment.contracts.NextswapV3SwapRouter.proxyAddress;
+    console.log("Swap路由合约地址:", swapRouterAddress);
+    expect(swapRouterAddress).to.be.a("string").that.is.not.empty;
   });
 
   //------------------------------------------- functions -------------------------------------------------
