@@ -55,7 +55,7 @@ error ClaimPeriodHasNotStarted(); // 领取期未开始
 error NoTokensAvailableToClaimInPrivateSale(); // 私募中没有可领取的代币
 error InsufficientTokenBalanceInContract(); // 合约中代币余额不足
 
-// NextswapModifier errors
+// NextswapModifiers errors
 error DonationPeriodNotActive(); // 捐赠期未激活
 error CallerIsZeroAddress(); // 调用者是零地址
 error CannotOperateAdminRole(); // 不能操作管理员角色

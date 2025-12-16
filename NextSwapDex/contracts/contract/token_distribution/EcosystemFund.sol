@@ -10,7 +10,7 @@ import "../lib/PublicWithdrawable.sol";
 import "../NextswapToken.sol";
 
 import "../../constants/Constants.sol";
-import "../../modifiers/NextswapModifier.sol";
+import "../../modifiers/NextswapModifiers.sol";
 import "../../events/NextswapEvents.sol";
 
 /**
@@ -18,7 +18,7 @@ import "../../events/NextswapEvents.sol";
  * @dev 生态基金合约
  */
 
-contract EcosystemFund is Ownable2Step, PublicWithdrawable, NextswapModifier {
+contract EcosystemFund is Ownable2Step, PublicWithdrawable, NextswapModifiers {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable token;

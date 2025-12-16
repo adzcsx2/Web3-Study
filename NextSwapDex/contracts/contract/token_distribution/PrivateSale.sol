@@ -8,7 +8,7 @@ import "../lib/PublicWithdrawable.sol";
 import "../NextswapToken.sol";
 
 import "../../constants/Constants.sol";
-import "../../modifiers/NextswapModifier.sol";
+import "../../modifiers/NextswapModifiers.sol";
 import "../../events/NextswapEvents.sol";
 import "../../types/NextswapStructs.sol";
 import "../../errors/NextswapErrors.sol";
@@ -16,7 +16,7 @@ import "../../errors/NextswapErrors.sol";
  * @title PrivateSale
  * @dev 私募合约
  */
-contract PrivateSale is Ownable2Step, PublicWithdrawable, NextswapModifier {
+contract PrivateSale is Ownable2Step, PublicWithdrawable, NextswapModifiers {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable token;

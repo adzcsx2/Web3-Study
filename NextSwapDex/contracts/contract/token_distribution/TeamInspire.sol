@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "../lib/PublicWithdrawable.sol";
 
 import "../../constants/Constants.sol";
-import "../../modifiers/NextswapModifier.sol";
+import "../../modifiers/NextswapModifiers.sol";
 import "../NextswapToken.sol";
 import "../../events/NextswapEvents.sol";
 import "../../types/NextswapStructs.sol";
@@ -21,7 +21,7 @@ import "../../errors/NextswapErrors.sol";
 - ** 1年后加入的成员**：从加入时间开始 3 年线性释放（无悬崖期）
  */
 
-contract TeamInspire is Ownable2Step, PublicWithdrawable, NextswapModifier {
+contract TeamInspire is Ownable2Step, PublicWithdrawable, NextswapModifiers {
     using SafeERC20 for IERC20;
 
     // Nextswap 代币合约地址

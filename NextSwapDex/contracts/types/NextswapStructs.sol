@@ -71,3 +71,5 @@ struct UserStakeInfo {
     uint256 rewardDebt; // 奖励债务
     uint256 pendingRewards; // 待领取奖励
 }
+
+

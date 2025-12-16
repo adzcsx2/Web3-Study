@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
 import "../events/NextswapEvents.sol";
-import "../modifiers/NextswapModifier.sol";
+import "../modifiers/NextswapModifiers.sol";
 import "../constants/Constants.sol";
 import "../errors/NextswapErrors.sol";
 
@@ -23,7 +23,7 @@ contract NextswapToken is
     ERC20Votes,
     AccessControl,
     Pausable,
-    NextswapModifier
+    NextswapModifiers
 {
     using SafeERC20 for IERC20;
     // 总量

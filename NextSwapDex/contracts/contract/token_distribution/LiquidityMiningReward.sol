@@ -22,7 +22,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "../swap/periphery/interfaces/INonfungiblePositionManager.sol";
 
 import "../../events/NextswapEvents.sol";
-import "../../modifiers/NextswapModifier.sol";
+import "../../modifiers/NextswapModifiers.sol";
 import "../../errors/NextswapErrors.sol";
 
 contract LiquidityMiningReward is
@@ -31,7 +31,7 @@ contract LiquidityMiningReward is
     ReentrancyGuardUpgradeable,
     PausableUpgradeable,
     UUPSUpgradeable,
-    NextswapModifier
+    NextswapModifiers
 {
     using SafeERC20 for IERC20;
     // 生态基金地址
@@ -107,8 +107,6 @@ contract LiquidityMiningReward is
     }
 
     // -------------------------------------------核心功能-------------------------------------
-
-   
 
     /**
      * @dev 流动性挖矿合约开发任务清单（按开发顺序）

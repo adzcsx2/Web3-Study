@@ -17,11 +17,15 @@ import "../lib/PublicWithdrawable.sol";
 
 import "../../events/NextswapEvents.sol";
 import "../NextswapToken.sol";
-import "../../modifiers/NextswapModifier.sol";
+import "../../modifiers/NextswapModifiers.sol";
 import "../../types/NextswapStructs.sol";
 import "../../errors/NextswapErrors.sol";
 
-contract NextswapAirdrop is Ownable2Step, PublicWithdrawable, NextswapModifier {
+contract NextswapAirdrop is
+    Ownable2Step,
+    PublicWithdrawable,
+    NextswapModifiers
+{
     using SafeERC20 for IERC20;
 
     IERC20 public immutable token;
