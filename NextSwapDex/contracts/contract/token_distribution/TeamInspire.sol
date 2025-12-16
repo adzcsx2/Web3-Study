@@ -10,7 +10,7 @@ import "../../constants/Constants.sol";
 import "../../modifiers/NextswapModifier.sol";
 import "../NextswapToken.sol";
 import "../../events/NextswapEvents.sol";
-import "../../structs/NextswapStructs.sol";
+import "../../types/NextswapStructs.sol";
 import "../../errors/NextswapErrors.sol";
 
 /**

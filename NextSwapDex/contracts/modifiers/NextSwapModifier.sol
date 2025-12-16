@@ -43,13 +43,6 @@ abstract contract NextswapModifier {
         _;
     }
 
-    // 必须是管理员或者时间锁角色
-    modifier onlyAdminOrTimelock(bytes32 role) {
-        if (role != DEFAULT_ADMIN_ROLE && role != TIMELOCK_ROLE) {
-            revert UnauthorizedAdminOrTimelock();
-        }
-        _;
-    }
 
     // 数量大于零检查
     modifier amountGreaterThanZero(uint256 amount) {

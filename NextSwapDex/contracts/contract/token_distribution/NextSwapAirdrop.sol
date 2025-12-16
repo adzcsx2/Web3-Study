@@ -18,7 +18,7 @@ import "../lib/PublicWithdrawable.sol";
 import "../../events/NextswapEvents.sol";
 import "../NextswapToken.sol";
 import "../../modifiers/NextswapModifier.sol";
-import "../../structs/NextswapStructs.sol";
+import "../../types/NextswapStructs.sol";
 import "../../errors/NextswapErrors.sol";
 
 contract NextswapAirdrop is Ownable2Step, PublicWithdrawable, NextswapModifier {

@@ -11,20 +11,25 @@ pragma solidity ^0.8.26;
   - 根据流动性贡献分配
   - 支持多池挖矿激励
  */
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+
+import "../swap/periphery/interfaces/INonfungiblePositionManager.sol";
 
 import "../../events/NextswapEvents.sol";
 import "../../modifiers/NextswapModifier.sol";
 import "../../errors/NextswapErrors.sol";
 
 contract LiquidityMiningReward is
-    AccessControl,
-    ReentrancyGuard,
-    Pausable,
+    Initializable,
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable,
+    PausableUpgradeable,
     UUPSUpgradeable,
     NextswapModifier
 {
@@ -49,6 +54,17 @@ contract LiquidityMiningReward is
     // npm
     INonfungiblePositionManager public immutable npm;
 
+    // 必须是管理员或者时间锁角色
+    modifier onlyAdminOrTimelock() {
+        if (
+            !hasRole(DEFAULT_ADMIN_ROLE, msg.sender) &&
+            !hasRole(TIMELOCK_ROLE, msg.sender)
+        ) {
+            revert UnauthorizedAdminOrTimelock();
+        }
+        _;
+    }
+
     /**
      * @dev Constructor 用于初始化 immutable 变量
      * @notice UUPS 模式下，constructor 只在部署实现合约时执行一次
@@ -71,6 +87,7 @@ contract LiquidityMiningReward is
     /**
      * @dev 代理合约的初始化函数
      * @notice 只能被调用一次，用于初始化代理合约的状态
+     * @notice initializer 修饰符确保只能调用一次，无需额外权限检查
      * @param _ecosystemFundAddress 生态基金地址
      * @param _timelock 时间锁合约地址
      * @param _admin 初始管理员地址
@@ -235,12 +252,7 @@ contract LiquidityMiningReward is
      */
     function _authorizeUpgrade(
         address newImplementation
-    )
-        internal
-        override
-        nonZeroAddress(newImplementation)
-        onlyAdminOrTimelock(msg.sender)
-    {}
+    ) internal override nonZeroAddress(newImplementation) onlyAdminOrTimelock {}
 
     // ---------------------------------------view functions----------------------------------------
     // 计算已解锁代币数量
