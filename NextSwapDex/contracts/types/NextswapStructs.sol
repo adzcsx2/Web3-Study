@@ -34,3 +34,40 @@ struct PrivateSaleRound {
     uint256 totalSold; // 已售出数量
     bool isActive; // 轮次是否激活
 }
+
+/**
+ * LP 池配置结构体
+ */
+struct LpPoolConfig {
+    address tokenA;
+    address tokenB;
+    uint24 fee;
+    uint256 allocPoint;
+}
+
+// LP 池信息
+struct LpPoolInfo {
+    address lpToken; // LP Token 或 NFT 合约地址
+    uint256 allocPoint; // 分配点数
+    uint256 lastRewardTime; // 上次奖励时间
+    uint256 accNextSwapPerShare; // 每份额累计的奖励
+    uint256 totalStaked; // 总质押数量
+    bool isActive; // 池是否激活
+}
+
+// LP NFT 质押信息
+struct LpNftStakeInfo {
+    address owner; // NFT 所有者
+    uint256 tokenId; // NFT Token ID
+    uint256 liquidity; // 流动性数量
+    uint256 stakedTime; // 质押时间
+    uint256 rewardDebt; // 奖励债务（用于计算未领取奖励）
+}
+
+// 用户在某个池中的质押信息
+struct UserStakeInfo {
+    uint256 amount; // 质押数量（ERC20模式）
+    uint256[] nftTokenIds; // 质押的NFT ID列表（NFT模式）
+    uint256 rewardDebt; // 奖励债务
+    uint256 pendingRewards; // 待领取奖励
+}
