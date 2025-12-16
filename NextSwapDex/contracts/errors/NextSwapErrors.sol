@@ -65,3 +65,6 @@ error AmountMustBeGreaterThanZeroModifier(); // 数量必须大于0（修饰符�
 error InsufficientBalanceModifier(); // 余额不足（修饰符）
 error TimeMustBeInFuture(); // 时间必须在未来
 error EndTimeMustBeAfterStartTime(); // 结束时间必须晚于开始时间
+
+// LpPools errors
+error UnstakeAlreadyRequested(); // 已经请求了解质押

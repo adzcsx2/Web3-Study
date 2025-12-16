@@ -60,8 +60,11 @@ struct LpNftStakeInfo {
     address owner; // NFT 所有者
     uint256 tokenId; // NFT Token ID
     uint256 liquidity; // 流动性数量
-    uint256 stakedTime; // 质押时间
-    uint256 rewardDebt; // 奖励债务（用于计算未领取奖励）
+    uint256 stakedAt; // 质押时间
+    uint256 receivedReward; //已领取奖励
+    uint256 pendingRewards; // 待领取奖励
+    uint256 lastClaimAt; // 上次领取奖励时间
+    uint256 requestedUnstakeAt; // 请求解除质押时间
 }
 
 // 用户在某个池中的质押信息
@@ -71,5 +74,3 @@ struct UserStakeInfo {
     uint256 rewardDebt; // 奖励债务
     uint256 pendingRewards; // 待领取奖励
 }
-
-
