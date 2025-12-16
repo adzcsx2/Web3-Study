@@ -3,11 +3,14 @@ pragma solidity ^0.8.26;
 
 // NextswapToken errors
 error RoleTransferToHolder(); // 不能把角色转给已有该角色的持有者
+error RoleNotHeld(); // 该地址未持有该角色
 error CannotTransferToSelf(); // 不能将角色转移给自己
+error CannotTransferAdminRole(); // 不能转移管理员角色
 error CannotRevokeAdminRole(); // 不能撤销管理员角色
 error CannotRevokeTimelockRole(); // 不能撤销时间锁角色
 error CannotGrantAdminRole(); // 不能授予管理员角色
 error CannotRecoverNST(); // 不能恢复NST代币
+error UnauthorizedUpgrade(); // 未授权的合约升级
 
 // TeamInspire errors
 error InvalidTokenAddress(); // 无效的代币地址
@@ -57,6 +60,7 @@ error DonationPeriodNotActive(); // 捐赠期未激活
 error CallerIsZeroAddress(); // 调用者是零地址
 error CannotOperateAdminRole(); // 不能操作管理员角色
 error CannotOperateTimelockRole(); // 不能操作时间锁角色
+error UnauthorizedAdminOrTimelock(); // 必须是管理员或者时间锁角色
 error AmountMustBeGreaterThanZeroModifier(); // 数量必须大于0（修饰符）
 error InsufficientBalanceModifier(); // 余额不足（修饰符）
 error TimeMustBeInFuture(); // 时间必须在未来

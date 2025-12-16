@@ -55,18 +55,24 @@ contract NextswapToken is
      * @dev 转移角色
      * @param role 角色
      * @param to 接收地址
+     * @notice 不允许转移  TIMELOCK_ROLE，这些角色需要通过治理流程管理
      */
     function transferRole(
         bytes32 role,
         address to
-    ) public nonZeroAddress(to) onlyRole(role) nonTimeLockRole(role) {
-        if (hasRole(role, to)) {
-            revert RoleTransferToHolder();
-        }
-        // 3. 验证接收地址有效
+    )
+        public
+        nonZeroAddress(to)
+        onlyRole(role)
+        nonTimeLockRole(role)
+        nonAdminRole(role)
+    {
+        // 验证不是转移给自己
         if (to == msg.sender) {
             revert CannotTransferToSelf();
         }
+
+        //  执行角色转移
         _revokeRole(role, msg.sender);
         _grantRole(role, to);
         emit RoleTransferred(role, msg.sender, to);
@@ -74,6 +80,11 @@ contract NextswapToken is
 
     // -------------------------------------------重写仅时间锁合约可调用的函数-------------------------------------
 
+    /**
+     * @dev 更新时间锁合约地址
+     * @notice 只能由当前时间锁调用，通过治理提案执行
+     * @param newTimelock 新时间锁合约地址
+     */
     function updateTimelock(
         address newTimelock
     ) external onlyRole(TIMELOCK_ROLE) nonZeroAddress(newTimelock) {
@@ -91,6 +102,12 @@ contract NextswapToken is
         emit TimelockUpdated(oldTimelock, newTimelock);
     }
 
+    /**
+     * @dev 授予角色（仅时间锁）
+     * @notice 只能授予非核心角色（排除 DEFAULT_ADMIN_ROLE 和 TIMELOCK_ROLE）
+     * @param role 角色哈希
+     * @param account 接收地址
+     */
     function grantRole(
         bytes32 role,
         address account
@@ -100,10 +117,21 @@ contract NextswapToken is
         onlyRole(TIMELOCK_ROLE)
         nonAdminRole(role)
         nonTimeLockRole(role)
+        nonZeroAddress(account)
     {
+        // 检查是否已持有该角色
+        if (hasRole(role, account)) {
+            revert RoleTransferToHolder();
+        }
         _grantRole(role, account);
     }
 
+    /**
+     * @dev 撤销角色（仅时间锁）
+     * @notice 只能撤销非核心角色（排除 DEFAULT_ADMIN_ROLE 和 TIMELOCK_ROLE）
+     * @param role 角色哈希
+     * @param account 被撤销地址
+     */
     function revokeRole(
         bytes32 role,
         address account
@@ -113,7 +141,12 @@ contract NextswapToken is
         onlyRole(TIMELOCK_ROLE)
         nonAdminRole(role)
         nonTimeLockRole(role)
+        nonZeroAddress(account)
     {
+        // 检查是否真的持有该角色
+        if (!hasRole(role, account)) {
+            revert RoleNotHeld();
+        }
         _revokeRole(role, account);
     }
     // -------------------------------------------铸造和销毁-------------------------------------
