@@ -47,14 +47,13 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "ethers": "^6.15.0",
-    "ethers-v5": "npm:ethers@^5.7.2",
     "@openzeppelin/contracts": "^5.4.0",
     "@openzeppelin/contracts-upgradeable": "^5.4.0",
     "@uniswap/router-sdk": "^2.2.0",
-    "@uniswap/smart-order-router": "^4.22.38",
     "@uniswap/v3-core": "^1.0.1",
     "@uniswap/v3-sdk": "^3.26.0",
-    "base64-sol": "^1.1.0"
+    "base64-sol": "^1.1.0",
+    "ethers": "^6.15.0",
+    "ethers-v5": "npm:ethers@^5.7.2"
   }
 }

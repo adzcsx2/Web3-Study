@@ -110,21 +110,3 @@ export function getSpacingFromFee(fee: number): number {
       throw new Error("Unsupported fee tier");
   }
 }
-/**
- *  编码 Uniswap V3 路径
- * @param tokens
- * @param fees
- * @returns
- */
-export function encodeV3Path(tokens: string[], fees: number[]): string {
-  if (tokens.length !== fees.length + 1) {
-    throw new Error("Invalid path");
-  }
-  let path = "0x";
-  for (let i = 0; i < fees.length; i++) {
-    path += tokens[i].slice(2).padStart(40, "0");
-    path += fees[i].toString(16).padStart(6, "0"); // uint24 in 3 bytes
-  }
-  path += tokens[tokens.length - 1].slice(2).padStart(40, "0");
-  return path;
-}
