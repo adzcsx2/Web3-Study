@@ -21,7 +21,7 @@ contract LpPoolManager is AccessControl, NextswapModifiers {
     // 流动性挖矿奖励合约地址
     LiquidityMiningReward public immutable liquidityMiningRewardContract;
 
-    // 通过池键快速查找池: keccak256(tokenA, tokenB, fee) => pool address
+    // 通过池键快速查找池: keccak256(tokenA, tokenB, fee) => poolId（poolId 从 1 开始，0 表示不存在）
     mapping(bytes32 => uint256) private poolsIdByKey;
 
     // 必须是管理员或者时间锁角色
@@ -36,21 +36,30 @@ contract LpPoolManager is AccessControl, NextswapModifiers {
     }
 
     constructor(
-        address _liquidityMiningRewardContract, //
+        address _liquidityMiningRewardContract,
         address _positionManager
-    ) nonZeroAddress(_positionManager) {
+    )
+        nonZeroAddress(_liquidityMiningRewardContract)
+        nonZeroAddress(_positionManager)
+    {
         liquidityMiningRewardContract = LiquidityMiningReward(
             _liquidityMiningRewardContract
         );
         positionManager = _positionManager;
+
+        // 初始化管理员角色
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     /**
      * @notice 创建新的 LP 质押池
+     * @dev 只有管理员或时间锁可以调用
      * @param _pool 池配置参数
      * @return poolAddress 新创建的池合约地址
      */
-    function addLpPool(LpPool memory _pool) public returns (LpPool memory) {
+    function addLpPool(
+        LpPool memory _pool
+    ) public onlyAdminOrTimelock returns (LpPool memory) {
         // 规范化配置并检查是否已存在
         bytes32 poolKey = getPoolKey(_pool.tokenA, _pool.tokenB, _pool.fee);
         if (poolsIdByKey[poolKey] != 0) {
@@ -67,7 +76,7 @@ contract LpPoolManager is AccessControl, NextswapModifiers {
             lpPool
         );
 
-        // 保存到映射
+        // 保存到映射（poolId 从 1 开始，直接存储）
         poolsIdByKey[poolKey] = lpPool.poolId;
 
         lpPool.poolAddress = address(newPool);
@@ -108,11 +117,12 @@ contract LpPoolManager is AccessControl, NextswapModifiers {
         uint256 poolId,
         uint256 newAllocPoint
     ) external onlyAdminOrTimelock {
-        if (poolId >= lpPools.length) {
+        // poolId 从 1 开始，0 表示无效
+        if (poolId == 0 || poolId > lpPools.length) {
             revert PoolDoesNotExist();
         }
 
-        LpPool storage pool = lpPools[poolId];
+        LpPool storage pool = lpPools[poolId - 1];
         uint256 oldAllocPoint = pool.allocPoint;
 
         // 更新总分配点数
@@ -129,15 +139,20 @@ contract LpPoolManager is AccessControl, NextswapModifiers {
      * @param tokenA 代币 A 地址
      * @param tokenB 代币 B 地址
      * @param fee 费率
-     * @return poolId 池id，不存在则返回 0
+     * @return exists 池是否存在
+     * @return poolId 池id（仅在 exists=true 时有效）
      */
     function findPoolId(
         address tokenA,
         address tokenB,
         uint24 fee
-    ) public view returns (uint256 poolId) {
+    ) public view returns (bool exists, uint256 poolId) {
         bytes32 poolKey = getPoolKey(tokenA, tokenB, fee);
-        return poolsIdByKey[poolKey];
+        uint256 storedValue = poolsIdByKey[poolKey];
+        if (storedValue == 0) {
+            return (false, 0); // 不存在
+        }
+        return (true, storedValue); // 存在，返回 poolId（从 1 开始）
     }
 
     /**
@@ -149,8 +164,9 @@ contract LpPoolManager is AccessControl, NextswapModifiers {
     function getPoolRewardPerSecond(
         uint256 poolId
     ) public view returns (uint256 rewardPerSecond) {
-        if (poolId >= lpPools.length) {
-            return 0;
+        // 检查池子是否存在（poolId 从 1 开始）
+        if (poolId == 0 || poolId > lpPools.length) {
+            revert PoolDoesNotExist();
         }
 
         // 如果没有任何池子有权重，返回0避免除零错误
@@ -162,8 +178,8 @@ contract LpPoolManager is AccessControl, NextswapModifiers {
         uint256 totalRewardPerSecond = liquidityMiningRewardContract
             .getRewardPerSecond();
 
-        // 根据权重计算该池子应得的奖励
-        LpPool memory pool = lpPools[poolId];
+        // 根据权重计算该池子应得的奖励（使用 poolId - 1 访问数组）
+        LpPool memory pool = lpPools[poolId - 1];
         rewardPerSecond =
             (totalRewardPerSecond * pool.allocPoint) /
             totalAllocPoint;
@@ -193,14 +209,15 @@ contract LpPoolManager is AccessControl, NextswapModifiers {
     function _initPool(
         LpPool memory _newlpPool
     ) internal view returns (LpPool memory) {
-        // 强制设置自增的 poolId
-        _newlpPool.poolId = lpPools.length;
+        // 强制设置自增的 poolId（从 1 开始）
+        _newlpPool.poolId = lpPools.length + 1;
         // 设置新的池配置逻辑
         if (_newlpPool.tokenA > _newlpPool.tokenB) {
             // 交换地址顺序
-            (address temp, ) = (_newlpPool.tokenA, _newlpPool.tokenB);
-            _newlpPool.tokenA = _newlpPool.tokenB;
-            _newlpPool.tokenB = temp;
+            (_newlpPool.tokenA, _newlpPool.tokenB) = (
+                _newlpPool.tokenB,
+                _newlpPool.tokenA
+            );
         }
         return _newlpPool;
     }

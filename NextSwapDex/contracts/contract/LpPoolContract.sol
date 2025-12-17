@@ -42,11 +42,11 @@ contract LpPoolContract is
     // 解质押冷却时间
     uint256 public UNSTAKE_COOLDOWN = 3 days;
 
-    // 必须是管理员或者时间锁角色
+    // 必须是管理员或者时间锁角色（检查调用者在 LpPoolManager 中的角色）
     modifier onlyAdminOrTimelock() {
         if (
-            !hasRole(DEFAULT_ADMIN_ROLE, msg.sender) &&
-            !hasRole(TIMELOCK_ROLE, msg.sender)
+            !lpm.hasRole(DEFAULT_ADMIN_ROLE, msg.sender) &&
+            !lpm.hasRole(TIMELOCK_ROLE, msg.sender)
         ) {
             revert UnauthorizedAdminOrTimelock();
         }
@@ -98,6 +98,10 @@ contract LpPoolContract is
             totalLiquidity: 0,
             isActive: false
         });
+
+        // 不需要在这里初始化角色，权限检查委托给 LpPoolManager
+        // 但需要给 LpPoolManager 授予 DEFAULT_ADMIN_ROLE 以便调用 _checkOwner
+        _grantRole(DEFAULT_ADMIN_ROLE, _lpPoolManager);
     }
 
     /**
@@ -209,7 +213,7 @@ contract LpPoolContract is
     )
         external
         poolMustBeActive(poolInfo.isActive)
-        isNFTOwner(tokenId)
+        onlyStakeOwner(tokenId)
         whenNotPaused
     {
         LpNftStakeInfo memory stakeInfo = lpNftStakes[tokenId];
@@ -231,7 +235,7 @@ contract LpPoolContract is
     )
         external
         poolMustBeActive(poolInfo.isActive)
-        isNFTOwner(tokenId)
+        onlyStakeOwner(tokenId)
         whenNotPaused
         nonReentrant
     {
@@ -247,6 +251,12 @@ contract LpPoolContract is
             revert UnstakeCooldownNotPassed();
         }
 
+        // 先领取所有待领取的奖励（如果有）
+        _updateRewardByTokenId(tokenId);
+        if (lpNftStakes[tokenId].pendingRewards > 0) {
+            _claimRewards(tokenId);
+        }
+
         // 从所有者的质押列表中移除（使用交换删除法，避免数组重排）
         uint256 index = tokenIdToIndex[tokenId];
         uint256 lastIndex = userStakedTokens[nftOwner].length - 1;
@@ -260,12 +270,13 @@ contract LpPoolContract is
         userStakedTokens[nftOwner].pop();
         delete tokenIdToIndex[tokenId];
 
-        // 删除质押信息
-        delete lpNftStakes[tokenId];
         // 总流动性减少
         poolInfo.totalLiquidity -= stakeInfo.liquidity;
         // 总质押数量减少
         poolInfo.totalStaked -= 1;
+
+        // 删除质押信息
+        delete lpNftStakes[tokenId];
 
         // 将 NFT 返还给原始所有者
         positionManager.safeTransferFrom(address(this), nftOwner, tokenId);
@@ -274,10 +285,101 @@ contract LpPoolContract is
     }
 
     /**
+     * @notice 领取质押奖励（公共接口）
+     * @param tokenId NFT 代币 ID
+     */
+    function claimRewards(
+        uint256 tokenId
+    )
+        external
+        poolMustBeActive(poolInfo.isActive)
+        isAuthorizedForToken(tokenId)
+        whenNotPaused
+        nonReentrant
+    {
+        _claimRewards(tokenId);
+    }
+
+    /**
+     * @notice 批量领取质押奖励
+     * @param tokenIds NFT 代币 ID 数组
+     */
+    function claimRewardsBatch(
+        uint256[] calldata tokenIds
+    ) external poolMustBeActive(poolInfo.isActive) whenNotPaused nonReentrant {
+        _claimRewardsBatch(tokenIds);
+    }
+    /**
+     * @notice 领取用户所有质押 NFT 的奖励
+     * @param user 用户地址
+     */
+    function claimRewardsByUser(
+        address user
+    ) external poolMustBeActive(poolInfo.isActive) whenNotPaused nonReentrant {
+        uint256[] memory tokenIds = userStakedTokens[user];
+        if (tokenIds.length == 0) {
+            revert NoStakedTokens();
+        }
+        _claimRewardsBatch(tokenIds);
+    }
+
+    /**
+     * @notice 设置解质押冷却时间
+     * @param _cooldown 冷却时间（秒）
+     */
+    function setUnstakeCooldown(
+        uint256 _cooldown
+    ) external onlyAdminOrTimelock whenNotPaused {
+        UNSTAKE_COOLDOWN = _cooldown;
+    }
+
+    /**
+     * @notice 同步 NFT 实际流动性（当用户调用 increaseLiquidity/decreaseLiquidity 后）
+     * @param tokenId NFT 代币 ID
+     * @dev 先结算当前奖励，再更新流动性值
+     * @dev 只有 NFT 所有者或授权操作者可以调用
+     */
+    function syncLiquidity(
+        uint256 tokenId
+    )
+        external
+        poolMustBeActive(poolInfo.isActive)
+        isAuthorizedForToken(tokenId)
+        whenNotPaused
+        nonReentrant
+    {
+        LpNftStakeInfo storage stakeInfo = lpNftStakes[tokenId];
+        if (stakeInfo.owner == address(0)) {
+            revert TokenNotStaked();
+        }
+
+        // 先按旧流动性结算奖励
+        _updateRewardByTokenId(tokenId);
+
+        // 获取实际流动性
+        uint128 actualLiquidity = getPositionLiquidity(tokenId);
+        uint256 oldLiquidity = stakeInfo.liquidity;
+
+        if (actualLiquidity == oldLiquidity) {
+            return; // 流动性未变化
+        }
+
+        // 更新总流动性
+        if (actualLiquidity > oldLiquidity) {
+            poolInfo.totalLiquidity += (actualLiquidity - oldLiquidity);
+        } else {
+            poolInfo.totalLiquidity -= (oldLiquidity - actualLiquidity);
+        }
+
+        // 更新质押信息中的流动性
+        stakeInfo.liquidity = actualLiquidity;
+    }
+    // ------------------------------------ internal helper functions ------------------------------------
+    /**
      * @notice 更新池子的累计奖励
      * @dev 根据时间差和动态奖励率计算新增的累计每份额奖励
      */
-    function updatePool() internal {
+    function _updatePool() internal whenNotPaused {
         // 如果当前时间还没到上次奖励时间，直接返回
         if (block.timestamp <= poolInfo.lastRewardTime) {
             return;
@@ -310,27 +412,13 @@ contract LpPoolContract is
     }
 
     /**
-     * @notice 领取质押奖励（所有者或授权操作者都可以调用）
+     * @notice 领取质押奖励（内部函数）
      * @param tokenId NFT 代币 ID
      */
     function _claimRewards(uint256 tokenId) internal {
-        // 先更新池子的累计奖励
-        updatePool();
-
+        //更新待领取奖励
+        _updateRewardByTokenId(tokenId);
         LpNftStakeInfo storage stakeInfo = lpNftStakes[tokenId];
-
-        // 计算该NFT的待领取奖励
-        uint256 liquidity = stakeInfo.liquidity;
-        uint256 accNextSwapPerShare = poolInfo.accNextSwapPerShare;
-        uint256 oldPendingRewards = stakeInfo.receivedReward +
-            stakeInfo.pendingRewards;
-        uint256 newPending = (liquidity * accNextSwapPerShare) /
-            1e18 -
-            oldPendingRewards;
-
-        // 更新待领取奖励
-        stakeInfo.pendingRewards += newPending;
-
         // 先保存待领取的奖励金额
         uint256 rewardAmount = stakeInfo.pendingRewards;
         if (rewardAmount == 0) {
@@ -356,66 +444,98 @@ contract LpPoolContract is
             block.timestamp
         );
     }
-
-    /**
-     * 计算奖励并更新质押信息
-     */
-    function _updateRewards(
-        address user
-    ) internal poolMustBeActive(poolInfo.isActive) whenNotPaused nonReentrant {
-        uint256[] memory tokenIds = userStakedTokens[user];
-        if (tokenIds.length == 0) {
-            revert NoStakedTokens();
-        }
-
+    function _updateRewardByTokenId(
+        uint256 tokenId
+    ) internal poolMustBeActive(poolInfo.isActive) whenNotPaused {
         // 先更新池子的累计奖励
-        updatePool();
+        _updatePool();
 
-        // 遍历用户所有质押的NFT，更新每个NFT的待领取奖励
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            uint256 tokenId = tokenIds[i];
-            LpNftStakeInfo storage stakeInfo = lpNftStakes[tokenId];
+        LpNftStakeInfo storage stakeInfo = lpNftStakes[tokenId];
 
-            // 计算应得奖励
-            uint256 liquidity = stakeInfo.liquidity;
-            uint256 accNextSwapPerShare = poolInfo.accNextSwapPerShare;
-            // 已经结算的奖励总额
-            uint256 oldPendingRewards = stakeInfo.receivedReward +
-                stakeInfo.pendingRewards;
-            // 新增奖励 = (流动性 * 累计每份额奖励) - 已结算奖励
-            uint256 pending = (liquidity * accNextSwapPerShare) /
-                1e18 -
-                oldPendingRewards;
-            // 更新待领取奖励
-            stakeInfo.pendingRewards += pending;
+        // 同步实际流动性（如果有变化）
+        uint128 actualLiquidity = getPositionLiquidity(tokenId);
+        uint256 oldLiquidity = stakeInfo.liquidity;
+
+        if (actualLiquidity != oldLiquidity) {
+            // 更新总流动性
+            if (actualLiquidity > oldLiquidity) {
+                poolInfo.totalLiquidity += (actualLiquidity - oldLiquidity);
+            } else {
+                poolInfo.totalLiquidity -= (oldLiquidity - actualLiquidity);
+            }
+            // 更新质押信息中的流动性
+            stakeInfo.liquidity = actualLiquidity;
         }
 
-        emit RewardsUpdated(user, tokenIds, block.timestamp);
+        // 计算该NFT的待领取奖励（使用更新后的流动性）
+        uint256 liquidity = stakeInfo.liquidity;
+        uint256 accNextSwapPerShare = poolInfo.accNextSwapPerShare;
+        uint256 oldPendingRewards = stakeInfo.receivedReward +
+            stakeInfo.pendingRewards;
+        uint256 newPending = (liquidity * accNextSwapPerShare) /
+            1e18 -
+            oldPendingRewards;
+
+        // 更新待领取奖励
+        stakeInfo.pendingRewards += newPending;
+
+        emit RewardsUpdated(
+            stakeInfo.owner,
+            _asArray(tokenId),
+            block.timestamp
+        );
     }
 
     /**
-     * @notice 设置解质押冷却时间
-     * @param _cooldown 冷却时间（秒）
+     * @notice 批量领取质押奖励
+     * @param tokenIds NFT 代币 ID 数组
      */
-    function setUnstakeCooldown(
-        uint256 _cooldown
-    ) external onlyAdminOrTimelock {
-        UNSTAKE_COOLDOWN = _cooldown;
+    function _claimRewardsBatch(uint256[] memory tokenIds) internal {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            if (!_isAuthorized(tokenIds[i], msg.sender)) {
+                revert NotAuthorizedForToken();
+            }
+            _claimRewards(tokenIds[i]);
+        }
+    }
+
+    /**
+     * @notice 将单个元素转换为数组
+     * @param element 单个元素
+     * @return arr 包含单个元素的数组
+     */
+    function _asArray(
+        uint256 element
+    ) internal pure returns (uint256[] memory arr) {
+        arr = new uint256[](1);
+        arr[0] = element;
+        return arr;
     }
 
     // ------------------------------------------overrides------------------------------------------
     //
     /**
      * @notice 检查暂停权限
-     * @dev 实现 PublicPausable 的抽象方法，只有管理员或时间锁角色可以暂停/恢复合约
+     * @dev 实现 PublicPausable 的抽象方法，检查调用者在 LpPoolManager 中的权限
      */
-    function _checkPauser() internal view override onlyAdminOrTimelock {}
-    function _checkOwner()
-        internal
-        view
-        override
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {}
+    function _checkPauser() internal view override {
+        if (
+            !lpm.hasRole(DEFAULT_ADMIN_ROLE, msg.sender) &&
+            !lpm.hasRole(TIMELOCK_ROLE, msg.sender)
+        ) {
+            revert UnauthorizedAdminOrTimelock();
+        }
+    }
+
+    /**
+     * @notice 检查所有者权限（用于 PublicWithdrawable）
+     * @dev 检查调用者在 LpPoolManager 中是否有管理员角色
+     */
+    function _checkOwner() internal view override {
+        if (!lpm.hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
+            revert UnauthorizedAdminOrTimelock();
+        }
+    }
 
     // --------------------------------------------view functions--------------------------------------------
 
