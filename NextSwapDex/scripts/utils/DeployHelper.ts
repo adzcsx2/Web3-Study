@@ -147,6 +147,8 @@ export interface LibraryDeploymentResult {
 }
 
 export class DeployHelper {
+  private isDebug = true; // 如果是Debug模式,部署的合约会直接覆盖已有合约,方便测试
+
   private readonly deploymentDir: string;
   private readonly abiDir: string;
   private readonly frontendAbiDir: string;
@@ -375,12 +377,21 @@ export class DeployHelper {
   /**
    * 生成唯一的合约存储键名
    * 如果合约名称已存在但代理地址不同，则返回 contractName_address 格式
+   * 在 Debug 模式下，总是返回原始合约名
    */
   private generateStorageKey(
     contractName: string,
     proxyAddress: string,
     deploymentInfo: NetworkDeploymentInfo
   ): string {
+    // Debug 模式下，总是返回原始合约名，直接覆盖现有合约
+    if (this.isDebug) {
+      console.log(
+        `🐛 Debug模式: 使用原始合约名 '${contractName}'，覆盖现有合约`
+      );
+      return contractName;
+    }
+
     // 检查是否存在同名但不同地址的合约
     const existingContract = deploymentInfo.contracts[contractName];
 
@@ -456,16 +467,26 @@ export class DeployHelper {
 
     // 如果是升级操作（versionInfo 包含 proxyAddress 且 isProxy=false）
     if (versionInfo.proxyAddress && !versionInfo.isProxy) {
-      // 查找使用相同代理地址的合约键名
-      const existingKey = this.findContractKeyByProxy(
-        proxyAddress,
-        deploymentInfo
-      );
+      let storageKey: string;
 
-      if (existingKey) {
+      // Debug 模式下，直接使用合约名
+      if (this.isDebug) {
+        storageKey = contractName;
+        console.log(`🐛 Debug模式: 直接使用合约名 '${contractName}' 进行升级`);
+      } else {
+        // 查找使用相同代理地址的合约键名
+        const existingKey = this.findContractKeyByProxy(
+          proxyAddress,
+          deploymentInfo
+        );
+        storageKey = existingKey || contractName;
+      }
+
+      // 获取现有合约记录（可能存在）
+      const history = deploymentInfo.contracts[storageKey];
+
+      if (history) {
         // 找到现有合约记录，更新它
-        const history = deploymentInfo.contracts[existingKey];
-
         // 将所有旧版本的 isActive 设置为 false
         history.versions.forEach((v) => {
           v.isActive = false;
@@ -477,21 +498,15 @@ export class DeployHelper {
         // 更新合约名称和当前版本
         history.contractName = contractName;
         history.currentVersion = versionInfo.version;
+        history.proxyAddress = proxyAddress; // 更新代理地址
+        history.isProxyContract = isProxyContract;
 
-        console.log(`✅ 已更新合约 ${existingKey} 的版本信息`);
+        console.log(`✅ 已更新合约 ${storageKey} 的版本信息`);
         console.log(`   - 当前版本: ${versionInfo.version}`);
         console.log(`   - 代理地址: ${proxyAddress}`);
       } else {
-        // 未找到现有记录，创建新记录（理论上不应该发生）
-        console.warn(
-          `⚠️  未找到代理地址 ${proxyAddress} 的现有记录，创建新记录`
-        );
-        const storageKey = this.generateStorageKey(
-          contractName,
-          proxyAddress,
-          deploymentInfo
-        );
-
+        // 未找到现有记录，创建新记录
+        console.log(`✅ 创建新的合约记录: ${storageKey}`);
         deploymentInfo.contracts[storageKey] = {
           contractName,
           proxyAddress,

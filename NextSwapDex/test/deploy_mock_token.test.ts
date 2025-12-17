@@ -10,7 +10,7 @@ describe("部署测试代币Token合约", function () {
     // 跳过 pending 或 skipped 测试（可选）
     if (this.currentTest?.state !== "passed") return;
 
-    await new Promise((resolve) => setTimeout(resolve, 500)); // 暂停0.5秒
+    await new Promise((resolve) => setTimeout(resolve, 100)); // 暂停0.5秒
   });
 
   it("应该能部署DAI合约", async function () {

@@ -48,25 +48,30 @@ npx hardhat test test/lp_staking.test.ts --network localhost
 ## 📝 部署参数
 
 ### NextswapToken
+
 - `owner`: 部署账户地址
 
 ### NextswapTimeLock
+
 - `minDelay`: 2 天 (172800 秒)
 - `proposers`: [部署账户]
 - `executors`: [部署账户]
 - `admin`: 部署账户
 
 ### LiquidityMiningReward
+
 - `nextSwapToken`: NextswapToken 地址
 - `nextSwapPerSecond`: 0.1 代币/秒
 - `startTime`: 部署时的当前时间
 - `bonusEndTime`: 开始时间 + 1 年
 
 ### LpPoolManager
+
 - `liquidityMiningReward`: LiquidityMiningReward 地址
 - `positionManager`: NonfungiblePositionManager 地址
 
 ### 测试质押池 (USDC-DAI)
+
 - `tokenA`: USDC 地址
 - `tokenB`: DAI 地址
 - `fee`: 500 (0.05%)
@@ -105,7 +110,10 @@ npx hardhat console --network localhost
 ### 创建新的质押池
 
 ```typescript
-const lpPoolManager = await ethers.getContractAt("LpPoolManager", managerAddress);
+const lpPoolManager = await ethers.getContractAt(
+  "LpPoolManager",
+  managerAddress
+);
 
 const poolConfig = {
   poolId: 0,
@@ -113,7 +121,7 @@ const poolConfig = {
   tokenA: token0Address,
   tokenB: token1Address,
   fee: 3000, // 0.3%
-  allocPoint: 200
+  allocPoint: 200,
 };
 
 await lpPoolManager.addLpPool(poolConfig);
@@ -124,7 +132,10 @@ await lpPoolManager.addLpPool(poolConfig);
 ```typescript
 const poolId = 1; // 从 0 开始
 const poolData = await lpPoolManager.lpPools(poolId);
-const lpPoolContract = await ethers.getContractAt("LpPoolContract", poolData.poolAddress);
+const lpPoolContract = await ethers.getContractAt(
+  "LpPoolContract",
+  poolData.poolAddress
+);
 
 await lpPoolContract.activatePool(true);
 ```
@@ -142,6 +153,7 @@ await lpPoolContract.activatePool(true);
 ### 问题：找不到 NonfungiblePositionManager
 
 **解决**：先部署 DEX 核心合约
+
 ```bash
 npx hardhat test test/deploy_netxtswap.test.ts --network localhost
 ```

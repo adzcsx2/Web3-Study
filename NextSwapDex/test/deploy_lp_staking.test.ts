@@ -42,9 +42,12 @@ describe("Deploy LP Staking System", function () {
     // 检查必要的依赖合约
     console.log("📋 检查依赖合约...");
     if (!deployment.contracts?.NonfungiblePositionManager?.proxyAddress) {
-      throw new Error("❌ 未找到 NonfungiblePositionManager，请先部署 DEX 核心合约");
+      throw new Error(
+        "❌ 未找到 NonfungiblePositionManager，请先部署 DEX 核心合约"
+      );
     }
-    const npmAddress = deployment.contracts.NonfungiblePositionManager.proxyAddress;
+    const npmAddress =
+      deployment.contracts.NonfungiblePositionManager.proxyAddress;
     console.log("✅ NonfungiblePositionManager:", npmAddress);
 
     const [deployer] = await ethers.getSigners();
@@ -97,16 +100,28 @@ describe("Deploy LP Staking System", function () {
 
     // 3. 部署 LiquidityMiningReward
     console.log("\n📦 [3/4] 部署 LiquidityMiningReward...");
-    
+
     // 获取最新区块时间
     const latestBlock = await ethers.provider.getBlock("latest");
     const currentBlockTime = latestBlock!.timestamp;
-    const startTime = currentBlockTime + 3600; // 当前区块时间 + 1小时（确保未来时间）
+    const startTime = currentBlockTime + 10; // 当前区块时间 + 10秒（立即开始，方便测试）
 
     console.log("   配置参数:");
     console.log("   - NextswapToken:", tokenVersionInfo.address);
     console.log("   - PositionManager:", npmAddress);
-    console.log("   - 当前区块时间:", new Date(currentBlockTime * 1000).toLocaleString());
+    console.log(
+      "   - 当前区块时间:",
+      new Date(currentBlockTime * 1000).toLocaleString()
+    );
+    console.log(
+      "   - 开始时间（约10秒后）:",
+      new Date(startTime * 1000).toLocaleString()
+    );
+    console.log("   - PositionManager:", npmAddress);
+    console.log(
+      "   - 当前区块时间:",
+      new Date(currentBlockTime * 1000).toLocaleString()
+    );
     console.log("   - 开始时间:", new Date(startTime * 1000).toLocaleString());
 
     const {
@@ -123,6 +138,16 @@ describe("Deploy LP Staking System", function () {
     console.log("⛽ Gas used:", rewardVersionInfo.gasUsed);
     expect(rewardVersionInfo.address).to.be.a("string").that.is.not.empty;
 
+    // 初始化 LiquidityMiningReward
+    console.log("\n🔧 初始化 LiquidityMiningReward...");
+    const initTx = await liquidityMiningReward.initialize(
+      deployerAddress, // ecosystemFundAddress
+      timeLockVersionInfo.address, // timelock
+      deployerAddress // admin
+    );
+    await initTx.wait();
+    console.log("✅ 初始化完成");
+
     // 更新 deployment 对象
     if (!deployment.contracts.LiquidityMiningReward)
       deployment.contracts.LiquidityMiningReward = {};
@@ -131,7 +156,7 @@ describe("Deploy LP Staking System", function () {
 
     // 转移奖励代币到 LiquidityMiningReward
     console.log("\n💰 转移奖励代币到 LiquidityMiningReward...");
-    const rewardAmount = ethers.parseEther("10000000"); // 1000万代币
+    const rewardAmount = ethers.parseEther("500000000"); // 5亿代币（流动性挖矿总量）
     const transferTx = await nextswapToken.transfer(
       rewardVersionInfo.address,
       rewardAmount
@@ -140,7 +165,12 @@ describe("Deploy LP Staking System", function () {
     console.log(
       "✅ 已转移",
       ethers.formatEther(rewardAmount),
-      "代币作为奖励池"
+      "NST 作为奖励池"
+    );
+    console.log(
+      "   理论每日释放约:",
+      Math.floor(500000000 / 1461).toLocaleString(),
+      "NST"
     );
 
     // 4. 部署 LpPoolManager
@@ -175,6 +205,15 @@ describe("Deploy LP Staking System", function () {
     );
     await grantRoleTx.wait();
     console.log("✅ 已授予 TimeLock 管理权限");
+
+    // 授予 LpPoolManager 对 LiquidityMiningReward 的 TIMELOCK_ROLE 权限
+    // 这样 LpPoolManager 可以调用 addAuthorizedPool
+    const grantRewardRoleTx = await liquidityMiningReward.grantRole(
+      timelockRole,
+      managerVersionInfo.address
+    );
+    await grantRewardRoleTx.wait();
+    console.log("✅ 已授予 LpPoolManager 对 LiquidityMiningReward 的管理权限");
 
     // 创建测试质押池（可选）
     console.log("\n📦 [额外] 创建测试质押池 (USDC-DAI)...");
@@ -214,7 +253,7 @@ describe("Deploy LP Staking System", function () {
         console.log("⛽ Gas used:", receipt?.gasUsed.toString());
 
         // 获取创建的池地址
-        const poolsCount = await lpPoolManager.getPoolCount();
+        const poolsCount = await lpPoolManager.getPoolsCount();
         const poolData = await lpPoolManager.lpPools(Number(poolsCount) - 1);
 
         console.log("   Pool ID:", poolsCount.toString());
@@ -247,14 +286,20 @@ describe("Deploy LP Staking System", function () {
 
     console.log("\n💡 下一步:");
     console.log("   1. 运行质押测试:");
-    console.log("      npx hardhat test test/lp_staking.test.ts --network localhost");
+    console.log(
+      "      npx hardhat test test/lp_staking.test.ts --network localhost"
+    );
     console.log("   2. 创建更多质押池:");
     console.log("      使用 LpPoolManager.addLpPool()");
     console.log("   3. 激活质押池:");
     console.log("      使用 LpPoolContract.activatePool(true)");
 
     console.log("\n📝 重要提示:");
-    console.log("   - ✅ 奖励代币已充值: 10,000,000 代币");
+    console.log(
+      "   - ✅ 奖励代币已充值:",
+      ethers.formatEther(rewardAmount),
+      "NST"
+    );
     console.log("   - ✅ TimeLock 权限已配置");
     console.log("   - ⚠️  池子创建后需要手动激活才能开始质押");
     console.log("━".repeat(60) + "\n");
@@ -304,7 +349,7 @@ describe("Deploy LP Staking System", function () {
     const tokenAddress = deployment.contracts.NextswapToken.proxyAddress;
     const npmAddress =
       deployment.contracts.NonfungiblePositionManager.proxyAddress;
-    
+
     // 注意：这里的时间参数可能需要根据实际部署时的值调整
     const startTime = Math.floor(Date.now() / 1000) + 60;
 

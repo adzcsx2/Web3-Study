@@ -84,6 +84,9 @@ contract LpPoolManager is AccessControl, NextswapModifiers {
         //总分配点数
         totalAllocPoint += lpPool.allocPoint;
 
+        // 授权新池到 LiquidityMiningReward
+        liquidityMiningRewardContract.addAuthorizedPool(address(newPool));
+
         emit LpPoolCreated(
             lpPool.poolId,
             address(newPool),
@@ -99,7 +102,7 @@ contract LpPoolManager is AccessControl, NextswapModifiers {
     /**
      * @notice 获取池的数量
      */
-    function getPoolCount() public view returns (uint256) {
+    function getPoolsCount() public view returns (uint256) {
         return lpPools.length;
     }
 

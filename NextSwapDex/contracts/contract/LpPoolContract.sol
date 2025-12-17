@@ -2,12 +2,14 @@
 pragma solidity ^0.8.26;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../types/NextswapStructs.sol";
 import "../errors/NextswapErrors.sol";
 import "../modifiers/NextswapModifiers.sol";
+import "../constants/Constants.sol";
 import "../contract/swap/periphery/interfaces/INonfungiblePositionManager.sol";
 import "../events/NextswapEvents.sol";
 import "../contract/lib/PublicWithdrawable.sol";
@@ -16,7 +18,8 @@ import "./LpPoolManager.sol";
 contract LpPoolContract is
     AccessControl,
     PublicWithdrawable,
-    NextswapModifiers
+    NextswapModifiers,
+    IERC721Receiver
 {
     using SafeERC20 for IERC20;
 
@@ -88,9 +91,18 @@ contract LpPoolContract is
         lpm = LpPoolManager(_lpPoolManager);
         positionManager = INonfungiblePositionManager(_positionManager);
         rewardTokenAddress = _rewardTokenAddress;
+
+        // 获取挖矿开始时间，lastRewardTime 不应该早于挖矿开始时间
+        uint256 miningStartTime = LpPoolManager(_lpPoolManager)
+            .liquidityMiningRewardContract()
+            .startTime();
+        uint256 initialRewardTime = block.timestamp > miningStartTime
+            ? block.timestamp
+            : miningStartTime;
+
         poolInfo = LpPoolInfo({
             poolConfig: _initialConfig,
-            lastRewardTime: block.timestamp,
+            lastRewardTime: initialRewardTime,
             activeTime: block.timestamp,
             endTime: 0,
             accNextSwapPerShare: 0,
@@ -451,6 +463,7 @@ contract LpPoolContract is
     /**
      * @notice 更新池子的累计奖励
      * @dev 根据时间差和动态奖励率计算新增的累计每份额奖励
+     *      注意：奖励只在挖矿期内（4年）累积，超过挖矿结束时间后不再累积新奖励
      */
     function _updatePool() internal whenNotPaused {
         // 如果当前时间还没到上次奖励时间，直接返回
@@ -464,23 +477,53 @@ contract LpPoolContract is
             return;
         }
 
-        // 计算时间差
-        uint256 timeDiff = block.timestamp - poolInfo.lastRewardTime;
+        // 获取挖矿结束时间（4年期结束）
+        uint256 miningEndTime = lpm.liquidityMiningRewardContract().endTime();
 
-        // 从 LpPoolManager 获取该池子当前的每秒奖励速率（根据权重自动计算）
-        uint256 rewardPerSecond = lpm.getPoolRewardPerSecond(
-            poolInfo.poolConfig.poolId
-        );
+        // 确定有效的结束时间点（当前时间和挖矿结束时间中的较小值）
+        uint256 effectiveEndTime = block.timestamp < miningEndTime
+            ? block.timestamp
+            : miningEndTime;
+
+        // 如果上次奖励时间已经超过挖矿结束时间，不再累积奖励
+        if (poolInfo.lastRewardTime >= miningEndTime) {
+            poolInfo.lastRewardTime = block.timestamp;
+            return;
+        }
+
+        // 计算有效时间差（只计算挖矿期内的时间）
+        uint256 timeDiff = effectiveEndTime - poolInfo.lastRewardTime;
+
+        // 计算固定的每秒奖励速率（不受当前时间影响）
+        // 使用挖矿合约的总量和总时长来计算基准速率
+        uint256 miningStartTime = lpm
+            .liquidityMiningRewardContract()
+            .startTime();
+        uint256 totalDuration = miningEndTime - miningStartTime; // 4年的总秒数
+        uint256 totalMiningReward = LIQUIDITY_MINING_TOTAL; // 5亿代币
+        uint256 baseRewardPerSecond = totalMiningReward / totalDuration;
+
+        uint256 totalAllocPoint = lpm.totalAllocPoint();
+        if (totalAllocPoint == 0) {
+            poolInfo.lastRewardTime = block.timestamp;
+            return;
+        }
+
+        // 根据池子权重分配奖励
+        uint256 rewardPerSecond = (baseRewardPerSecond *
+            poolInfo.poolConfig.allocPoint) / totalAllocPoint;
 
         // 计算这段时间应发放的奖励总额
         uint256 reward = timeDiff * rewardPerSecond;
 
         // 更新累计每份额奖励（放大1e18倍以保持精度）
-        poolInfo.accNextSwapPerShare +=
-            (reward * 1e18) /
-            poolInfo.totalLiquidity;
+        if (reward > 0) {
+            poolInfo.accNextSwapPerShare +=
+                (reward * 1e18) /
+                poolInfo.totalLiquidity;
+        }
 
-        // 更新最后奖励时间
+        // 更新最后奖励时间为当前时间
         poolInfo.lastRewardTime = block.timestamp;
     }
 
@@ -684,11 +727,34 @@ contract LpPoolContract is
         address operator
     ) internal view returns (bool) {
         LpNftStakeInfo memory stakeInfo = lpNftStakes[tokenId];
-        if (stakeInfo.owner == operator) return true;
 
-        // 从 Position Manager 获取当前的 operator
-        (, address positionOperator, , , , , , , , , , ) = positionManager
-            .positions(tokenId);
-        return positionOperator == operator;
+        // 如果 NFT 已质押，检查是否为质押所有者
+        if (stakeInfo.owner != address(0)) {
+            return stakeInfo.owner == operator;
+        }
+
+        // 如果 NFT 未质押，检查 NFT 的所有权和授权
+        address nftOwner = positionManager.ownerOf(tokenId);
+        if (nftOwner == operator) return true;
+
+        // 检查是否通过 approve() 授权
+        address approved = positionManager.getApproved(tokenId);
+        if (approved == operator) return true;
+
+        // 检查是否通过 setApprovalForAll() 授权
+        return positionManager.isApprovedForAll(nftOwner, operator);
+    }
+
+    /**
+     * @notice 实现 ERC721 接收接口
+     * @dev 允许合约接收 ERC721 NFT
+     */
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes calldata
+    ) external pure override returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
     }
 }

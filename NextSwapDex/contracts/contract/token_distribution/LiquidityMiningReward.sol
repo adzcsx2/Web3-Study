@@ -37,7 +37,7 @@ contract LiquidityMiningReward is
 
     // ====== 时间常量 ======
     uint256 public constant MINING_DURATION_YEARS = 4; // 挖矿持续时间：4年
-    uint256 public constant CLAIM_GRACE_PERIOD_DAYS = 365; // 领取宽限期：1年
+    uint256 public constant MAX_CLAIM_PERIOD_YEARS = 5; // 最大领取期限：5年（包含4年挖矿期）
 
     // 生态基金地址
     address public ecosystemFundAddress;
@@ -102,10 +102,10 @@ contract LiquidityMiningReward is
         npm = INonfungiblePositionManager(_npm);
         startTime = _startTime;
         endTime = _startTime + MINING_DURATION_YEARS * 365 days; // 4年后
-        claimDeadline = endTime + CLAIM_GRACE_PERIOD_DAYS * 1 days; // 结束时间后1年
+        claimDeadline = _startTime + MAX_CLAIM_PERIOD_YEARS * 365 days; // 最大领取期限：开始后5年
 
-        // 禁用实现合约的初始化，防止被直接调用
-        _disableInitializers();
+        // 注释掉禁用初始化，允许在非代理模式下使用
+        // _disableInitializers();
     }
 
     /**
@@ -206,7 +206,14 @@ contract LiquidityMiningReward is
         ecosystemFundAddress = newAddress;
     }
 
-    // 奖励领取截止,所有剩余代币打入生态基金地址
+    /**
+     * @notice 5年后最终处理剩余奖励
+     * @dev 在最大领取期限（5年）后执行：
+     *      1. 将所有剩余的奖励代币转入生态基金地址
+     *      2. NFT仍可继续质押，但第5年起无挖矿奖励（仅4年挖矿期）
+     *      3. 后续可通过合约升级添加手续费分配或其他奖励机制
+     *      注意：此函数不回收NFT，用户需手动解除质押
+     */
     function finalizeRewards()
         external
         onlyAdminOrTimelock
@@ -308,6 +315,7 @@ contract LiquidityMiningReward is
     /**
      * @notice 获取当前每秒奖励速率
      * @dev 根据总释放量和释放周期计算
+     *      注意：只在4年挖矿期内有奖励，第5年奖励为0
      * @return 每秒应该释放的代币数量
      */
     function getRewardPerSecond() public view returns (uint256) {
@@ -324,12 +332,19 @@ contract LiquidityMiningReward is
         return LIQUIDITY_MINING_TOTAL / totalDuration;
     }
 
-    // 计算已解锁代币数量
+    /**
+     * @notice 计算已释放的代币数量
+     * @dev 线性释放模型：
+     *      - 前4年：线性释放5亿代币
+     *      - 第4年结束后：总释放量固定为5亿
+     *      - 第5年：不再释放新代币（奖励为0）
+     * @return 已释放的代币总量
+     */
     function calculateReleasedTokens() public view returns (uint256) {
         if (block.timestamp <= startTime) {
             return 0;
         } else if (block.timestamp >= endTime) {
-            return LIQUIDITY_MINING_TOTAL;
+            return LIQUIDITY_MINING_TOTAL; // 4年后释放量固定，第5年不再增加
         } else {
             uint256 elapsedTime = block.timestamp - startTime;
             uint256 totalDuration = endTime - startTime;

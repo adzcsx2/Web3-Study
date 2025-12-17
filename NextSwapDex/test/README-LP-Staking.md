@@ -1,49 +1,59 @@
 # LP 质押功能测试说明
 
 ## 测试文件
+
 - `lp_staking.test.ts` - LP NFT 质押功能的完整测试套件
 
 ## 测试覆盖功能
 
 ### 1. 初始化和配置
+
 - ✅ 获取 LpPoolManager 合约
 - ✅ 创建 LP 质押池
 - ✅ 激活质押池
 
 ### 2. 准备流动性 NFT
+
 - ✅ 创建并初始化 USDC-DAI 交易池
 - ✅ 添加流动性并获取 NFT
 
 ### 3. 单个 NFT 质押
+
 - ✅ 质押单个 LP NFT
 - ✅ 查询用户的所有质押
 - ✅ 验证 NFT 转移和质押状态
 
 ### 4. 批量质押
+
 - ✅ 创建多个流动性 NFT
 - ✅ 批量质押多个 LP NFT
 - ✅ Gas 优化验证
 
 ### 5. 奖励领取
+
 - ✅ 等待奖励积累（时间模拟）
 - ✅ 领取单个 NFT 的质押奖励
 - ✅ 批量领取多个 NFT 的奖励
 - ✅ 验证 NextswapToken 余额变化
 
 ### 6. 解除质押
+
 - ✅ 请求解除质押
 - ✅ 冷却期限制测试
 - ✅ 冷却期后解除质押
 - ✅ 验证 NFT 返还和状态清除
 
 ### 7. 池子管理
+
 - ✅ 停用质押池
 - ✅ 查询池子统计信息
 
 ## 运行测试
 
 ### 前提条件
+
 1. 确保本地 Hardhat 节点正在运行：
+
    ```bash
    npx hardhat node
    ```
@@ -57,11 +67,13 @@
    - 测试代币（USDC、DAI）
 
 ### 运行完整测试套件
+
 ```bash
 npx hardhat test test/lp_staking.test.ts --network localhost
 ```
 
 ### 运行特定测试组
+
 ```bash
 # 只测试初始化
 npx hardhat test test/lp_staking.test.ts --grep "初始化和配置" --network localhost
@@ -76,6 +88,7 @@ npx hardhat test test/lp_staking.test.ts --grep "奖励领取" --network localho
 ## 测试数据
 
 ### 默认配置
+
 - **测试代币对**: USDC-DAI
 - **池子费率**: 500 (0.05%)
 - **初始流动性**: 100,000 tokens
@@ -83,6 +96,7 @@ npx hardhat test test/lp_staking.test.ts --grep "奖励领取" --network localho
 - **解质押冷却时间**: 3 天
 
 ### 测试场景
+
 1. **单次质押**: 1 个 NFT，100,000 USDC + 100,000 DAI
 2. **批量质押**: 3 个 NFT，每个 10,000 USDC + 10,000 DAI
 3. **奖励积累**: 模拟 24 小时时间流逝
@@ -91,24 +105,28 @@ npx hardhat test test/lp_staking.test.ts --grep "奖励领取" --network localho
 ## 关键测试点
 
 ### 权限验证
+
 - ✅ NFT 所有者可以质押
 - ✅ NFT 授权操作者可以质押
 - ✅ 只有 NFT 所有者可以请求解质押
 - ✅ 只有管理员可以激活/停用池子
 
 ### 状态验证
+
 - ✅ 质押后 NFT 转移到合约
 - ✅ 质押信息正确记录
 - ✅ 池子统计数据正确更新
 - ✅ 解质押后状态正确清除
 
 ### 奖励机制
+
 - ✅ 奖励正确计算
 - ✅ 奖励可以成功领取
 - ✅ 余额正确更新
 - ✅ 批量操作正确执行
 
 ### 安全性
+
 - ✅ 重入攻击保护
 - ✅ 暂停机制
 - ✅ 冷却期限制
@@ -163,21 +181,26 @@ npx hardhat test test/lp_staking.test.ts --grep "奖励领取" --network localho
 ### 常见错误
 
 #### 1. "LpPoolManager 未部署"
+
 **原因**: LpPoolManager 合约未在 localhost 网络上部署
 **解决**: 运行部署脚本
+
 ```bash
 npx hardhat run scripts/deploy/xxx.ts --network localhost
 ```
 
 #### 2. "池子已存在"
+
 **原因**: 测试池子已经创建过
 **解决**: 这不是错误，测试会自动跳过创建步骤
 
 #### 3. "UnstakeCooldownNotPassed"
+
 **原因**: 解质押冷却期未到
 **解决**: 测试会自动增加区块时间，确保测试正确执行
 
 #### 4. "余额不足"
+
 **原因**: 测试账户没有足够的测试代币
 **解决**: 运行代币分发脚本或直接 mint 测试代币
 
