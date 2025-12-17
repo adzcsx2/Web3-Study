@@ -34,6 +34,11 @@ contract LiquidityMiningReward is
     NextswapModifiers
 {
     using SafeERC20 for IERC20;
+
+    // ====== 时间常量 ======
+    uint256 public constant MINING_DURATION_YEARS = 4; // 挖矿持续时间：4年
+    uint256 public constant CLAIM_GRACE_PERIOD_DAYS = 365; // 领取宽限期：1年
+
     // 生态基金地址
     address public ecosystemFundAddress;
     // 时间锁合约地址
@@ -47,9 +52,6 @@ contract LiquidityMiningReward is
 
     //已发放代币总量
     uint256 public totalDistributed;
-
-    //用户奖励映射
-    mapping(address => uint256) public rewards;
 
     // npm
     INonfungiblePositionManager public immutable npm;
@@ -70,7 +72,9 @@ contract LiquidityMiningReward is
 
     // 必须是授权的池子
     modifier onlyAuthorizedPool() {
-        require(authorizedPools[msg.sender], "Not authorized pool");
+        if (!authorizedPools[msg.sender]) {
+            revert NotAuthorizedPool();
+        }
         _;
     }
 
@@ -82,12 +86,23 @@ contract LiquidityMiningReward is
      * @param _startTime 挖矿开始时间
      */
     constructor(address _tokenAddress, address _npm, uint256 _startTime) {
+        // 参数验证
+        if (_tokenAddress == address(0)) {
+            revert InvalidTokenAddress();
+        }
+        if (_npm == address(0)) {
+            revert InvalidNPMAddress();
+        }
+        if (_startTime <= block.timestamp) {
+            revert StartTimeNotInFuture();
+        }
+
         // 初始化 immutable 变量（这些值部署后不可更改）
         nextSwapToken = IERC20(_tokenAddress);
         npm = INonfungiblePositionManager(_npm);
         startTime = _startTime;
-        endTime = _startTime + 4 * 365 days; // 4年后
-        claimDeadline = endTime + 365 days; // 结束时间后1年
+        endTime = _startTime + MINING_DURATION_YEARS * 365 days; // 4年后
+        claimDeadline = endTime + CLAIM_GRACE_PERIOD_DAYS * 1 days; // 结束时间后1年
 
         // 禁用实现合约的初始化，防止被直接调用
         _disableInitializers();
@@ -105,7 +120,19 @@ contract LiquidityMiningReward is
         address _ecosystemFundAddress,
         address _timelock,
         address _admin
-    ) public initializer {
+    )
+        public
+        initializer
+        nonZeroAddress(_ecosystemFundAddress)
+        nonZeroAddress(_timelock)
+        nonZeroAddress(_admin)
+    {
+        // 初始化继承的合约
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
+        __UUPSUpgradeable_init();
+
         // 初始化普通状态变量
         ecosystemFundAddress = _ecosystemFundAddress;
         timelock = _timelock;
@@ -118,105 +145,6 @@ contract LiquidityMiningReward is
     // -------------------------------------------核心功能-------------------------------------
 
     /**
-     * @dev 流动性挖矿合约开发任务清单（按开发顺序）
-     *
-     * ===== 阶段一：基础架构 =====
-     * [TODO] 1. 定义核心数据结构
-     *        - PoolInfo: 池子信息（地址、权重、累积奖励、总流动性）
-     *        - StakeInfo: 质押信息（tokenId、流动性、奖励债务、质押时间、解质押请求时间）
-     *        - 相关映射关系（用户->质押列表、池子->配置）
-     *
-     * [TODO] 2. 实现池子管理功能
-     *        - addPool: 添加支持的流动性池子
-     *        - updatePoolWeight: 调整池子分配权重
-     *        - massUpdatePools: 批量更新所有池子的奖励
-     *
-     * ===== 阶段二：核心质押功能 =====
-     * [TODO] 3. 实现NFT质押功能
-     *        - stake: 质押单个LP NFT
-     *        - batchStake: 批量质押多个NFT（Gas优化）
-     *        - 验证NFT有效性（所有权、流动性>0、价格区间）
-     *        - 防止重复质押检查
-     *
-     * [TODO] 4. 实现NFT解质押流程
-     *        - requestUnstake: 申请解质押（进入冷却期）
-     *        - unstake: 执行解质押（冷却期结束后）
-     *        - 冷却期配置管理
-     *
-     * ===== 阶段三：奖励系统 =====
-     * [TODO] 5. 实现奖励计算机制
-     *        - updatePool: 更新单个池子的累积奖励
-     *        - pendingReward: 计算用户待领取奖励
-     *        - 支持多池子权重分配
-     *        - 基于流动性大小的奖励分配
-     *
-     * [TODO] 6. 实现奖励领取功能
-     *        - claimReward: 领取单个NFT奖励
-     *        - claimAll: 批量领取所有奖励
-     *        - 自动更新奖励债务
-     *
-     * ===== 阶段四：安全增强 =====
-     * [TODO] 7. NFT流动性验证
-     *        - 检查流动性是否>0
-     *        - 验证价格区间是否在当前价格附近
-     *        - 排除已过期或无效的仓位
-     *
-     * [TODO] 8. 防作弊机制
-     *        - 最小质押时长限制（防闪电贷攻击）
-     *        - NFT转移后自动失效检查
-     *        - 单个NFT奖励上限控制
-     *
-     * ===== 阶段五：查询接口 =====
-     * [TODO] 9. 用户数据查询
-     *        - getUserStakes: 查询用户所有质押的NFT
-     *        - getUserTotalReward: 查询用户总待领取奖励
-     *        - getStakeInfo: 查询单个质押详情
-     *
-     * [TODO] 10. 池子数据查询
-     *         - getPoolInfo: 查询池子详细信息
-     *         - getPoolAPR: 计算池子实时年化收益率
-     *         - getTotalAllocPoint: 查询总权重
-     *
-     * [DONE] 11. 统计数据查询
-     *         ✓ calculateReleasedTokens: 已解锁代币数量
-     *         - totalDistributed: 已发放代币总量（需在领取时更新）
-     *
-     * ===== 阶段六：优化功能 =====
-     * [TODO] 12. Boost机制
-     *         - 长期质押时间加成
-     *         - 价格区间宽度权重调整
-     *         - VIP等级加成系统
-     *
-     * [TODO] 13. Gas优化
-     *         - 使用uint128/uint64打包存储
-     *         - 批量操作接口
-     *         - 延迟更新机制
-     *
-     * ===== 阶段七：管理与控制 =====
-     * [DONE] 14. 紧急控制
-     *         ✓ pause: 暂停合约
-     *         ✓ unpause: 恢复合约
-     *         - emergencyWithdraw: 紧急提取NFT（暂停时可用）
-     *
-     * [TODO] 15. 参数配置管理
-     *         - setMinStakeDuration: 设置最小质押时长
-     *         - setUnstakeCooldown: 设置解质押冷却期
-     *         - setRewardCap: 设置奖励上限
-     *
-     * [DONE] 16. 合约升级
-     *         ✓ _authorizeUpgrade: UUPS升级授权
-     *         ✓ 时间锁控制
-     *
-     * ===== 阶段八：收尾与清算 =====
-     * [DONE] 17. 最终清算
-     *         ✓ finalizeRewards: 领取截止后转移剩余代币到生态基金
-     *
-     * [TODO] 18. 奖励池监控
-     *         - checkRewardBalance: 检查奖励池余额充足性
-     *         - 余额不足时的降级处理
-     */
-
-    /**
      * @notice 授权池子调用的转账函数
      * @dev 只有授权的池子合约可以调用，用于发放挖矿奖励
      * @param to 接收地址
@@ -225,7 +153,14 @@ contract LiquidityMiningReward is
     function transferRewards(
         address to,
         uint256 amount
-    ) external onlyAuthorizedPool nonReentrant whenNotPaused {
+    )
+        external
+        onlyAuthorizedPool
+        nonReentrant
+        whenNotPaused
+        nonZeroAddress(to)
+        amountGreaterThanZero(amount)
+    {
         uint256 releasedTokens = calculateReleasedTokens();
         uint256 availableTokens = releasedTokens - totalDistributed;
 
@@ -253,7 +188,9 @@ contract LiquidityMiningReward is
      * @notice 移除授权池子
      * @param pool 池子地址
      */
-    function removeAuthorizedPool(address pool) external onlyAdminOrTimelock {
+    function removeAuthorizedPool(
+        address pool
+    ) external onlyAdminOrTimelock nonZeroAddress(pool) {
         authorizedPools[pool] = false;
         emit PoolAuthorized(pool, false);
     }
@@ -264,13 +201,18 @@ contract LiquidityMiningReward is
      */
     function setEcosystemFundAddress(
         address newAddress
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) nonZeroAddress(newAddress) {
+    ) external onlyAdminOrTimelock nonZeroAddress(newAddress) {
         emit EcosystemFundAddressChanged(ecosystemFundAddress, newAddress);
         ecosystemFundAddress = newAddress;
     }
 
     // 奖励领取截止,所有剩余代币打入生态基金地址
-    function finalizeRewards() external nonReentrant whenNotPaused {
+    function finalizeRewards()
+        external
+        onlyAdminOrTimelock
+        nonReentrant
+        whenNotPaused
+    {
         if (block.timestamp <= claimDeadline) {
             revert ClaimDeadlineHasNotPassed();
         }
@@ -285,14 +227,14 @@ contract LiquidityMiningReward is
     /**
      * @dev 暂停合约（紧急情况）
      */
-    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function pause() external onlyAdminOrTimelock {
         _pause();
     }
 
     /**
      * @dev 恢复合约
      */
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function unpause() external onlyAdminOrTimelock {
         _unpause();
     }
 
@@ -305,7 +247,64 @@ contract LiquidityMiningReward is
         address newImplementation
     ) internal override nonZeroAddress(newImplementation) onlyAdminOrTimelock {}
 
+    // ====== 紧急提取函数 ======
+    /**
+     * @notice 紧急提取代币（仅在暂停时可用）
+     * @dev 允许管理员在紧急情况下提取代币到生态基金
+     * @param amount 提取数量，如果为0则提取全部
+     */
+    function emergencyWithdraw(
+        uint256 amount
+    ) external onlyAdminOrTimelock whenPaused {
+        uint256 balance = nextSwapToken.balanceOf(address(this));
+        uint256 withdrawAmount = amount == 0 ? balance : amount;
+
+        if (withdrawAmount > balance) {
+            revert InsufficientContractBalance();
+        }
+        if (withdrawAmount == 0) {
+            revert NothingToWithdraw();
+        }
+
+        nextSwapToken.safeTransfer(ecosystemFundAddress, withdrawAmount);
+        emit EmergencyTokenRecovered(
+            address(nextSwapToken),
+            ecosystemFundAddress,
+            withdrawAmount,
+            msg.sender
+        );
+    }
+
     // ---------------------------------------view functions----------------------------------------
+    /**
+     * @notice 获取当前可用的奖励余额
+     * @return 当前可以发放的代币数量
+     */
+    function getAvailableRewards() public view returns (uint256) {
+        uint256 releasedTokens = calculateReleasedTokens();
+        if (releasedTokens <= totalDistributed) {
+            return 0;
+        }
+        return releasedTokens - totalDistributed;
+    }
+
+    /**
+     * @notice 检查地址是否为授权池子
+     * @param pool 池子地址
+     * @return 是否授权
+     */
+    function isAuthorizedPool(address pool) public view returns (bool) {
+        return authorizedPools[pool];
+    }
+
+    /**
+     * @notice 获取合约当前代币余额
+     * @return 合约持有的代币数量
+     */
+    function getContractBalance() public view returns (uint256) {
+        return nextSwapToken.balanceOf(address(this));
+    }
+
     /**
      * @notice 获取当前每秒奖励速率
      * @dev 根据总释放量和释放周期计算

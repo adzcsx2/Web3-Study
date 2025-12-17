@@ -128,7 +128,7 @@ contract LpPoolContract is
     /**
      * @notice 质押 LP NFT
      * @param tokenId NFT 代币 ID
-     *   授权者必须是 NFT 的所有者或者被授权的操作者
+     * @dev 授权者必须是 NFT 的所有者或者被授权的操作者
      */
     function stakeLP(
         uint256 tokenId
@@ -139,68 +139,62 @@ contract LpPoolContract is
         whenNotPaused
         nonReentrant
     {
-        if (lpNftStakes[tokenId].owner != address(0)) {
-            revert AlreadyStaked();
-        }
+        // 验证并执行质押
+        uint256 liquidity = _stakeSingleLP(tokenId, true);
 
-        // 获取 NFT 的真实所有者（质押前）
-        address nftOwner = positionManager.ownerOf(tokenId);
-
-        // 从 Position Manager 获取流动性信息
-        (
-            ,
-            ,
-            address token0,
-            address token1,
-            uint24 fee,
-            ,
-            ,
-            uint128 liquidity,
-            ,
-            ,
-            ,
-
-        ) = positionManager.positions(tokenId);
-
-        // 验证代币对和费率是否匹配池配置
-        if (
-            token0 != poolInfo.poolConfig.tokenA ||
-            token1 != poolInfo.poolConfig.tokenB
-        ) {
-            revert TokenPairMismatch();
-        }
-        if (fee != poolInfo.poolConfig.fee) {
-            revert FeeRateMismatch();
-        }
-        if (liquidity == 0) {
-            revert NoLiquidity();
-        }
-
-        // 从 NFT 所有者转移到本合约
-        // 如果 msg.sender 不是所有者，需要有授权才能成功
-        positionManager.safeTransferFrom(nftOwner, address(this), tokenId);
-
-        // 记录质押信息 - owner 是 NFT 的原始所有者
-        lpNftStakes[tokenId] = LpNftStakeInfo({
-            owner: nftOwner,
-            tokenId: tokenId,
-            liquidity: liquidity,
-            stakedAt: block.timestamp,
-            receivedReward: 0,
-            pendingRewards: 0,
-            lastClaimAt: 0,
-            requestedUnstakeAt: 0
-        });
-        // 总流动性增加
+        // 更新池子状态
         poolInfo.totalLiquidity += liquidity;
-        // 总质押数量增加
         poolInfo.totalStaked += 1;
+    }
 
-        // 添加到真实所有者的质押列表
-        tokenIdToIndex[tokenId] = userStakedTokens[nftOwner].length;
-        userStakedTokens[nftOwner].push(tokenId);
+    /**
+     * @notice 批量质押多个 LP NFT（Gas 优化版本）
+     * @param tokenIds NFT 代币 ID 数组
+     * @dev 批量操作可以节省 Gas，因为只需要一次重入检查和暂停检查
+     */
+    function batchStakeLP(
+        uint256[] calldata tokenIds
+    ) external poolMustBeActive(poolInfo.isActive) whenNotPaused nonReentrant {
+        if (tokenIds.length == 0) {
+            revert EmptyTokenIdArray();
+        }
+        if (tokenIds.length > 50) {
+            revert BatchSizeTooLarge();
+        }
 
-        emit LpStaked(nftOwner, tokenId, block.timestamp);
+        uint256 totalLiquidityAdded = 0;
+        uint256 successCount = 0;
+
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            uint256 tokenId = tokenIds[i];
+
+            // 跳过已质押的 NFT
+            if (lpNftStakes[tokenId].owner != address(0)) {
+                continue;
+            }
+
+            // 检查权限
+            if (!_isAuthorized(tokenId, msg.sender)) {
+                continue; // 跳过无权限的 NFT
+            }
+
+            // 尝试质押，如果验证失败则跳过
+            uint256 liquidity = _stakeSingleLP(tokenId, false);
+            if (liquidity == 0) {
+                continue; // 验证失败，跳过
+            }
+
+            // 累加流动性和成功计数
+            totalLiquidityAdded += liquidity;
+            successCount++;
+        }
+
+        // 批量更新池子状态（Gas 优化）
+        if (successCount == 0) {
+            revert NoValidNFTsToStake();
+        }
+        poolInfo.totalLiquidity += totalLiquidityAdded;
+        poolInfo.totalStaked += successCount;
     }
 
     /**
@@ -375,6 +369,85 @@ contract LpPoolContract is
         stakeInfo.liquidity = actualLiquidity;
     }
     // ------------------------------------ internal helper functions ------------------------------------
+
+    /**
+     * @notice 质押单个 LP NFT 的内部逻辑
+     * @param tokenId NFT 代币 ID
+     * @param revertOnError 是否在错误时回退（true=回退，false=返回0跳过）
+     * @return liquidity 质押的流动性数量（验证失败时返回0）
+     * @dev 提取公共逻辑，供 stakeLP 和 batchStakeLP 调用
+     */
+    function _stakeSingleLP(
+        uint256 tokenId,
+        bool revertOnError
+    ) internal returns (uint256 liquidity) {
+        // 检查是否已质押
+        if (lpNftStakes[tokenId].owner != address(0)) {
+            if (revertOnError) revert AlreadyStaked();
+            return 0;
+        }
+
+        // 获取 NFT 的真实所有者（质押前）
+        address nftOwner = positionManager.ownerOf(tokenId);
+
+        // 从 Position Manager 获取流动性信息
+        (
+            ,
+            ,
+            address token0,
+            address token1,
+            uint24 fee,
+            ,
+            ,
+            uint128 _liquidity,
+            ,
+            ,
+            ,
+
+        ) = positionManager.positions(tokenId);
+
+        // 验证代币对和费率是否匹配池配置
+        if (
+            token0 != poolInfo.poolConfig.tokenA ||
+            token1 != poolInfo.poolConfig.tokenB
+        ) {
+            if (revertOnError) revert TokenPairMismatch();
+            return 0;
+        }
+        if (fee != poolInfo.poolConfig.fee) {
+            if (revertOnError) revert FeeRateMismatch();
+            return 0;
+        }
+        if (_liquidity == 0) {
+            if (revertOnError) revert NoLiquidity();
+            return 0;
+        }
+
+        // 从 NFT 所有者转移到本合约
+        // 如果 msg.sender 不是所有者，需要有授权才能成功
+        positionManager.safeTransferFrom(nftOwner, address(this), tokenId);
+
+        // 记录质押信息 - owner 是 NFT 的原始所有者
+        lpNftStakes[tokenId] = LpNftStakeInfo({
+            owner: nftOwner,
+            tokenId: tokenId,
+            liquidity: _liquidity,
+            stakedAt: block.timestamp,
+            receivedReward: 0,
+            pendingRewards: 0,
+            lastClaimAt: 0,
+            requestedUnstakeAt: 0
+        });
+
+        // 添加到真实所有者的质押列表
+        tokenIdToIndex[tokenId] = userStakedTokens[nftOwner].length;
+        userStakedTokens[nftOwner].push(tokenId);
+
+        emit LpStaked(nftOwner, tokenId, block.timestamp);
+
+        return uint256(_liquidity);
+    }
+
     /**
      * @notice 更新池子的累计奖励
      * @dev 根据时间差和动态奖励率计算新增的累计每份额奖励

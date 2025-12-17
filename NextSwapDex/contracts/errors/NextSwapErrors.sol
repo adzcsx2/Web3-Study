@@ -26,6 +26,11 @@ error NoTokensAvailableToClaim(); // 没有可领取的代币
 // LiquidityMiningReward errors
 error ClaimDeadlineHasNotPassed(); // 领取截止时间未到
 error InsufficientReleasedTokens(); // 释放的代币不足
+error InsufficientContractBalance(); // 合约余额不足
+error NothingToWithdraw(); // 没有可提取的代币
+error NotAuthorizedPool(); // 不是授权的池子
+error InvalidNPMAddress(); // 无效的 NPM 地址
+error StartTimeNotInFuture(); // 开始时间不在未来
 
 // NextswapAirdrop errors
 error InvalidRoundNumber(); // 无效的轮次号
@@ -86,3 +91,6 @@ error NoRewardsToClaim(); // 没有可领取的奖励
 error TokenNotStaked(); // NFT 未质押
 error PoolAlreadyExists(); // 池子已存在
 error PoolDoesNotExist(); // 池子不存在
+error EmptyTokenIdArray(); // 空的 NFT ID 数组
+error BatchSizeTooLarge(); // 批量操作数量过大
+error NoValidNFTsToStake(); // 没有有效的 NFT 可供质押
