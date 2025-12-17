@@ -25,6 +25,7 @@ error NoTokensAvailableToClaim(); // 没有可领取的代币
 
 // LiquidityMiningReward errors
 error ClaimDeadlineHasNotPassed(); // 领取截止时间未到
+error InsufficientReleasedTokens(); // 释放的代币不足
 
 // NextswapAirdrop errors
 error InvalidRoundNumber(); // 无效的轮次号
@@ -68,3 +69,5 @@ error EndTimeMustBeAfterStartTime(); // 结束时间必须晚于开始时间
 
 // LpPools errors
 error UnstakeAlreadyRequested(); // 已经请求了解质押
+error PoolIsNotActive(); // 池子未激活
+error LpPoolStatusUnchanged(); // 池子未激活

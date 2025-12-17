@@ -83,9 +83,10 @@ event InsufficientTokenBalance(
     uint256 roundId
 );
 event LpPoolCreated(
+    uint256 indexed poolId,
     address indexed poolAddress,
-    address indexed tokenA,
-    address indexed tokenB,
+    address tokenA,
+    address tokenB,
     uint24 feeRate,
     uint256 allocPoint
 );
@@ -105,3 +106,12 @@ event LpUnstaked(
     uint256 indexed tokenId,
     uint256 timestamp
 );
+
+event RewardsClaimed(
+    address indexed user,
+    uint256 indexed poolId,
+    uint256 amount,
+    uint256 timestamp
+);
+
+event PoolAuthorized(address indexed pool, bool authorized);

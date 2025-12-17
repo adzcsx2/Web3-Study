@@ -43,7 +43,6 @@ abstract contract NextswapModifiers {
         _;
     }
 
-
     // 数量大于零检查
     modifier amountGreaterThanZero(uint256 amount) {
         if (amount == 0) {
@@ -73,5 +72,11 @@ abstract contract NextswapModifiers {
         }
         _;
     }
-    // 
+    //  池子必须是激活状态检查
+    modifier poolMustBeActive(bool isActive) {
+        if (!isActive) {
+            revert PoolIsNotActive();
+        }
+        _;
+    }
 }

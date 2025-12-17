@@ -2,18 +2,30 @@
 pragma solidity ^0.8.26;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../types/NextswapStructs.sol";
 import "../errors/NextswapErrors.sol";
 import "../modifiers/NextswapModifiers.sol";
 import "../contract/swap/periphery/interfaces/INonfungiblePositionManager.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../events/NextswapEvents.sol";
+import "../contract/lib/PublicWithdrawable.sol";
+import "./LpPoolManager.sol";
 
-contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
+contract LpPoolContract is
+    AccessControl,
+    PublicWithdrawable,
+    NextswapModifiers
+{
+    using SafeERC20 for IERC20;
+
+    //LpPoolManager 合约地址
+    LpPoolManager public immutable lpm;
     // LP NFT 头寸管理器合约地址
     INonfungiblePositionManager public immutable positionManager;
+    // 奖励代币地址（immutable 节省 gas）
+    address public immutable rewardTokenAddress;
 
     //池信息
     LpPoolInfo public poolInfo;
@@ -29,6 +41,7 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
 
     // 解质押冷却时间
     uint256 public UNSTAKE_COOLDOWN = 3 days;
+
     // 必须是管理员或者时间锁角色
     modifier onlyAdminOrTimelock() {
         if (
@@ -52,31 +65,23 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
         _;
     }
 
-    /**
-     * @notice 检查地址是否有权限操作NFT
-     * @param tokenId NFT ID
-     * @param operator 操作者地址
-     */
-    function _isAuthorized(
-        uint256 tokenId,
-        address operator
-    ) internal view returns (bool) {
-        LpNftStakeInfo memory stakeInfo = lpNftStakes[tokenId];
-        if (stakeInfo.owner == operator) return true;
-
-        // 从 Position Manager 获取当前的 operator
-        (, address positionOperator, , , , , , , , , , ) = positionManager
-            .positions(tokenId);
-        return positionOperator == operator;
-    }
     constructor(
+        address _lpPoolManager,
         address _positionManager,
-        LpPoolConfig memory _initialConfig
-    ) nonZeroAddress(_positionManager) {
+        address _rewardTokenAddress,
+        LpPool memory _initialConfig
+    )
+        PublicWithdrawable(_rewardTokenAddress)
+        nonZeroAddress(_positionManager)
+        nonZeroAddress(_rewardTokenAddress)
+    {
+        lpm = LpPoolManager(_lpPoolManager);
         positionManager = INonfungiblePositionManager(_positionManager);
+        rewardTokenAddress = _rewardTokenAddress;
         poolInfo = LpPoolInfo({
             poolConfig: _initialConfig,
             lastRewardTime: block.timestamp,
+            poolStartTime: block.timestamp,
             accNextSwapPerShare: 0,
             totalStaked: 0,
             totalLiquidity: 0,
@@ -88,7 +93,15 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
      * @notice 质押 LP NFT
      * @param tokenId NFT 代币 ID
      */
-    function stakeLP(uint256 tokenId) external nonReentrant {
+    function stakeLP(
+        uint256 tokenId
+    )
+        external
+        poolMustBeActive(poolInfo.isActive)
+        isAuthorizedForToken(tokenId)
+        whenNotPaused
+        nonReentrant
+    {
         require(lpNftStakes[tokenId].owner == address(0), "Already staked");
 
         // 获取 NFT 的真实所有者（质押前）
@@ -135,6 +148,9 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
             requestedUnstakeAt: 0
         });
         // 总流动性增加
+        poolInfo.totalLiquidity += liquidity;
+        // 总质押数量增加
+        poolInfo.totalStaked += 1;
 
         // 添加到真实所有者的质押列表
         tokenIdToIndex[tokenId] = userStakedTokens[nftOwner].length;
@@ -149,7 +165,12 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
      */
     function requestUnstakeLP(
         uint256 tokenId
-    ) external isAuthorizedForToken(tokenId) {
+    )
+        external
+        poolMustBeActive(poolInfo.isActive)
+        isAuthorizedForToken(tokenId)
+        whenNotPaused
+    {
         LpNftStakeInfo memory stakeInfo = lpNftStakes[tokenId];
         if (stakeInfo.requestedUnstakeAt == 0) {
             lpNftStakes[tokenId].requestedUnstakeAt = block.timestamp;
@@ -165,7 +186,13 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
      */
     function unstakeLP(
         uint256 tokenId
-    ) external nonReentrant isAuthorizedForToken(tokenId) {
+    )
+        external
+        poolMustBeActive(poolInfo.isActive)
+        isAuthorizedForToken(tokenId)
+        whenNotPaused
+        nonReentrant
+    {
         LpNftStakeInfo memory stakeInfo = lpNftStakes[tokenId];
         address nftOwner = stakeInfo.owner;
 
@@ -192,6 +219,10 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
 
         // 删除质押信息
         delete lpNftStakes[tokenId];
+        // 总流动性减少
+        poolInfo.totalLiquidity -= stakeInfo.liquidity;
+        // 总质押数量减少
+        poolInfo.totalStaked -= 1;
 
         // 将 NFT 返还给原始所有者
         positionManager.safeTransferFrom(address(this), nftOwner, tokenId);
@@ -200,14 +231,60 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
     }
 
     // 领取奖励
-    function claimRewards(
-        uint256 tokenId
-    ) external isAuthorizedForToken(tokenId) {
+    function _claimRewards(uint256 tokenId) internal {
         _updateRewards(tokenId);
+
+        LpNftStakeInfo storage stakeInfo = lpNftStakes[tokenId];
+
+        // 先保存待领取的奖励金额
+        uint256 rewardAmount = stakeInfo.pendingRewards;
+        require(rewardAmount > 0, "No rewards to claim");
+
+        // 更新状态
+        stakeInfo.lastClaimAt = block.timestamp;
+        stakeInfo.receivedReward += rewardAmount;
+        stakeInfo.pendingRewards = 0;
+
+        // 从奖励池地址转账奖励代币到用户
+        // 调用 LiquidityMiningReward 合约的转账接口
+        lpm.liquidityMiningRewardContract().transferRewards(
+            stakeInfo.owner,
+            rewardAmount
+        );
+
+        emit RewardsClaimed(
+            stakeInfo.owner,
+            tokenId,
+            rewardAmount,
+            block.timestamp
+        );
     }
     // 更新奖励
-    function _updateRewards(uint256 tokenId) internal {
+    function _updateRewards(
+        uint256 tokenId
+    )
+        internal
+        poolMustBeActive(poolInfo.isActive)
+        isAuthorizedForToken(tokenId)
+        whenNotPaused
+        nonReentrant
+    {
         LpNftStakeInfo storage stakeInfo = lpNftStakes[tokenId];
+    }
+
+    /**
+     * 池子奖励重置
+     */
+    function resetPoolRewards()
+        external
+        poolMustBeActive(poolInfo.isActive)
+        onlyAdminOrTimelock
+        whenNotPaused
+        nonReentrant
+    {
+        poolInfo.lastRewardTime = block.timestamp;
+        poolInfo.poolStartTime = block.timestamp;
+        poolInfo.accNextSwapPerShare = 0;
     }
 
     /**
@@ -219,6 +296,20 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
     ) external onlyAdminOrTimelock {
         UNSTAKE_COOLDOWN = _cooldown;
     }
+
+    // ------------------------------------------overrides------------------------------------------
+    //
+    /**
+     * @notice 检查暂停权限
+     * @dev 实现 PublicPausable 的抽象方法，只有管理员或时间锁角色可以暂停/恢复合约
+     */
+    function _checkPauser() internal view override onlyAdminOrTimelock {}
+    function _checkOwner()
+        internal
+        view
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {}
 
     // --------------------------------------------view functions--------------------------------------------
 
@@ -271,7 +362,7 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
     /**
      * @notice 获取池配置
      */
-    function getPoolConfig() public view returns (LpPoolConfig memory) {
+    function getPoolConfig() public view returns (LpPool memory) {
         return poolInfo.poolConfig;
     }
     /**
@@ -279,5 +370,24 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
      */
     function getPoolInfo() public view returns (LpPoolInfo memory) {
         return poolInfo;
+    }
+
+    /**
+     * @notice 检查地址是否有权限操作NFT
+     * @param tokenId NFT ID
+     * @param operator 操作者地址
+     */
+
+    function _isAuthorized(
+        uint256 tokenId,
+        address operator
+    ) internal view returns (bool) {
+        LpNftStakeInfo memory stakeInfo = lpNftStakes[tokenId];
+        if (stakeInfo.owner == operator) return true;
+
+        // 从 Position Manager 获取当前的 operator
+        (, address positionOperator, , , , , , , , , , ) = positionManager
+            .positions(tokenId);
+        return positionOperator == operator;
     }
 }

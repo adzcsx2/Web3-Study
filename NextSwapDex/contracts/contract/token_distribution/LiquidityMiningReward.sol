@@ -54,6 +54,9 @@ contract LiquidityMiningReward is
     // npm
     INonfungiblePositionManager public immutable npm;
 
+    // 授权的池子映射
+    mapping(address => bool) public authorizedPools;
+
     // 必须是管理员或者时间锁角色
     modifier onlyAdminOrTimelock() {
         if (
@@ -62,6 +65,12 @@ contract LiquidityMiningReward is
         ) {
             revert UnauthorizedAdminOrTimelock();
         }
+        _;
+    }
+
+    // 必须是授权的池子
+    modifier onlyAuthorizedPool() {
+        require(authorizedPools[msg.sender], "Not authorized pool");
         _;
     }
 
@@ -206,6 +215,48 @@ contract LiquidityMiningReward is
      *         - checkRewardBalance: 检查奖励池余额充足性
      *         - 余额不足时的降级处理
      */
+
+    /**
+     * @notice 授权池子调用的转账函数
+     * @dev 只有授权的池子合约可以调用，用于发放挖矿奖励
+     * @param to 接收地址
+     * @param amount 转账数量
+     */
+    function transferRewards(
+        address to,
+        uint256 amount
+    ) external onlyAuthorizedPool nonReentrant whenNotPaused {
+        uint256 releasedTokens = calculateReleasedTokens();
+        uint256 availableTokens = releasedTokens - totalDistributed;
+
+        if (amount > availableTokens) {
+            revert InsufficientReleasedTokens();
+        }
+
+        totalDistributed += amount;
+        nextSwapToken.safeTransfer(to, amount);
+        emit RewardClaimed(to, amount);
+    }
+
+    /**
+     * @notice 添加授权池子
+     * @param pool 池子地址
+     */
+    function addAuthorizedPool(
+        address pool
+    ) external onlyAdminOrTimelock nonZeroAddress(pool) {
+        authorizedPools[pool] = true;
+        emit PoolAuthorized(pool, true);
+    }
+
+    /**
+     * @notice 移除授权池子
+     * @param pool 池子地址
+     */
+    function removeAuthorizedPool(address pool) external onlyAdminOrTimelock {
+        authorizedPools[pool] = false;
+        emit PoolAuthorized(pool, false);
+    }
 
     /**
      * @dev 设置生态基金地址
