@@ -53,7 +53,9 @@ contract LpPoolManager is AccessControl, NextswapModifiers {
     function addLpPool(LpPool memory _pool) public returns (LpPool memory) {
         // 规范化配置并检查是否已存在
         bytes32 poolKey = getPoolKey(_pool.tokenA, _pool.tokenB, _pool.fee);
-        require(poolsIdByKey[poolKey] == 0, "Pool already exists");
+        if (poolsIdByKey[poolKey] != 0) {
+            revert PoolAlreadyExists();
+        }
 
         LpPool memory lpPool = _initPool(_pool);
 
@@ -97,6 +99,32 @@ contract LpPoolManager is AccessControl, NextswapModifiers {
     }
 
     /**
+     * @notice 更新池子的分配权重
+     * @dev 只有管理员或时间锁可以调用
+     * @param poolId 池子ID
+     * @param newAllocPoint 新的分配权重
+     */
+    function updatePoolAllocPoint(
+        uint256 poolId,
+        uint256 newAllocPoint
+    ) external onlyAdminOrTimelock {
+        if (poolId >= lpPools.length) {
+            revert PoolDoesNotExist();
+        }
+
+        LpPool storage pool = lpPools[poolId];
+        uint256 oldAllocPoint = pool.allocPoint;
+
+        // 更新总分配点数
+        totalAllocPoint = totalAllocPoint - oldAllocPoint + newAllocPoint;
+
+        // 更新池子的分配点数
+        pool.allocPoint = newAllocPoint;
+
+        emit PoolAllocPointUpdated(poolId, oldAllocPoint, newAllocPoint);
+    }
+
+    /**
      * @notice 通过代币对和费率查找池（O(1) 时间复杂度）
      * @param tokenA 代币 A 地址
      * @param tokenB 代币 B 地址
@@ -110,6 +138,37 @@ contract LpPoolManager is AccessControl, NextswapModifiers {
     ) public view returns (uint256 poolId) {
         bytes32 poolKey = getPoolKey(tokenA, tokenB, fee);
         return poolsIdByKey[poolKey];
+    }
+
+    /**
+     * @notice 获取指定池子的每秒奖励
+     * @dev 根据池子权重和总释放速率计算
+     * @param poolId 池子ID
+     * @return rewardPerSecond 该池子每秒获得的奖励代币数量
+     */
+    function getPoolRewardPerSecond(
+        uint256 poolId
+    ) public view returns (uint256 rewardPerSecond) {
+        if (poolId >= lpPools.length) {
+            return 0;
+        }
+
+        // 如果没有任何池子有权重，返回0避免除零错误
+        if (totalAllocPoint == 0) {
+            return 0;
+        }
+
+        // 获取当前总的每秒释放量
+        uint256 totalRewardPerSecond = liquidityMiningRewardContract
+            .getRewardPerSecond();
+
+        // 根据权重计算该池子应得的奖励
+        LpPool memory pool = lpPools[poolId];
+        rewardPerSecond =
+            (totalRewardPerSecond * pool.allocPoint) /
+            totalAllocPoint;
+
+        return rewardPerSecond;
     }
 
     /**

@@ -73,3 +73,16 @@ error PoolIsNotActive(); // 池子未激活
 error LpPoolStatusUnchanged(); // 池子未激活
 error PoolStatusNotChange(); // 池子状态没改变
 error NoStakedTokens(); // 没有质押的代币
+error NotAuthorizedForToken(); // 未授权操作该 NFT
+error NotNFTOwner(); // 不是 NFT 所有者
+error NotStakeOwner(); // 不是质押所有者
+error AlreadyStaked(); // 已经质押
+error TokenPairMismatch(); // 代币对不匹配
+error FeeRateMismatch(); // 费率不匹配
+error NoLiquidity(); // 没有流动性
+error UnstakeNotRequested(); // 未请求解质押
+error UnstakeCooldownNotPassed(); // 解质押冷却期未过
+error NoRewardsToClaim(); // 没有可领取的奖励
+error TokenNotStaked(); // NFT 未质押
+error PoolAlreadyExists(); // 池子已存在
+error PoolDoesNotExist(); // 池子不存在

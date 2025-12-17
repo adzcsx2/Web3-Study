@@ -306,6 +306,25 @@ contract LiquidityMiningReward is
     ) internal override nonZeroAddress(newImplementation) onlyAdminOrTimelock {}
 
     // ---------------------------------------view functions----------------------------------------
+    /**
+     * @notice 获取当前每秒奖励速率
+     * @dev 根据总释放量和释放周期计算
+     * @return 每秒应该释放的代币数量
+     */
+    function getRewardPerSecond() public view returns (uint256) {
+        if (block.timestamp < startTime || block.timestamp >= endTime) {
+            return 0;
+        }
+
+        // 总释放周期（秒）
+        uint256 totalDuration = endTime - startTime; // 4 年 = 126,144,000 秒
+
+        // 每秒释放量 = 总量 / 总秒数
+        // 5亿 / 126,144,000 ≈ 3,963.45 NST/秒
+        // 换算成每日 ≈ 342,465 NST/天
+        return LIQUIDITY_MINING_TOTAL / totalDuration;
+    }
+
     // 计算已解锁代币数量
     function calculateReleasedTokens() public view returns (uint256) {
         if (block.timestamp <= startTime) {

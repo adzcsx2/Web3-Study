@@ -55,20 +55,23 @@ contract LpPoolContract is
 
     // 检查是否有权限操作指定的质押NFT（所有者或授权操作者）
     modifier isAuthorizedForToken(uint256 tokenId) {
-        require(_isAuthorized(tokenId, msg.sender), "Not authorized");
+        if (!_isAuthorized(tokenId, msg.sender)) {
+            revert NotAuthorizedForToken();
+        }
         _;
     }
     modifier isNFTOwner(uint256 tokenId) {
-        require(
-            positionManager.ownerOf(tokenId) == msg.sender,
-            "Not NFT owner"
-        );
+        if (positionManager.ownerOf(tokenId) != msg.sender) {
+            revert NotNFTOwner();
+        }
         _;
     }
 
     // 检查是否是 NFT 所有者
     modifier onlyStakeOwner(uint256 tokenId) {
-        require(lpNftStakes[tokenId].owner == msg.sender, "Not owner");
+        if (lpNftStakes[tokenId].owner != msg.sender) {
+            revert NotStakeOwner();
+        }
         _;
     }
 
@@ -132,7 +135,9 @@ contract LpPoolContract is
         whenNotPaused
         nonReentrant
     {
-        require(lpNftStakes[tokenId].owner == address(0), "Already staked");
+        if (lpNftStakes[tokenId].owner != address(0)) {
+            revert AlreadyStaked();
+        }
 
         // 获取 NFT 的真实所有者（质押前）
         address nftOwner = positionManager.ownerOf(tokenId);
@@ -154,13 +159,18 @@ contract LpPoolContract is
         ) = positionManager.positions(tokenId);
 
         // 验证代币对和费率是否匹配池配置
-        require(
-            token0 == poolInfo.poolConfig.tokenA &&
-                token1 == poolInfo.poolConfig.tokenB,
-            "Token pair mismatch"
-        );
-        require(fee == poolInfo.poolConfig.fee, "Fee rate mismatch");
-        require(liquidity > 0, "No liquidity");
+        if (
+            token0 != poolInfo.poolConfig.tokenA ||
+            token1 != poolInfo.poolConfig.tokenB
+        ) {
+            revert TokenPairMismatch();
+        }
+        if (fee != poolInfo.poolConfig.fee) {
+            revert FeeRateMismatch();
+        }
+        if (liquidity == 0) {
+            revert NoLiquidity();
+        }
 
         // 从 NFT 所有者转移到本合约
         // 如果 msg.sender 不是所有者，需要有授权才能成功
@@ -229,12 +239,13 @@ contract LpPoolContract is
         address nftOwner = stakeInfo.owner;
 
         // 检查是否已请求解质押
-        require(stakeInfo.requestedUnstakeAt > 0, "Unstake not requested");
+        if (stakeInfo.requestedUnstakeAt == 0) {
+            revert UnstakeNotRequested();
+        }
         // 检查冷却时间是否已过
-        require(
-            block.timestamp >= stakeInfo.requestedUnstakeAt + UNSTAKE_COOLDOWN,
-            "Unstake cooldown not passed"
-        );
+        if (block.timestamp < stakeInfo.requestedUnstakeAt + UNSTAKE_COOLDOWN) {
+            revert UnstakeCooldownNotPassed();
+        }
 
         // 从所有者的质押列表中移除（使用交换删除法，避免数组重排）
         uint256 index = tokenIdToIndex[tokenId];
@@ -263,17 +274,68 @@ contract LpPoolContract is
     }
 
     /**
+     * @notice 更新池子的累计奖励
+     * @dev 根据时间差和动态奖励率计算新增的累计每份额奖励
+     */
+    function updatePool() internal {
+        // 如果当前时间还没到上次奖励时间，直接返回
+        if (block.timestamp <= poolInfo.lastRewardTime) {
+            return;
+        }
+
+        // 如果总流动性为0，只更新时间
+        if (poolInfo.totalLiquidity == 0) {
+            poolInfo.lastRewardTime = block.timestamp;
+            return;
+        }
+
+        // 计算时间差
+        uint256 timeDiff = block.timestamp - poolInfo.lastRewardTime;
+
+        // 从 LpPoolManager 获取该池子当前的每秒奖励速率（根据权重自动计算）
+        uint256 rewardPerSecond = lpm.getPoolRewardPerSecond(
+            poolInfo.poolConfig.poolId
+        );
+
+        // 计算这段时间应发放的奖励总额
+        uint256 reward = timeDiff * rewardPerSecond;
+
+        // 更新累计每份额奖励（放大1e18倍以保持精度）
+        poolInfo.accNextSwapPerShare +=
+            (reward * 1e18) /
+            poolInfo.totalLiquidity;
+
+        // 更新最后奖励时间
+        poolInfo.lastRewardTime = block.timestamp;
+    }
+
+    /**
      * @notice 领取质押奖励（所有者或授权操作者都可以调用）
      * @param tokenId NFT 代币 ID
      */
     function _claimRewards(uint256 tokenId) internal {
-        _updateRewards(tokenId);
+        // 先更新池子的累计奖励
+        updatePool();
 
         LpNftStakeInfo storage stakeInfo = lpNftStakes[tokenId];
 
+        // 计算该NFT的待领取奖励
+        uint256 liquidity = stakeInfo.liquidity;
+        uint256 accNextSwapPerShare = poolInfo.accNextSwapPerShare;
+        uint256 oldPendingRewards = stakeInfo.receivedReward +
+            stakeInfo.pendingRewards;
+        uint256 newPending = (liquidity * accNextSwapPerShare) /
+            1e18 -
+            oldPendingRewards;
+
+        // 更新待领取奖励
+        stakeInfo.pendingRewards += newPending;
+
         // 先保存待领取的奖励金额
         uint256 rewardAmount = stakeInfo.pendingRewards;
-        require(rewardAmount > 0, "No rewards to claim");
+        if (rewardAmount == 0) {
+            revert NoRewardsToClaim();
+        }
 
         // 更新状态
         stakeInfo.lastClaimAt = block.timestamp;
@@ -294,24 +356,33 @@ contract LpPoolContract is
             block.timestamp
         );
     }
+
     /**
      * 计算奖励并更新质押信息
      */
     function _updateRewards(
         address user
     ) internal poolMustBeActive(poolInfo.isActive) whenNotPaused nonReentrant {
-        uint256[] tokenIds = userStakedTokens[user];
+        uint256[] memory tokenIds = userStakedTokens[user];
         if (tokenIds.length == 0) {
             revert NoStakedTokens();
         }
 
+        // 先更新池子的累计奖励
+        updatePool();
+
+        // 遍历用户所有质押的NFT，更新每个NFT的待领取奖励
         for (uint256 i = 0; i < tokenIds.length; i++) {
+            uint256 tokenId = tokenIds[i];
             LpNftStakeInfo storage stakeInfo = lpNftStakes[tokenId];
+
             // 计算应得奖励
             uint256 liquidity = stakeInfo.liquidity;
             uint256 accNextSwapPerShare = poolInfo.accNextSwapPerShare;
+            // 已经结算的奖励总额
             uint256 oldPendingRewards = stakeInfo.receivedReward +
                 stakeInfo.pendingRewards;
+            // 新增奖励 = (流动性 * 累计每份额奖励) - 已结算奖励
             uint256 pending = (liquidity * accNextSwapPerShare) /
                 1e18 -
                 oldPendingRewards;
@@ -319,7 +390,7 @@ contract LpPoolContract is
             stakeInfo.pendingRewards += pending;
         }
 
-        emit RewardsUpdated(stakeInfo.owner, tokenIds, block.timestamp);
+        emit RewardsUpdated(user, tokenIds, block.timestamp);
     }
 
     /**
@@ -389,7 +460,9 @@ contract LpPoolContract is
     function getStakeOperator(
         uint256 tokenId
     ) external view returns (address operator) {
-        require(lpNftStakes[tokenId].owner != address(0), "Token not staked");
+        if (lpNftStakes[tokenId].owner == address(0)) {
+            revert TokenNotStaked();
+        }
         (, operator, , , , , , , , , , ) = positionManager.positions(tokenId);
         return operator;
     }

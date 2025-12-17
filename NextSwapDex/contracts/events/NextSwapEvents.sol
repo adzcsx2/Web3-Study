@@ -126,3 +126,9 @@ event PoolActivate(
     bool isActive,
     uint256 timestamp
 );
+
+event PoolAllocPointUpdated(
+    uint256 indexed poolId,
+    uint256 oldAllocPoint,
+    uint256 newAllocPoint
+);

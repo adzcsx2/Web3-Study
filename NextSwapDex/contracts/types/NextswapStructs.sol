@@ -44,7 +44,7 @@ struct LpPool {
     address tokenA;
     address tokenB;
     uint24 fee;
-    uint256 allocPoint; // 分配点数
+    uint256 allocPoint; // 分配点数（权重），用于多池分配
 }
 
 // LP 池信息
