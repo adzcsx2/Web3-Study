@@ -47,11 +47,11 @@ struct LpPoolConfig {
 
 // LP 池信息
 struct LpPoolInfo {
-    address lpToken; // LP Token 或 NFT 合约地址
-    uint256 allocPoint; // 分配点数
+    LpPoolConfig poolConfig; // LP Token 或 NFT 合约地址
     uint256 lastRewardTime; // 上次奖励时间
     uint256 accNextSwapPerShare; // 每份额累计的奖励
     uint256 totalStaked; // 总质押数量
+    uint256 totalLiquidity; // 总流动性
     bool isActive; // 池是否激活
 }
 
@@ -69,8 +69,5 @@ struct LpNftStakeInfo {
 
 // 用户在某个池中的质押信息
 struct UserStakeInfo {
-    uint256 amount; // 质押数量（ERC20模式）
     uint256[] nftTokenIds; // 质押的NFT ID列表（NFT模式）
-    uint256 rewardDebt; // 奖励债务
-    uint256 pendingRewards; // 待领取奖励
 }

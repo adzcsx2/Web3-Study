@@ -15,8 +15,8 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
     // LP NFT 头寸管理器合约地址
     INonfungiblePositionManager public immutable positionManager;
 
-    // 池配置
-    LpPoolConfig public poolConfig;
+    //池信息
+    LpPoolInfo public poolInfo;
 
     // 用户质押信息映射: tokenId => 质押信息
     mapping(uint256 => LpNftStakeInfo) public lpNftStakes;
@@ -74,7 +74,14 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
         LpPoolConfig memory _initialConfig
     ) nonZeroAddress(_positionManager) {
         positionManager = INonfungiblePositionManager(_positionManager);
-        poolConfig = _initialConfig;
+        poolInfo = LpPoolInfo({
+            poolConfig: _initialConfig,
+            lastRewardTime: block.timestamp,
+            accNextSwapPerShare: 0,
+            totalStaked: 0,
+            totalLiquidity: 0,
+            isActive: true
+        });
     }
 
     /**
@@ -105,10 +112,11 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
 
         // 验证代币对和费率是否匹配池配置
         require(
-            token0 == poolConfig.tokenA && token1 == poolConfig.tokenB,
+            token0 == poolInfo.poolConfig.tokenA &&
+                token1 == poolInfo.poolConfig.tokenB,
             "Token pair mismatch"
         );
-        require(fee == poolConfig.fee, "Fee rate mismatch");
+        require(fee == poolInfo.poolConfig.fee, "Fee rate mismatch");
         require(liquidity > 0, "No liquidity");
 
         // 从 NFT 所有者转移到本合约
@@ -126,6 +134,7 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
             lastClaimAt: 0,
             requestedUnstakeAt: 0
         });
+        // 总流动性增加
 
         // 添加到真实所有者的质押列表
         tokenIdToIndex[tokenId] = userStakedTokens[nftOwner].length;
@@ -147,6 +156,7 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
         } else {
             revert UnstakeAlreadyRequested();
         }
+        emit RquestUnstakeLP(msg.sender, tokenId, block.timestamp);
     }
 
     /**
@@ -187,6 +197,17 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
         positionManager.safeTransferFrom(address(this), nftOwner, tokenId);
 
         emit LpUnstaked(nftOwner, tokenId, block.timestamp);
+    }
+
+    // 领取奖励
+    function claimRewards(
+        uint256 tokenId
+    ) external isAuthorizedForToken(tokenId) {
+        _updateRewards(tokenId);
+    }
+    // 更新奖励
+    function _updateRewards(uint256 tokenId) internal {
+        LpNftStakeInfo storage stakeInfo = lpNftStakes[tokenId];
     }
 
     /**
@@ -251,6 +272,12 @@ contract LpPool is AccessControl, ReentrancyGuard, NextswapModifiers {
      * @notice 获取池配置
      */
     function getPoolConfig() public view returns (LpPoolConfig memory) {
-        return poolConfig;
+        return poolInfo.poolConfig;
+    }
+    /**
+     *   @notice 获取池信息
+     */
+    function getPoolInfo() public view returns (LpPoolInfo memory) {
+        return poolInfo;
     }
 }

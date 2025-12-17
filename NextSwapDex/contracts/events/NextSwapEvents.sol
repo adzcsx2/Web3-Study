@@ -94,6 +94,12 @@ event LpStaked(
     uint256 indexed tokenId,
     uint256 timestamp
 );
+event RquestUnstakeLP(
+    address indexed user,
+    uint256 indexed tokenId,
+    uint256 timestamp
+);
+
 event LpUnstaked(
     address indexed user,
     uint256 indexed tokenId,
