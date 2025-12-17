@@ -115,3 +115,14 @@ event RewardsClaimed(
 );
 
 event PoolAuthorized(address indexed pool, bool authorized);
+event RewardsUpdated(
+    address indexed owner,
+    uint256[] tokenIds,
+    uint256 timestamp
+);
+event PoolActivate(
+    address indexed owner,
+    uint256 indexed poolId,
+    bool isActive,
+    uint256 timestamp
+);

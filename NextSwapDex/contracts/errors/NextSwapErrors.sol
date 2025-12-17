@@ -71,3 +71,5 @@ error EndTimeMustBeAfterStartTime(); // 结束时间必须晚于开始时间
 error UnstakeAlreadyRequested(); // 已经请求了解质押
 error PoolIsNotActive(); // 池子未激活
 error LpPoolStatusUnchanged(); // 池子未激活
+error PoolStatusNotChange(); // 池子状态没改变
+error NoStakedTokens(); // 没有质押的代币

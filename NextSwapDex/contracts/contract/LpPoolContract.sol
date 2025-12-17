@@ -58,6 +58,13 @@ contract LpPoolContract is
         require(_isAuthorized(tokenId, msg.sender), "Not authorized");
         _;
     }
+    modifier isNFTOwner(uint256 tokenId) {
+        require(
+            positionManager.ownerOf(tokenId) == msg.sender,
+            "Not NFT owner"
+        );
+        _;
+    }
 
     // 检查是否是 NFT 所有者
     modifier onlyStakeOwner(uint256 tokenId) {
@@ -81,17 +88,40 @@ contract LpPoolContract is
         poolInfo = LpPoolInfo({
             poolConfig: _initialConfig,
             lastRewardTime: block.timestamp,
-            poolStartTime: block.timestamp,
+            activeTime: block.timestamp,
+            endTime: 0,
             accNextSwapPerShare: 0,
             totalStaked: 0,
             totalLiquidity: 0,
-            isActive: true
+            isActive: false
         });
+    }
+
+    /**
+     * @notice 设置池子激活状态
+     */
+    function activatePool(bool isActive) external onlyAdminOrTimelock {
+        if (poolInfo.isActive == isActive) {
+            revert PoolStatusNotChange();
+        }
+        poolInfo.isActive = isActive;
+        if (isActive) {
+            poolInfo.activeTime = block.timestamp;
+        } else {
+            poolInfo.endTime = block.timestamp;
+        }
+        emit PoolActivate(
+            msg.sender,
+            poolInfo.poolConfig.poolId,
+            isActive,
+            block.timestamp
+        );
     }
 
     /**
      * @notice 质押 LP NFT
      * @param tokenId NFT 代币 ID
+     *   授权者必须是 NFT 的所有者或者被授权的操作者
      */
     function stakeLP(
         uint256 tokenId
@@ -162,13 +192,14 @@ contract LpPoolContract is
     /**
      * @notice 请求解质押（检查冷却时间）
      * @param tokenId NFT 代币 ID
+     * 授权者必须是 NFT 的所有者,被授权者不能请求解质押
      */
     function requestUnstakeLP(
         uint256 tokenId
     )
         external
         poolMustBeActive(poolInfo.isActive)
-        isAuthorizedForToken(tokenId)
+        isNFTOwner(tokenId)
         whenNotPaused
     {
         LpNftStakeInfo memory stakeInfo = lpNftStakes[tokenId];
@@ -183,13 +214,14 @@ contract LpPoolContract is
     /**
      * @notice 取消质押 LP NFT（所有者或授权操作者都可以调用）
      * @param tokenId NFT 代币 ID
+     * 授权者必须是 NFT 的所有者,被授权者不能取消质押
      */
     function unstakeLP(
         uint256 tokenId
     )
         external
         poolMustBeActive(poolInfo.isActive)
-        isAuthorizedForToken(tokenId)
+        isNFTOwner(tokenId)
         whenNotPaused
         nonReentrant
     {
@@ -230,7 +262,10 @@ contract LpPoolContract is
         emit LpUnstaked(nftOwner, tokenId, block.timestamp);
     }
 
-    // 领取奖励
+    /**
+     * @notice 领取质押奖励（所有者或授权操作者都可以调用）
+     * @param tokenId NFT 代币 ID
+     */
     function _claimRewards(uint256 tokenId) internal {
         _updateRewards(tokenId);
 
@@ -259,32 +294,32 @@ contract LpPoolContract is
             block.timestamp
         );
     }
-    // 更新奖励
-    function _updateRewards(
-        uint256 tokenId
-    )
-        internal
-        poolMustBeActive(poolInfo.isActive)
-        isAuthorizedForToken(tokenId)
-        whenNotPaused
-        nonReentrant
-    {
-        LpNftStakeInfo storage stakeInfo = lpNftStakes[tokenId];
-    }
-
     /**
-     * 池子奖励重置
+     * 计算奖励并更新质押信息
      */
-    function resetPoolRewards()
-        external
-        poolMustBeActive(poolInfo.isActive)
-        onlyAdminOrTimelock
-        whenNotPaused
-        nonReentrant
-    {
-        poolInfo.lastRewardTime = block.timestamp;
-        poolInfo.poolStartTime = block.timestamp;
-        poolInfo.accNextSwapPerShare = 0;
+    function _updateRewards(
+        address user
+    ) internal poolMustBeActive(poolInfo.isActive) whenNotPaused nonReentrant {
+        uint256[] tokenIds = userStakedTokens[user];
+        if (tokenIds.length == 0) {
+            revert NoStakedTokens();
+        }
+
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            LpNftStakeInfo storage stakeInfo = lpNftStakes[tokenId];
+            // 计算应得奖励
+            uint256 liquidity = stakeInfo.liquidity;
+            uint256 accNextSwapPerShare = poolInfo.accNextSwapPerShare;
+            uint256 oldPendingRewards = stakeInfo.receivedReward +
+                stakeInfo.pendingRewards;
+            uint256 pending = (liquidity * accNextSwapPerShare) /
+                1e18 -
+                oldPendingRewards;
+            // 更新待领取奖励
+            stakeInfo.pendingRewards += pending;
+        }
+
+        emit RewardsUpdated(stakeInfo.owner, tokenIds, block.timestamp);
     }
 
     /**

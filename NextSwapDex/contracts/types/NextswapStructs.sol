@@ -54,7 +54,8 @@ struct LpPoolInfo {
     uint256 accNextSwapPerShare; // 每份额累计的奖励
     uint256 totalStaked; // 总质押数量
     uint256 totalLiquidity; // 总流动性
-    uint256 poolStartTime; // 池子开始时间(可用于重置奖励发放)
+    uint256 activeTime; // 池子激活时间
+    uint256 endTime; // 池子结束时间 (只能手动结束)
     bool isActive; // 池是否激活
 }
 
