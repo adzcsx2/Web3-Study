@@ -1,7 +1,7 @@
 {
   "network": "localhost",
   "chainId": "31337",
-  "lastUpdated": "2025-12-18T08:35:21.740Z",
+  "lastUpdated": "2025-12-18T18:46:18.081Z",
   "contracts": {
     "DAI": {
       "contractName": "DAI",
@@ -1917,18 +1917,18 @@
     },
     "NextswapV3Factory": {
       "contractName": "NextswapV3Factory",
-      "proxyAddress": "0x06b3244b086cecC40F1e5A826f736Ded68068a0F",
+      "proxyAddress": "0xf42Ec71A4440F5e9871C643696DD6Dc9a38911F8",
       "isProxyContract": false,
       "currentVersion": "1",
       "versions": [
         {
-          "address": "0x06b3244b086cecC40F1e5A826f736Ded68068a0F",
-          "transactionHash": "0x7a2ec231fcd74fa6e0ed66713b449565ac1792b78b8bdf8b07f701418d12a19d",
-          "blockNumber": 342,
+          "address": "0xf42Ec71A4440F5e9871C643696DD6Dc9a38911F8",
+          "transactionHash": "0x03ebef3cfe1e3abb40b9c6ec7d66aa8954d691f1fc601b5cfb3345331432302c",
+          "blockNumber": 720,
           "gasUsed": "5182641",
           "version": "1",
           "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-          "deployedAt": "2025-12-17T21:13:25.836Z",
+          "deployedAt": "2025-12-18T18:46:17.094Z",
           "isProxy": false,
           "isActive": true,
           "abi": [
@@ -2156,18 +2156,18 @@
     },
     "NFTDescriptor": {
       "contractName": "NFTDescriptor",
-      "proxyAddress": "0xAD2935E147b61175D5dc3A9e7bDa93B0975A43BA",
+      "proxyAddress": "0xbc71F5687CFD36f64Ae6B4549186EE3A6eE259a4",
       "isProxyContract": false,
       "currentVersion": "1",
       "versions": [
         {
-          "address": "0xAD2935E147b61175D5dc3A9e7bDa93B0975A43BA",
-          "transactionHash": "0x8342c4a7ba8e3cd66a229c62561214f2b4ef80c195b5e1633a6fe5ccab851b58",
-          "blockNumber": 343,
+          "address": "0xbc71F5687CFD36f64Ae6B4549186EE3A6eE259a4",
+          "transactionHash": "0x6b5dddc5242064b009c307157dc91d862b006db7957a9c454bf8dee2b3ce138a",
+          "blockNumber": 721,
           "gasUsed": "4648038",
           "version": "1",
           "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-          "deployedAt": "2025-12-17T21:13:25.893Z",
+          "deployedAt": "2025-12-18T18:46:17.152Z",
           "isProxy": false,
           "isActive": true,
           "abi": [
@@ -2259,18 +2259,18 @@
     },
     "NonfungibleTokenPositionDescriptor": {
       "contractName": "NonfungibleTokenPositionDescriptor",
-      "proxyAddress": "0x00CAC06Dd0BB4103f8b62D280fE9BCEE8f26fD59",
+      "proxyAddress": "0xD73bAb8F06DB28c87932571f87D0D2C0FDF13D94",
       "isProxyContract": false,
       "currentVersion": "1",
       "versions": [
         {
-          "address": "0x00CAC06Dd0BB4103f8b62D280fE9BCEE8f26fD59",
-          "transactionHash": "0x209e80a23c07bce287a274eb4383d3a84285a4324ee18337256214882621752d",
-          "blockNumber": 344,
+          "address": "0xD73bAb8F06DB28c87932571f87D0D2C0FDF13D94",
+          "transactionHash": "0x61c7534bbd4254d8765a36c9a8c86da1c39fb37c300adbe643da08895bf130a1",
+          "blockNumber": 722,
           "gasUsed": "982227",
           "version": "1",
           "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-          "deployedAt": "2025-12-17T21:13:25.936Z",
+          "deployedAt": "2025-12-18T18:46:17.208Z",
           "isProxy": false,
           "isActive": true,
           "abi": [
@@ -2496,25 +2496,25 @@
             }
           ],
           "libraries": {
-            "contracts/contract/swap/periphery/libraries/NFTDescriptor.sol:NFTDescriptor": "0xAD2935E147b61175D5dc3A9e7bDa93B0975A43BA"
+            "contracts/contract/swap/periphery/libraries/NFTDescriptor.sol:NFTDescriptor": "0xbc71F5687CFD36f64Ae6B4549186EE3A6eE259a4"
           }
         }
       ]
     },
     "SwapRouter": {
       "contractName": "SwapRouter",
-      "proxyAddress": "0x4951A1C579039EbfCBA0BE33D2cd3A6D30b0f802",
+      "proxyAddress": "0x28227B230d3945e580eD3B1c6c8ea1df658A7AA9",
       "isProxyContract": false,
       "currentVersion": "1",
       "versions": [
         {
-          "address": "0x4951A1C579039EbfCBA0BE33D2cd3A6D30b0f802",
-          "transactionHash": "0x07ad426ff12a264562d22baa81e5177059e93f5875e71186430774f792d453f3",
-          "blockNumber": 345,
+          "address": "0x28227B230d3945e580eD3B1c6c8ea1df658A7AA9",
+          "transactionHash": "0x7aa9545b1e6b7a29a08940412d634fcd35a9d792844eb8985e688b9ec50713ef",
+          "blockNumber": 723,
           "gasUsed": "1862273",
           "version": "1",
           "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-          "deployedAt": "2025-12-17T21:13:25.967Z",
+          "deployedAt": "2025-12-18T18:46:17.245Z",
           "isProxy": false,
           "isActive": true,
           "abi": [
@@ -3040,18 +3040,18 @@
     },
     "QuoterV2": {
       "contractName": "QuoterV2",
-      "proxyAddress": "0x2e8880cAdC08E9B438c6052F5ce3869FBd6cE513",
+      "proxyAddress": "0x82A9286dB983093Ff234cefCea1d8fA66382876B",
       "isProxyContract": false,
       "currentVersion": "1",
       "versions": [
         {
-          "address": "0x2e8880cAdC08E9B438c6052F5ce3869FBd6cE513",
-          "transactionHash": "0x32190ef1b946d2292763d6a1bca6fb66fbe62b83057abf0513f4780d7e086f5b",
-          "blockNumber": 346,
+          "address": "0x82A9286dB983093Ff234cefCea1d8fA66382876B",
+          "transactionHash": "0xcbcf064eeb652488b043c64bbc3b2498c4cce6b123b052f7fe1c7a44b0c7e38d",
+          "blockNumber": 724,
           "gasUsed": "1350976",
           "version": "1",
           "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-          "deployedAt": "2025-12-17T21:13:25.996Z",
+          "deployedAt": "2025-12-18T18:46:17.273Z",
           "isProxy": false,
           "isActive": true,
           "abi": [
@@ -3298,18 +3298,18 @@
     },
     "NonfungiblePositionManager": {
       "contractName": "NonfungiblePositionManager",
-      "proxyAddress": "0xb007167714e2940013EC3bb551584130B7497E22",
+      "proxyAddress": "0x41219a0a9C0b86ED81933c788a6B63Dfef8f17eE",
       "isProxyContract": false,
       "currentVersion": "1",
       "versions": [
         {
-          "address": "0xb007167714e2940013EC3bb551584130B7497E22",
-          "transactionHash": "0x19f95424359b2292dd75f89e858ee3d813c5e49911df9168559db34a7d0cd805",
-          "blockNumber": 347,
-          "gasUsed": "4268468",
+          "address": "0x41219a0a9C0b86ED81933c788a6B63Dfef8f17eE",
+          "transactionHash": "0x0fd82c02e3e4935f141da6ac91ed250bcfea43bc29d2e4cfc4ca90d5f686b221",
+          "blockNumber": 725,
+          "gasUsed": "4268480",
           "version": "1",
           "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-          "deployedAt": "2025-12-17T21:13:26.055Z",
+          "deployedAt": "2025-12-18T18:46:17.328Z",
           "isProxy": false,
           "isActive": true,
           "abi": [
@@ -4561,18 +4561,18 @@
     },
     "NextswapToken": {
       "contractName": "NextswapToken",
-      "proxyAddress": "0xa4d0806d597146df93796A38435ABB2a3cb96677",
+      "proxyAddress": "0xF67e26649037695DdFAB19f4E22d5c9Fd1564592",
       "isProxyContract": false,
       "currentVersion": "1",
       "versions": [
         {
-          "address": "0xa4d0806d597146df93796A38435ABB2a3cb96677",
-          "transactionHash": "0x422716364646a9d89ab708be0ff8595e21e7312713634faac0f14f9294d86868",
-          "blockNumber": 638,
-          "gasUsed": "2814029",
+          "address": "0xF67e26649037695DdFAB19f4E22d5c9Fd1564592",
+          "transactionHash": "0xea2cd9fae1079aa7e62e3bbf099458268990cdfef0cd51187aa441b4953b1222",
+          "blockNumber": 727,
+          "gasUsed": "2750221",
           "version": "1",
           "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-          "deployedAt": "2025-12-18T08:35:21.597Z",
+          "deployedAt": "2025-12-18T18:46:17.966Z",
           "isProxy": false,
           "isActive": true,
           "abi": [
@@ -6043,18 +6043,18 @@
     },
     "NextswapTimelock": {
       "contractName": "NextswapTimelock",
-      "proxyAddress": "0xAE246E208ea35B3F23dE72b697D47044FC594D5F",
+      "proxyAddress": "0x1d460d731Bd5a0fF2cA07309dAEB8641a7b175A1",
       "isProxyContract": false,
       "currentVersion": "1",
       "versions": [
         {
-          "address": "0xAE246E208ea35B3F23dE72b697D47044FC594D5F",
-          "transactionHash": "0x0d1904c40df6446991c66d40ed4db173c45d58ecb86f899166719cca3c37acd9",
-          "blockNumber": 639,
+          "address": "0x1d460d731Bd5a0fF2cA07309dAEB8641a7b175A1",
+          "transactionHash": "0xfbc9446dbfc9665e9627246c27ac352df6a559151f74f8a1f585a91dd3abe376",
+          "blockNumber": 726,
           "gasUsed": "1401624",
           "version": "1",
           "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-          "deployedAt": "2025-12-18T08:35:21.641Z",
+          "deployedAt": "2025-12-18T18:46:17.906Z",
           "isProxy": false,
           "isActive": true,
           "abi": [
@@ -6983,18 +6983,18 @@
     },
     "LiquidityMiningReward": {
       "contractName": "LiquidityMiningReward",
-      "proxyAddress": "0x82BBAA3B0982D88741B275aE1752DB85CAfe3c65",
+      "proxyAddress": "0xeA8AE08513f8230cAA8d031D28cB4Ac8CE720c68",
       "isProxyContract": false,
       "currentVersion": "1",
       "versions": [
         {
-          "address": "0x82BBAA3B0982D88741B275aE1752DB85CAfe3c65",
-          "transactionHash": "0x91ba02c3901ccd0656ab303991307b41bb282524535f545e14f8384142d6e4f9",
-          "blockNumber": 640,
-          "gasUsed": "1560304",
+          "address": "0xeA8AE08513f8230cAA8d031D28cB4Ac8CE720c68",
+          "transactionHash": "0x3e5c48142efd43e99dd048946dfebb66d2b09926e9df20de23442647ec04399b",
+          "blockNumber": 728,
+          "gasUsed": "1560316",
           "version": "1",
           "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-          "deployedAt": "2025-12-18T08:35:21.682Z",
+          "deployedAt": "2025-12-18T18:46:18.004Z",
           "isProxy": false,
           "isActive": true,
           "abi": [
@@ -7920,18 +7920,18 @@
     },
     "LpPoolManager": {
       "contractName": "LpPoolManager",
-      "proxyAddress": "0x02e8910B3B89690d4aeC9fcC0Ae2cD16fB6A4828",
+      "proxyAddress": "0x2f321ed425c82E74925488139e1556f9B76a2551",
       "isProxyContract": false,
       "currentVersion": "1",
       "versions": [
         {
-          "address": "0x02e8910B3B89690d4aeC9fcC0Ae2cD16fB6A4828",
-          "transactionHash": "0x46f04e5fc7b05ed7279244855f398d18f04025b7773691c017e8b0ee30a5db6b",
-          "blockNumber": 643,
-          "gasUsed": "3906571",
+          "address": "0x2f321ed425c82E74925488139e1556f9B76a2551",
+          "transactionHash": "0xe9d0cbb7960a4b64d3b5598c8706831fd8f48e3a344d232e5b9a2c258db248e2",
+          "blockNumber": 731,
+          "gasUsed": "3906583",
           "version": "1",
           "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-          "deployedAt": "2025-12-18T08:35:21.738Z",
+          "deployedAt": "2025-12-18T18:46:18.078Z",
           "isProxy": false,
           "isActive": true,
           "abi": [

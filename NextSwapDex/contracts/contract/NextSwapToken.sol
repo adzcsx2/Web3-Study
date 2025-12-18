@@ -47,7 +47,7 @@ contract NextswapToken is
         //设置角色
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(PAUSER_ROLE, msg.sender);
-        // 将时间锁合约设置为管理员
+        // 给时间锁地址授予 TIMELOCK_ROLE 角色
         _grantRole(TIMELOCK_ROLE, _timelock);
     }
     // -------------------------------------------权限控制-------------------------------------
@@ -92,12 +92,10 @@ contract NextswapToken is
 
         // 撤销旧时间锁权限
         _revokeRole(TIMELOCK_ROLE, oldTimelock);
-        _revokeRole(DEFAULT_ADMIN_ROLE, oldTimelock);
 
         // 授予新时间锁权限
         timelock = newTimelock;
         _grantRole(TIMELOCK_ROLE, newTimelock);
-        _grantRole(DEFAULT_ADMIN_ROLE, newTimelock);
 
         emit TimelockUpdated(oldTimelock, newTimelock);
     }

@@ -55,24 +55,8 @@ describe("Deploy LP Staking System", function () {
     console.log("🔑 部署账户:", deployerAddress);
     console.log("━".repeat(60));
 
-    // 1. 部署 NextswapToken
-    console.log("\n📦 [1/4] 部署 NextswapToken...");
-    const { contract: nextswapTokenBase, versionInfo: tokenVersionInfo } =
-      await deployHelper.deployContract(NextswapTokenName, [deployerAddress]);
-    const nextswapToken = nextswapTokenBase as any; // 转换为正确类型
-    console.log("✅ NextswapToken 部署完成！");
-    console.log("📍 地址:", tokenVersionInfo.address);
-    console.log("⛽ Gas used:", tokenVersionInfo.gasUsed);
-    expect(tokenVersionInfo.address).to.be.a("string").that.is.not.empty;
-
-    // 更新 deployment 对象
-    if (!deployment.contracts) deployment.contracts = {};
-    if (!deployment.contracts.NextswapToken)
-      deployment.contracts.NextswapToken = {};
-    deployment.contracts.NextswapToken.proxyAddress = tokenVersionInfo.address;
-
-    // 2. 部署 NextswapTimelock
-    console.log("\n📦 [2/4] 部署 NextswapTimelock...");
+    // 1. 先部署 NextswapTimelock（必须先部署，其他合约需要这个地址）
+    console.log("\n📦 [1/4] 部署 NextswapTimelock...");
     const minDelay = 2 * 24 * 60 * 60; // 2 天
     const proposers = [deployerAddress];
     const executors = [deployerAddress];
@@ -93,10 +77,29 @@ describe("Deploy LP Staking System", function () {
     expect(timeLockVersionInfo.address).to.be.a("string").that.is.not.empty;
 
     // 更新 deployment 对象
+    if (!deployment.contracts) deployment.contracts = {};
     if (!deployment.contracts.NextswapTimelock)
       deployment.contracts.NextswapTimelock = {};
     deployment.contracts.NextswapTimelock.proxyAddress =
       timeLockVersionInfo.address;
+
+    // 2. 部署 NextswapToken（使用 NextswapTimelock 地址）
+    console.log("\n📦 [2/4] 部署 NextswapToken...");
+    console.log("   使用 NextswapTimelock 地址:", timeLockVersionInfo.address);
+    const { contract: nextswapTokenBase, versionInfo: tokenVersionInfo } =
+      await deployHelper.deployContract(NextswapTokenName, [
+        timeLockVersionInfo.address, // ✅ 使用 NextswapTimelock 地址而非部署者地址
+      ]);
+    const nextswapToken = nextswapTokenBase as any; // 转换为正确类型
+    console.log("✅ NextswapToken 部署完成！");
+    console.log("📍 地址:", tokenVersionInfo.address);
+    console.log("⛽ Gas used:", tokenVersionInfo.gasUsed);
+    expect(tokenVersionInfo.address).to.be.a("string").that.is.not.empty;
+
+    // 更新 deployment 对象
+    if (!deployment.contracts.NextswapToken)
+      deployment.contracts.NextswapToken = {};
+    deployment.contracts.NextswapToken.proxyAddress = tokenVersionInfo.address;
 
     // 3. 部署 LiquidityMiningReward
     console.log("\n📦 [3/4] 部署 LiquidityMiningReward...");
