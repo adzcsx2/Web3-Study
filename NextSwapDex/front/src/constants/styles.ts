@@ -19,8 +19,8 @@ export const CRITICAL_CSS = `
   }
   
   .ant-layout-header {
-    background: #001529;
-    color: white;
+    background: #ffffff;
+    color: #000000;
     display: flex;
     align-items: center;
     height: 64px;

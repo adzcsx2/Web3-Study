@@ -70,7 +70,19 @@ const AntdConfigProvider: React.FC<AntdConfigProviderProps> = ({
 
   return (
     <AntdRegistry>
-      <ConfigProvider locale={locale}>{children}</ConfigProvider>
+      <ConfigProvider
+        locale={locale}
+        theme={{
+          components: {
+            Layout: {
+              headerBg: "#ffffff",
+              headerHeight: 64,
+            },
+          },
+        }}
+      >
+        {children}
+      </ConfigProvider>
     </AntdRegistry>
   );
 };
