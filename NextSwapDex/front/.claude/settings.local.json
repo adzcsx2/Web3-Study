@@ -32,7 +32,8 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git config:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []
