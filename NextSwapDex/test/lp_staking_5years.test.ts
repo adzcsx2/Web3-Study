@@ -1111,23 +1111,35 @@ describe("LP 质押 5年收益测试", function () {
     // 步骤4: 快进到奖励开始时间
     console.log("\n📌 步骤4: 快进到奖励开始时间");
     await fastForwardToRewardStart();
-    const miningStartTime = (await ethers.provider.getBlock("latest"))?.timestamp || 0;
-    console.log("  挖矿开始时间:", new Date(miningStartTime * 1000).toLocaleString());
+    const miningStartTime =
+      (await ethers.provider.getBlock("latest"))?.timestamp || 0;
+    console.log(
+      "  挖矿开始时间:",
+      new Date(miningStartTime * 1000).toLocaleString()
+    );
 
     // 步骤5: 时间前进1年（第一年无人质押）
     console.log("\n📌 步骤5: 第一年无人质押，时间前进 1 年");
     const oneYear = 365 * 24 * 60 * 60;
     await ethers.provider.send("evm_increaseTime", [oneYear]);
     await ethers.provider.send("evm_mine", []);
-    const afterOneYear = (await ethers.provider.getBlock("latest"))?.timestamp || 0;
-    console.log("  ⚠️  第一年结束时间:", new Date(afterOneYear * 1000).toLocaleString());
+    const afterOneYear =
+      (await ethers.provider.getBlock("latest"))?.timestamp || 0;
+    console.log(
+      "  ⚠️  第一年结束时间:",
+      new Date(afterOneYear * 1000).toLocaleString()
+    );
     console.log("  ⚠️  第一年的 1.25 亿奖励将永久丢失（无人质押）");
 
     // 步骤6: 第二年开始时质押 NFT
     console.log("\n📌 步骤6: 第二年开始，质押 NFT");
     const stakeTime = await stakeNFT(lpPoolContract, tokenId, poolId);
     console.log("  质押时间:", new Date(stakeTime * 1000).toLocaleString());
-    console.log("  距离挖矿开始:", Math.floor((stakeTime - miningStartTime) / 86400), "天");
+    console.log(
+      "  距离挖矿开始:",
+      Math.floor((stakeTime - miningStartTime) / 86400),
+      "天"
+    );
 
     // 步骤7: 时间前进1年（到第三年开始）
     console.log("\n📌 步骤7: 时间前进 1 年到第三年开始");
@@ -1135,7 +1147,11 @@ describe("LP 质押 5年收益测试", function () {
     await ethers.provider.send("evm_mine", []);
     const endTime = (await ethers.provider.getBlock("latest"))?.timestamp || 0;
     console.log("  领取时间:", new Date(endTime * 1000).toLocaleString());
-    console.log("  实际质押时长:", Math.floor((endTime - stakeTime) / 86400), "天");
+    console.log(
+      "  实际质押时长:",
+      Math.floor((endTime - stakeTime) / 86400),
+      "天"
+    );
 
     // 步骤8: 领取奖励
     console.log("\n📌 步骤8: 领取奖励");
@@ -1165,7 +1181,11 @@ describe("LP 质押 5年收益测试", function () {
     expect(rewardReceived).to.be.lessThan(twoYearsReward - tolerance);
 
     console.log("\n  ✅ 奖励金额验证通过");
-    console.log("  预期金额（1年）:", ethers.formatEther(expectedAmount), "NST");
+    console.log(
+      "  预期金额（1年）:",
+      ethers.formatEther(expectedAmount),
+      "NST"
+    );
     console.log("  实际金额:", ethers.formatEther(rewardReceived), "NST");
     console.log(
       "  完成度:",
