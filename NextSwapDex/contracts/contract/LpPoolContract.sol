@@ -151,6 +151,9 @@ contract LpPoolContract is
         whenNotPaused
         nonReentrant
     {
+        // 更新池子奖励（如果无人质押会更新lastRewardTime，丢弃之前的奖励）
+        _updatePool();
+
         // 验证并执行质押
         uint256 liquidity = _stakeSingleLP(tokenId, true);
 
@@ -173,6 +176,9 @@ contract LpPoolContract is
         if (tokenIds.length > 50) {
             revert BatchSizeTooLarge();
         }
+
+        // 更新池子奖励（如果无人质押会更新lastRewardTime，丢弃之前的奖励）
+        _updatePool();
 
         uint256 totalLiquidityAdded = 0;
         uint256 successCount = 0;

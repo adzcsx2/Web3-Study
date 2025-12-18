@@ -1,7 +1,7 @@
 {
   "network": "localhost",
   "chainId": "31337",
-  "lastUpdated": "2025-12-17T21:31:19.767Z",
+  "lastUpdated": "2025-12-18T08:35:21.740Z",
   "contracts": {
     "DAI": {
       "contractName": "DAI",
@@ -4561,18 +4561,18 @@
     },
     "NextswapToken": {
       "contractName": "NextswapToken",
-      "proxyAddress": "0x8B64968F69E669faCc86FA3484FD946f1bBE7c91",
+      "proxyAddress": "0xa4d0806d597146df93796A38435ABB2a3cb96677",
       "isProxyContract": false,
       "currentVersion": "1",
       "versions": [
         {
-          "address": "0x8B64968F69E669faCc86FA3484FD946f1bBE7c91",
-          "transactionHash": "0x7b9c9380cb63a1231c39e3ee57c15af4eaf38f9af1573b17ff3b99295214a162",
-          "blockNumber": 598,
+          "address": "0xa4d0806d597146df93796A38435ABB2a3cb96677",
+          "transactionHash": "0x422716364646a9d89ab708be0ff8595e21e7312713634faac0f14f9294d86868",
+          "blockNumber": 638,
           "gasUsed": "2814029",
           "version": "1",
           "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-          "deployedAt": "2025-12-17T21:31:19.606Z",
+          "deployedAt": "2025-12-18T08:35:21.597Z",
           "isProxy": false,
           "isActive": true,
           "abi": [
@@ -6043,18 +6043,18 @@
     },
     "NextswapTimelock": {
       "contractName": "NextswapTimelock",
-      "proxyAddress": "0x9A86494Ba45eE1f9EEed9cFC0894f6C5d13a1F0b",
+      "proxyAddress": "0xAE246E208ea35B3F23dE72b697D47044FC594D5F",
       "isProxyContract": false,
       "currentVersion": "1",
       "versions": [
         {
-          "address": "0x9A86494Ba45eE1f9EEed9cFC0894f6C5d13a1F0b",
-          "transactionHash": "0xa58b72f626238e6dc2f432cbad555b3bfdeba1dc431fe5e261cc72681df60746",
-          "blockNumber": 599,
+          "address": "0xAE246E208ea35B3F23dE72b697D47044FC594D5F",
+          "transactionHash": "0x0d1904c40df6446991c66d40ed4db173c45d58ecb86f899166719cca3c37acd9",
+          "blockNumber": 639,
           "gasUsed": "1401624",
           "version": "1",
           "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-          "deployedAt": "2025-12-17T21:31:19.655Z",
+          "deployedAt": "2025-12-18T08:35:21.641Z",
           "isProxy": false,
           "isActive": true,
           "abi": [
@@ -6983,18 +6983,18 @@
     },
     "LiquidityMiningReward": {
       "contractName": "LiquidityMiningReward",
-      "proxyAddress": "0xC0340c0831Aa40A0791cF8C3Ab4287EB0a9705d8",
+      "proxyAddress": "0x82BBAA3B0982D88741B275aE1752DB85CAfe3c65",
       "isProxyContract": false,
       "currentVersion": "1",
       "versions": [
         {
-          "address": "0xC0340c0831Aa40A0791cF8C3Ab4287EB0a9705d8",
-          "transactionHash": "0x62398d623cf41a8cad97ac295fc2be4250497cfad0964f5fcdfa91f880f8963f",
-          "blockNumber": 600,
-          "gasUsed": "1560292",
+          "address": "0x82BBAA3B0982D88741B275aE1752DB85CAfe3c65",
+          "transactionHash": "0x91ba02c3901ccd0656ab303991307b41bb282524535f545e14f8384142d6e4f9",
+          "blockNumber": 640,
+          "gasUsed": "1560304",
           "version": "1",
           "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-          "deployedAt": "2025-12-17T21:31:19.698Z",
+          "deployedAt": "2025-12-18T08:35:21.682Z",
           "isProxy": false,
           "isActive": true,
           "abi": [
@@ -7920,18 +7920,18 @@
     },
     "LpPoolManager": {
       "contractName": "LpPoolManager",
-      "proxyAddress": "0x4432a6DcfAEAB227673B43C30c6fEf40eaBD5D30",
+      "proxyAddress": "0x02e8910B3B89690d4aeC9fcC0Ae2cD16fB6A4828",
       "isProxyContract": false,
       "currentVersion": "1",
       "versions": [
         {
-          "address": "0x4432a6DcfAEAB227673B43C30c6fEf40eaBD5D30",
-          "transactionHash": "0x04b3cb2ca09f35f1a30d2aba5d8ee8328ca0394b5a09efcbc1f42182772181f5",
-          "blockNumber": 603,
-          "gasUsed": "3899721",
+          "address": "0x02e8910B3B89690d4aeC9fcC0Ae2cD16fB6A4828",
+          "transactionHash": "0x46f04e5fc7b05ed7279244855f398d18f04025b7773691c017e8b0ee30a5db6b",
+          "blockNumber": 643,
+          "gasUsed": "3906571",
           "version": "1",
           "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-          "deployedAt": "2025-12-17T21:31:19.764Z",
+          "deployedAt": "2025-12-18T08:35:21.738Z",
           "isProxy": false,
           "isActive": true,
           "abi": [

@@ -1064,4 +1064,122 @@ describe("LP 质押 5年收益测试", function () {
     console.log("✅ 测试 4 完成");
     console.log("=".repeat(80));
   });
+
+  // ============================================================================
+  // 测试用例 5: 第一年无人质押，第二年开始质押，第三年领取奖励（验证第一年奖励丢失）
+  // ============================================================================
+  it("测试5: 第一年无人质押，第二年开始质押，第三年领取应得约1.25亿TOKEN（第一年奖励丢失）", async function () {
+    console.log("\n" + "=".repeat(80));
+    console.log("测试 5: 第一年无人质押，第二年才质押，第三年领取奖励");
+    console.log("预期：第一年的 1.25 亿奖励丢失，只能获得 1 年的奖励");
+    console.log("=".repeat(80));
+
+    // 步骤1: 创建 LP 质押池
+    console.log("\n📌 步骤1: 创建 LP 质押池");
+    const { poolId, lpPoolContract } = await createOrGetLpPool(
+      config.USDC,
+      config.DAI,
+      PoolFee.LOW,
+      100 // 分配权重 100
+    );
+
+    // 步骤2: 创建交易池
+    console.log("\n📌 步骤2: 创建交易池");
+    await createSwapPool(
+      config.USDC,
+      config.DAI,
+      Decimals.USDC,
+      Decimals.DAI,
+      PoolFee.LOW,
+      1.0 // USDC/DAI = 1:1
+    );
+
+    // 步骤3: 添加流动性（但先不质押）
+    console.log("\n📌 步骤3: 添加流动性（但先不质押）");
+    const tokenId = await addLiquidityAndGetTokenId(
+      config.USDC,
+      config.DAI,
+      Decimals.USDC,
+      Decimals.DAI,
+      PoolFee.LOW,
+      "10000", // 10,000 USDC
+      "10000", // 10,000 DAI
+      0.9, // 价格下限
+      1.1 // 价格上限
+    );
+
+    // 步骤4: 快进到奖励开始时间
+    console.log("\n📌 步骤4: 快进到奖励开始时间");
+    await fastForwardToRewardStart();
+    const miningStartTime = (await ethers.provider.getBlock("latest"))?.timestamp || 0;
+    console.log("  挖矿开始时间:", new Date(miningStartTime * 1000).toLocaleString());
+
+    // 步骤5: 时间前进1年（第一年无人质押）
+    console.log("\n📌 步骤5: 第一年无人质押，时间前进 1 年");
+    const oneYear = 365 * 24 * 60 * 60;
+    await ethers.provider.send("evm_increaseTime", [oneYear]);
+    await ethers.provider.send("evm_mine", []);
+    const afterOneYear = (await ethers.provider.getBlock("latest"))?.timestamp || 0;
+    console.log("  ⚠️  第一年结束时间:", new Date(afterOneYear * 1000).toLocaleString());
+    console.log("  ⚠️  第一年的 1.25 亿奖励将永久丢失（无人质押）");
+
+    // 步骤6: 第二年开始时质押 NFT
+    console.log("\n📌 步骤6: 第二年开始，质押 NFT");
+    const stakeTime = await stakeNFT(lpPoolContract, tokenId, poolId);
+    console.log("  质押时间:", new Date(stakeTime * 1000).toLocaleString());
+    console.log("  距离挖矿开始:", Math.floor((stakeTime - miningStartTime) / 86400), "天");
+
+    // 步骤7: 时间前进1年（到第三年开始）
+    console.log("\n📌 步骤7: 时间前进 1 年到第三年开始");
+    await ethers.provider.send("evm_increaseTime", [oneYear]);
+    await ethers.provider.send("evm_mine", []);
+    const endTime = (await ethers.provider.getBlock("latest"))?.timestamp || 0;
+    console.log("  领取时间:", new Date(endTime * 1000).toLocaleString());
+    console.log("  实际质押时长:", Math.floor((endTime - stakeTime) / 86400), "天");
+
+    // 步骤8: 领取奖励
+    console.log("\n📌 步骤8: 领取奖励");
+    const balanceBefore = await nextswapToken.balanceOf(signer.address);
+    console.log("  领取前余额:", ethers.formatEther(balanceBefore), "NST");
+
+    const claimTx = await lpPoolContract.claimRewards(tokenId);
+    await claimTx.wait();
+
+    const balanceAfter = await nextswapToken.balanceOf(signer.address);
+    const rewardReceived = balanceAfter - balanceBefore;
+
+    console.log("  领取后余额:", ethers.formatEther(balanceAfter), "NST");
+    console.log("  实际奖励:", ethers.formatEther(rewardReceived), "NST");
+
+    // 步骤9: 验证奖励金额（只有1年的奖励，约1.25亿TOKEN）
+    console.log("\n📌 步骤9: 验证奖励金额");
+    const expectedAmount = ethers.parseEther("125000000"); // 1.25亿 TOKEN (1年)
+    const tolerance = ethers.parseEther("12500000"); // 容差 1250万（10%）
+
+    // 验证奖励应该接近1.25亿（1年的奖励）
+    expect(rewardReceived).to.be.greaterThan(expectedAmount - tolerance);
+    expect(rewardReceived).to.be.lessThan(expectedAmount + tolerance);
+
+    // 验证奖励不应该接近2.5亿（如果第一年奖励没丢失的话）
+    const twoYearsReward = ethers.parseEther("250000000");
+    expect(rewardReceived).to.be.lessThan(twoYearsReward - tolerance);
+
+    console.log("\n  ✅ 奖励金额验证通过");
+    console.log("  预期金额（1年）:", ethers.formatEther(expectedAmount), "NST");
+    console.log("  实际金额:", ethers.formatEther(rewardReceived), "NST");
+    console.log(
+      "  完成度:",
+      ((Number(rewardReceived) * 100) / Number(expectedAmount)).toFixed(2),
+      "%"
+    );
+
+    console.log("\n📊 奖励分析:");
+    console.log("  ❌ 第一年奖励（无人质押）: 丢失 1.25 亿 NST");
+    console.log("  ✅ 第二年奖励（已质押）: 获得约 1.25 亿 NST");
+    console.log("  📝 结论：无人质押期间的奖励永久丢失，不会累积或延后分配");
+
+    console.log("\n" + "=".repeat(80));
+    console.log("✅ 测试 5 完成");
+    console.log("=".repeat(80));
+  });
 });
