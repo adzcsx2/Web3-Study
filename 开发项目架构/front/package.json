@@ -23,7 +23,7 @@
       "@rainbow-me/rainbowkit": "^2.2.9",
       "@supabase/supabase-js": "^2.74.0",
       "@tanstack/react-query": "^5.90.5",
-      "antd": "^5.27.4",
+      "antd": "^5.29.2",
       "date-fns": "^4.1.0",
       "ethers": "^6.15.0",
       "i18next": "^25.5.2",

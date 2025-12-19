@@ -24,3 +24,107 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+html {
+  font-size: 16px; /* 使用CSS变量控制基础字体大小 */
+}
+
+/* 当缩放比例改变时，动态调整 */
+html[data-scale="small"] {
+  --scale-ratio: 0.875; /* 14/16 = 0.875 */
+  --base-font-size: 14px;
+}
+
+html[data-scale="medium"] {
+  --scale-ratio: 1; /* 16/16 = 1 */
+  --base-font-size: 16px;
+}
+
+html[data-scale="large"] {
+  --scale-ratio: 1.125; /* 18/16 = 1.125 */
+  --base-font-size: 18px;
+}
+
+html[data-scale="xl"] {
+  --scale-ratio: 1.25; /* 20/16 = 1.25 */
+  --base-font-size: 20px;
+}
+
+/* 覆盖antd的字体大小 - 使用rem单位跟随html font-size */
+.ant-typography,
+.ant-btn,
+.ant-input,
+.ant-select,
+.ant-form-item-label > label,
+.ant-table,
+.ant-modal,
+.ant-drawer,
+.ant-tooltip,
+.ant-popover,
+.ant-dropdown,
+.ant-picker,
+.ant-cascader,
+.ant-tree-select,
+.ant-date-picker,
+.ant-time-picker {
+  font-size: 1rem !important;
+}
+
+.ant-menu-item {
+  font-size: 1.25rem !important;
+}
+/* 标题字体 */
+.ant-typography h1 {
+  font-size: 2.5rem !important;
+}
+.ant-typography h2 {
+  font-size: 2rem !important;
+}
+.ant-typography h3 {
+  font-size: 1.5rem !important;
+}
+.ant-typography h4 {
+  font-size: 1.25rem !important;
+}
+.ant-typography h5 {
+  font-size: 1.125rem !important;
+}
+
+/* 覆盖antd的组件尺寸 - 使用rem单位 */
+.ant-layout-header {
+  height: 4rem !important;
+  line-height: 4rem !important;
+  padding: 0 1.5rem !important;
+}
+
+.ant-btn {
+  height: 2rem !important;
+  padding: 0.25rem 0.9375rem !important;
+  font-size: 0.875rem !important;
+}
+
+.ant-input {
+  height: 2rem !important;
+  padding: 0.25rem 0.6875rem !important;
+  font-size: 0.875rem !important;
+}
+
+.ant-select-selector {
+  height: 2rem !important;
+  padding: 0.25rem 0.6875rem !important;
+  font-size: 0.875rem !important;
+}
+
+.ant-form-item {
+  font-size: 0.875rem !important;
+}
+
+.ant-table-thead > tr > th {
+  font-size: 0.875rem !important;
+  padding: 0.6875rem 1rem !important;
+}
+
+.ant-table-tbody > tr > td {
+  font-size: 0.875rem !important;
+  padding: 0.6875rem 1rem !important;
+}

@@ -1,6 +1,8 @@
 import React from "react";
 import { Layout, Menu, Typography } from "antd";
 import Image from "next/image";
+import styles from "./App.module.css";
+import ExchangeCoinInput from "../ui/ExchangeCoinInput";
 const { Header, Content, Footer } = Layout;
 const MainHeader: React.FC = () => {
   const items = [
@@ -23,17 +25,19 @@ const MainHeader: React.FC = () => {
         height={31}
         style={{ marginRight: "20px" }}
       />
-      <Menu
-        theme="light"
-        mode="horizontal"
-        defaultSelectedKeys={["1"]}
-        items={items}
-        style={{
-          flex: 1,
-          minWidth: 0,
-          marginRight: "20px",
-        }}
-      />
+      <div className={styles.menuNoUnderline}>
+        <Menu
+          theme="light"
+          mode="horizontal"
+          defaultSelectedKeys={["1"]}
+          items={items}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            marginRight: "20px",
+          }}
+        />
+      </div>
     </Header>
   );
 };
@@ -49,11 +53,13 @@ const MainContent: React.FC = () => {
       }}
     >
       <div>
-        <Typography.Title className="mt-5 text-5xl!">
-          Swap You Any You Want
+        <Typography.Title
+          className="mt-5 text-6xl!"
+          style={{ marginBottom: "2rem" }}
+        >
+          Swap Any You Want
         </Typography.Title>
-
-        <div className="border border-gray-100 rounded-2xl w-96 h-36 bg-amber-100"></div>
+        <ExchangeCoinInput />
       </div>
     </Content>
   );

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import AntdConfigProvider from "@/components/AntdConfigProvider";
-import FOUCPrevention from "@/components/FOUCPrevention";
-import RainBowKitProviders from "@/components/RainBowKitProviders";
+import AntdConfigProvider from "@/components/utils/AntdConfigProvider";
+import FOUCPrevention from "@/components/utils/FOUCPrevention";
+import RainBowKitProviders from "@/components/utils/RainBowKitProviders";
 import { env } from "@/config/env";
 
 export const metadata: Metadata = {

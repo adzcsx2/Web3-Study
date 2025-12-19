@@ -28,6 +28,10 @@ const AntdConfigProvider: React.FC<AntdConfigProviderProps> = ({
   useEffect(() => {
     // 只在客户端运行
     if (typeof window !== "undefined") {
+      // 从localStorage获取保存的缩放设置
+      const savedScale = localStorage.getItem("app-scale") || "medium";
+      document.documentElement.setAttribute("data-scale", savedScale);
+
       // 动态导入 i18n 避免服务端渲染问题
       Promise.all([import("@/i18n"), import("@/i18n/utils")])
         .then(([i18nModule, utilsModule]) => {
@@ -68,9 +72,33 @@ const AntdConfigProvider: React.FC<AntdConfigProviderProps> = ({
     return LOCALE_MAP[currentLang as keyof typeof LOCALE_MAP] || zhCN;
   }, [currentLang]);
 
+  // 使用 useMemo 缓存主题配置
+  const theme = useMemo(
+    () => ({
+      token: {
+        fontSize: 22, // 基准字体大小，实际大小由CSS变量控制
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        colorBgBase: "#ffffff",
+        colorBgContainer: "#ffffff",
+        colorBgLayout: "#ffffff",
+      },
+      components: {
+        Layout: {
+          headerBg: "#ffffff",
+          headerHeight: 64, // 基准高度，实际大小由CSS变量控制
+          bodyBg: "#ffffff",
+        },
+      },
+    }),
+    []
+  ); // 不依赖任何状态，因为实际缩放由CSS控制
+
   return (
     <AntdRegistry>
-      <ConfigProvider locale={locale}>{children}</ConfigProvider>
+      <ConfigProvider locale={locale} theme={theme}>
+        {children}
+      </ConfigProvider>
     </AntdRegistry>
   );
 };

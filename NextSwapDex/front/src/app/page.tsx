@@ -13,8 +13,8 @@ import {
 } from "antd";
 const { Header, Content, Footer } = Layout;
 const { Title, Paragraph } = Typography;
-import { MainHeader, MainContent, MainFooter } from "@/components/AppHomePage";
-import ScaleController from "@/components/ScaleController";
+import { MainHeader, MainContent, MainFooter } from "@/components/app/App";
+import ScaleController from "@/components/ui/ScaleController";
 
 export default function App() {
   return (

@@ -8,6 +8,7 @@ export const CRITICAL_CSS = `
     padding: 0;
     min-height: 100vh;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 14px;  /* 设置基础字体大小 */
     background: #ffffff;
   }
   
@@ -19,8 +20,8 @@ export const CRITICAL_CSS = `
   }
   
   .ant-layout-header {
-    background: #001529;
-    color: white;
+    background: #ffffff;
+    color: #000000;
     display: flex;
     align-items: center;
     height: 64px;
@@ -35,7 +36,7 @@ export const CRITICAL_CSS = `
   }
   
   .ant-layout-footer {
-    background: #f0f2f5;
+    background: #ffffff;
     text-align: center;
     padding: 24px 50px;
     flex-shrink: 0;

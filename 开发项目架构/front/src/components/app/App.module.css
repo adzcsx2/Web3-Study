@@ -1,0 +1,36 @@
+/* 清除 Ant Design Menu 横向模式下的选中项下划线 */
+.menuNoUnderline :global(.ant-menu-horizontal .ant-menu-item::after) {
+  display: none !important;
+}
+
+.menuNoUnderline :global(.ant-menu-horizontal .ant-menu-item-selected::after) {
+  display: none !important;
+}
+
+.menuNoUnderline
+  :global(.ant-menu-light.ant-menu-horizontal .ant-menu-item-selected::after) {
+  display: none !important;
+  border-bottom: none !important;
+}
+
+/* 清除菜单底部的虚线 */
+.menuNoUnderline :global(.ant-menu-horizontal) {
+  border-bottom: none !important;
+}
+
+.menuNoUnderline :global(.ant-menu::after) {
+  display: none !important;
+}
+
+/* 修改Menu字体颜色 */
+.menuNoUnderline :global(.ant-menu-item) {
+  color: #696969 !important;
+}
+
+.menuNoUnderline :global(.ant-menu-item:hover) {
+  color: #333333 !important;
+}
+
+.menuNoUnderline :global(.ant-menu-item-selected) {
+  color: #1890ff !important;
+}

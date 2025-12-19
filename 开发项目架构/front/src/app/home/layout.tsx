@@ -10,7 +10,7 @@ import {
 import { Layout as AntdLayout, Button, Menu, Typography } from "antd";
 import { usePathname, useRouter } from "next/navigation";
 import i18n from "@/i18n";
-import { useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n/hooks";
 
 const { Header, Content, Sider } = AntdLayout;
 
