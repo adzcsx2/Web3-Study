@@ -41,6 +41,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.1.0",
     "@openzeppelin/contracts": "^5.4.0",
     "@openzeppelin/contracts-upgradeable": "^5.4.0",
     "@uniswap/router-sdk": "^2.2.0",

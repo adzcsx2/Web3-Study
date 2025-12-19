@@ -3,6 +3,7 @@ import { Layout, Menu, Typography } from "antd";
 import Image from "next/image";
 import styles from "./App.module.css";
 import ExchangeCoinInput from "../ui/ExchangeCoinInput";
+import { SwapType } from "@/types/";
 const { Header, Content, Footer } = Layout;
 const MainHeader: React.FC = () => {
   const items = [
@@ -59,7 +60,8 @@ const MainContent: React.FC = () => {
         >
           Swap Any You Want
         </Typography.Title>
-        <ExchangeCoinInput />
+        <ExchangeCoinInput swap={"sell"} />
+        <ExchangeCoinInput swap={"buy"} />
       </div>
     </Content>
   );
