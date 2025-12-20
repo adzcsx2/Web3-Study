@@ -14,10 +14,10 @@ const TokenSelectButton: React.FC<{ className?: string }> = ({ className }) => {
         src="https://token-icons.s3.amazonaws.com/eth.png"
         preview={false}
       ></Image>
-      <Typography.Text className="!text-lg !block mb-1 !text-[#666666] !text-[1rem] !font-bold ml-3">
+      <Typography.Text className="!text-lg !block mb-1 !text-[#666666] !text-[1rem] !font-bold ml-1">
         ETH
       </Typography.Text>
-      <DownOutlined className="ml-2 !text-[#666666] !text-[1rem]" />
+      <DownOutlined className="ml-1 !text-[#666666] !text-[1rem]" />
     </Button>
   );
 };
