@@ -67,12 +67,14 @@ const config: HardhatUserConfig = {
       // 关键：启用 revert 原因
       throwOnTransactionFailures: true,
       throwOnCallFailures: true,
+      chainId: 1337,
     },
     localhost: {
       url: "http://localhost:8545",
       allowUnlimitedContractSize: false, // 关键：启用 revert 原因
       throwOnTransactionFailures: true,
       throwOnCallFailures: true,
+      chainId: 1337,
     },
     // 测试网示例：Sepolia
     sepolia: {
