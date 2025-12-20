@@ -56,7 +56,7 @@ describe("Deploy NetxtSwap Periphery Contracts", function () {
     await new Promise((resolve) => setTimeout(resolve, 500)); // 暂停 500ms
   });
 
-  it.only("应该按顺序一次性部署所有合约", async function () {
+  it("应该按顺序一次性部署所有合约", async function () {
     console.log("\n🚀 开始部署所有NextSwap合约...\n");
 
     // 1. 部署 NextswapV3Factory

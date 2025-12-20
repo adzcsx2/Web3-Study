@@ -51,7 +51,7 @@ describe("Deploy LP Staking System", function () {
     await new Promise((resolve) => setTimeout(resolve, 500)); // 暂停 500ms
   });
 
-  it.only("应该按顺序一次性部署所有 LP 质押合约", async function () {
+  it("应该按顺序一次性部署所有 LP 质押合约", async function () {
     console.log("\n🚀 开始部署 LP 质押系统合约...\n");
 
     // 检查必要的依赖合约
