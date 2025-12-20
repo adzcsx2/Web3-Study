@@ -1,4 +1,4 @@
-import { message } from "antd";
+import { getGlobalMessage } from "@/utils/messageInstance";
 import i18n from "@/i18n";
 import { env } from "@/config/env";
 import { Path } from "@/router/path";
@@ -212,7 +212,7 @@ const showLoading = (config: LoadingConfig = defaultLoadingConfig) => {
   if (loadingCount !== 1) return;
   switch (config.type) {
     case "antd":
-      loadingInstance = message.loading(
+      loadingInstance = getGlobalMessage().loading(
         config.antdOptions?.content ?? t("network:loadingText"),
         config.antdOptions?.duration ?? 0
       );
@@ -266,7 +266,7 @@ const handleErrorResponse = async (response: Response) => {
     404: t("network:notFound"),
     500: t("network:serverError"),
   };
-  message.error(errorMessages[response.status] || t("network:networkError"));
+  getGlobalMessage().error(errorMessages[response.status] || t("network:networkError"));
   if (response.status === 401) {
     // HttpOnly Cookie 会由后端自动清理（过期或删除）
     // 前端只需要跳转到登录页
@@ -276,11 +276,11 @@ const handleErrorResponse = async (response: Response) => {
 const handleError = (error: unknown) => {
   const err = error as Error;
   if (err?.name === "AbortError") {
-    message.error(err.message || t("network:requestCanceled"));
+    getGlobalMessage().error(err.message || t("network:requestCanceled"));
   } else if (err?.message?.includes("Failed to fetch")) {
-    message.error(t("network:networkConnectionFailed"));
+    getGlobalMessage().error(t("network:networkConnectionFailed"));
   } else {
-    message.error(err?.message || t("network:requestSendFailed"));
+    getGlobalMessage().error(err?.message || t("network:requestSendFailed"));
   }
 };
 
@@ -456,7 +456,7 @@ class HttpClient {
         // 业务状态码处理
         if (data.code === 200) {
           if (showSuccess) {
-            message.success(data.message || t("network:operationSuccess"));
+            getGlobalMessage().success(data.message || t("network:operationSuccess"));
           }
 
           // 缓存成功的响应数据
@@ -477,7 +477,7 @@ class HttpClient {
           logger.response(requestUrl, data.data, Date.now() - startTime);
           return data.data; // 成功时直接返回 data
         } else {
-          message.error(data.message || t("network:operationFailed"));
+          getGlobalMessage().error(data.message || t("network:operationFailed"));
           logger.error(requestUrl, data, Date.now() - startTime);
           // 根据配置决定是否抛出错误
           if (throwError) {
@@ -671,10 +671,10 @@ class HttpClient {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
-      message.success(t("network:operationSuccess"));
+      getGlobalMessage().success(t("network:operationSuccess"));
     } catch (error) {
       console.error("Download error:", error);
-      message.error(t("network:operationFailed"));
+      getGlobalMessage().error(t("network:operationFailed"));
     }
   }
 }
