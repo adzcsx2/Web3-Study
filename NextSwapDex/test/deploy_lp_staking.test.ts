@@ -4,9 +4,8 @@ import {
   getNetworkConfig,
   NetworkTokenAddresses,
 } from "../scripts/config/network-config";
-
-import deployment_sepolia from "../deployments/sepolia-deployment.json";
-import deployment_localhost from "../deployments/localhost-deployment.json";
+import * as fs from "fs";
+import * as path from "path";
 
 import { expect } from "chai";
 import { LpPoolManager } from "../typechain-types";
@@ -27,8 +26,24 @@ describe("Deploy LP Staking System", function () {
     const chainId = (await ethers.provider.getNetwork()).chainId;
     config = getNetworkConfig(Number(chainId));
 
-    deployment =
-      Number(chainId) === 11155111 ? deployment_sepolia : deployment_localhost;
+    // 动态加载 deployment 文件
+    const deploymentFileName =
+      Number(chainId) === 11155111
+        ? "sepolia-deployment.json"
+        : "localhost-deployment.json";
+    const deploymentPath = path.join(
+      __dirname,
+      "..",
+      "deployments",
+      deploymentFileName
+    );
+
+    if (fs.existsSync(deploymentPath)) {
+      deployment = JSON.parse(fs.readFileSync(deploymentPath, "utf-8"));
+    } else {
+      console.log(`⚠️  警告: ${deploymentFileName} 文件不存在，将使用空配置`);
+      deployment = { contracts: {} };
+    }
   });
 
   afterEach(async function () {
