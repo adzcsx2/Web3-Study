@@ -116,9 +116,7 @@ const AntdConfigProvider: React.FC<AntdConfigProviderProps> = ({
     <AntdRegistry>
       <ConfigProvider locale={locale} theme={theme}>
         <App>
-          <AppContent>
-            {children}
-          </AppContent>
+          <AppContent>{children}</AppContent>
         </App>
       </ConfigProvider>
     </AntdRegistry>

@@ -1,9 +1,9 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import { Layout, Menu, Typography, InputNumber, Input } from "antd";
 import TokenSelectButton from "./button/TokenSelectButton";
 import { SwapToken, SwapType } from "@/types/";
 import { useState } from "react";
-
+import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
 /**
  * 交易的币种输入组件
  * @param param0
@@ -12,10 +12,11 @@ import { useState } from "react";
 
 const ExchangeCoinInput: React.FC<{
   swap: SwapType;
-  token?: SwapToken;
+  tag?: string;
   className?: string;
-  onTokenSelect: (token: SwapToken) => void;
-}> = ({ swap, token, className, onTokenSelect }) => {
+}> = ({ swap, tag, className }) => {
+  const token = useSwapTokenSelect((state) => state.getToken(tag));
+
   const onChange = useCallback((value: string) => {
     console.log("Input changed:", value);
   }, []);
@@ -40,7 +41,7 @@ const ExchangeCoinInput: React.FC<{
           }}
         />
         {/* 选择代币 */}
-        <TokenSelectButton token={token} onTokenSelect={onTokenSelect} />
+        <TokenSelectButton tag={tag} />
       </div>
       <>
         {token ? (

@@ -1,14 +1,15 @@
 import React, { useCallback, useState, useEffect } from "react";
-import { Modal, Input, List, Avatar, Skeleton, Empty, App } from "antd";
+import { Modal, Input, Skeleton, Empty, App } from "antd";
 import { SwapToken, SwapType } from "@/types/";
 import { SearchOutlined } from "@ant-design/icons";
 import { TokenService } from "@/services/tokenService";
 import { useAccount } from "wagmi";
+import TokenList from "../list/TokenList";
+import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
 
 interface SelectTokenModalProps {
   open: boolean;
   onClose: () => void;
-  onTokenSelect: (token: SwapToken) => void;
 }
 
 // 缓存键名
@@ -20,7 +21,6 @@ const CACHED_TOKENS_KEY = "cached_tokens_list";
 const SelectTokenModal: React.FC<SelectTokenModalProps> = ({
   open,
   onClose,
-  onTokenSelect,
 }) => {
   const { message } = App.useApp();
   const { chain } = useAccount();
@@ -41,30 +41,6 @@ const SelectTokenModal: React.FC<SelectTokenModalProps> = ({
         }
       } catch (error) {
         console.error("加载缓存的代币列表失败:", error);
-      }
-    }
-  }, []);
-
-  // 保存代币到缓存
-  const saveTokenToCache = useCallback((token: SwapToken) => {
-    if (typeof window !== "undefined") {
-      try {
-        const existing = localStorage.getItem(CACHED_TOKENS_KEY);
-        let tokens: SwapToken[] = existing ? JSON.parse(existing) : [];
-
-        // 移除重复的代币
-        tokens = tokens.filter((t) => t.tokenAddress !== token.tokenAddress);
-
-        // 添加到开头
-        tokens.unshift(token);
-
-        // 只保留最新的10个
-        tokens = tokens.slice(0, 10);
-
-        localStorage.setItem(CACHED_TOKENS_KEY, JSON.stringify(tokens));
-        setCachedTokens(tokens);
-      } catch (error) {
-        console.error("保存代币到缓存失败:", error);
       }
     }
   }, []);
@@ -134,19 +110,6 @@ const SelectTokenModal: React.FC<SelectTokenModalProps> = ({
       }
     },
     [chain]
-  );
-
-  // 处理代币选择
-  const handleTokenSelect = useCallback(
-    (token: SwapToken) => {
-      saveTokenToCache(token);
-      onTokenSelect(token);
-      onClose();
-      setSearchValue("");
-      setInputStatus("");
-      setSearchResults([]);
-    },
-    [onTokenSelect, onClose, saveTokenToCache]
   );
 
   // 组件打开时加载缓存
@@ -224,70 +187,19 @@ const SelectTokenModal: React.FC<SelectTokenModalProps> = ({
             </div>
           )}
 
+          {/* 搜索结果列表 */}
           {!isSearching && searchResults.length > 0 && (
-            <div>
-              <div className="text-sm text-gray-500 mb-2">搜索结果</div>
-              <List
-                dataSource={searchResults}
-                renderItem={(token) => (
-                  <List.Item
-                    className="cursor-pointer hover:bg-gray-50 rounded-lg px-2"
-                    onClick={() => handleTokenSelect(token)}
-                  >
-                    <List.Item.Meta
-                      avatar={
-                        <Avatar src={token.tokenLogoURI} size="large">
-                          {token.tokenSymbol?.[0]}
-                        </Avatar>
-                      }
-                      title={token.tokenSymbol}
-                      description={`${token.tokenAddress.slice(0, 6)}...${token.tokenAddress.slice(-4)}`}
-                    />
-                  </List.Item>
-                )}
-              />
-            </div>
+            <TokenList title="搜索结果" tokens={searchResults} />
           )}
 
           {/* 缓存的代币列表 */}
-          {!isSearching &&
-            searchResults.length === 0 &&
-            !searchValue &&
-            cachedTokens.length > 0 && (
-              <div>
-                <div className="text-sm text-gray-500 mb-2">最近使用</div>
-                <List
-                  dataSource={cachedTokens}
-                  renderItem={(token) => (
-                    <List.Item
-                      className="cursor-pointer hover:bg-gray-50 rounded-lg px-2"
-                      onClick={() => handleTokenSelect(token)}
-                    >
-                      <List.Item.Meta
-                        avatar={
-                          <Avatar src={token.tokenLogoURI} size="large">
-                            {token.tokenSymbol?.[0]}
-                          </Avatar>
-                        }
-                        title={token.tokenSymbol}
-                        description={`${token.tokenAddress.slice(0, 6)}...${token.tokenAddress.slice(-4)}`}
-                      />
-                    </List.Item>
-                  )}
-                />
-              </div>
-            )}
-
-          {/* 空状态 */}
-          {!isSearching &&
-            searchResults.length === 0 &&
-            !searchValue &&
-            cachedTokens.length === 0 && (
-              <Empty
-                description="暂无最近使用的代币"
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-              />
-            )}
+          {!isSearching && searchResults.length === 0 && !searchValue && (
+            <TokenList
+              title="最近使用"
+              tokens={cachedTokens}
+              emptyText="暂无最近使用的代币"
+            />
+          )}
         </div>
       </Modal>
     </>

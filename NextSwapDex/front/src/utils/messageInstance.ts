@@ -12,7 +12,6 @@ let globalMessageInstance: MessageInstance | null = null;
  * 在应用初始化时由 App 组件调用
  */
 export const setGlobalMessage = (instance: MessageInstance) => {
-
   globalMessageInstance = instance;
 };
 
@@ -27,7 +26,7 @@ export const getGlobalMessage = (): MessageInstance => {
 
   // 返回一个安全的默认实例，避免运行时错误
   console.warn("Global message instance not initialized yet");
-  
+
   // 创建一个空操作函数，符合 MessageType 接口
   const noop = () => {
     const fn = () => {};
