@@ -5,6 +5,10 @@ import styles from "./App.module.css";
 import ExchangeCoinInput from "../ui/ExchangeCoinInput";
 import { SwapType } from "@/types/";
 const { Header, Content, Footer } = Layout;
+import { ArrowDownOutlined } from "@ant-design/icons";
+import ChangeSwapButton from "../ui/ExchangeSwapButton";
+import { Colors } from "@/styles/colors";
+
 const MainHeader: React.FC = () => {
   const items = [
     { key: "1", label: "交易" },
@@ -55,20 +59,24 @@ const MainContent: React.FC = () => {
     >
       <div>
         <Typography.Title
-          className="mt-5 text-6xl!"
+          className="mt-5 !text-6xl"
           style={{ marginBottom: "2rem" }}
         >
           Swap Any You Want
         </Typography.Title>
         <ExchangeCoinInput swap={"sell"} />
-        <ExchangeCoinInput swap={"buy"} />
+        <ChangeSwapButton className="absolute left-[50%] translate-x-[-50%] translate-y-[-40%] z-10 " />
+        <ExchangeCoinInput
+          className="translate-y-[-25%] !bg-bg-gray"
+          swap={"buy"}
+        />
       </div>
     </Content>
   );
 };
 const MainFooter: React.FC = () => {
   return (
-    <Footer style={{ padding: "24px", minHeight: "80vh", textAlign: "center" }}>
+    <Footer style={{ padding: "24px", textAlign: "center" }}>
       <Typography.Text style={{ fontSize: 14, color: "#999999" }}>
         ©2025 Created by NextSwapDex Team
       </Typography.Text>
