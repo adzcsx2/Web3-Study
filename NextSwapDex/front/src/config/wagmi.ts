@@ -2,13 +2,14 @@
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { env } from "@/config/env";
 import { http } from "wagmi";
-import { arbitrum, mainnet, optimism, polygon, sepolia } from "wagmi/chains";
+import { arbitrum, mainnet, optimism, polygon, sepolia,localhost } from "wagmi/chains";
 import { RPC_URLS } from "@/config/rpc";
 
 export const config = getDefaultConfig({
   appName: env.appTitle,
   projectId: env.walletConnectProjectId,
   chains: [
+    localhost,
     sepolia,
     mainnet,
     polygon,
@@ -17,6 +18,7 @@ export const config = getDefaultConfig({
     // ...(env.isDev || env.isTest ? [sepolia] : []),
   ],
   transports: {
+    [localhost.id]: http(RPC_URLS[localhost.id]),
     [sepolia.id]: http(RPC_URLS[sepolia.id]),
     [mainnet.id]: http(RPC_URLS[mainnet.id]),
     [polygon.id]: http(RPC_URLS[polygon.id]),

@@ -42,6 +42,7 @@ export const env = {
     arbitrum: process.env.NEXT_PUBLIC_RPC_URL_42161_ARBITRUM,
     sepolia: process.env.NEXT_PUBLIC_RPC_URL_11155111_SEPOLIA,
     base: process.env.NEXT_PUBLIC_RPC_URL_8453_BASE,
+    localhost: process.env.NEXT_PUBLIC_RPC_URL_1337_LOCALHOST,
   },
 
   // ==================== 国际化配置 ====================

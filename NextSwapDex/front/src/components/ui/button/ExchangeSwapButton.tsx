@@ -12,7 +12,6 @@ const ExchangeSwapButton: React.FC<{ className?: string }> = ({
     <Button
       className={`!w-[2.5rem] !h-[2.5rem] !border-4 !bg-bg-gray !border-white ${className}`}
       icon={<ArrowDownOutlined />}
-      size={"large"}
     />
   );
 };

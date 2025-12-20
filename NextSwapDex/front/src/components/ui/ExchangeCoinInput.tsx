@@ -1,13 +1,21 @@
 import React, { useCallback } from "react";
 import { Layout, Menu, Typography, InputNumber, Input } from "antd";
-import TokenSelectButton from "./TokenSelectButton";
-import { SwapType } from "@/types/";
-import TokenNotSelectButton from "./TokenNotSelectButton";
+import TokenSelectButton from "./button/TokenSelectButton";
+import { SwapToken, SwapType } from "@/types/";
+import { useState } from "react";
 
-const ExchangeCoinInput: React.FC<{ className?: string; swap: SwapType }> = ({
-  className,
-  swap,
-}) => {
+/**
+ * 交易的币种输入组件
+ * @param param0
+ * @returns
+ */
+
+const ExchangeCoinInput: React.FC<{
+  swap: SwapType;
+  token?: SwapToken;
+  className?: string;
+  onTokenSelect: (token: SwapToken) => void;
+}> = ({ swap, token, className, onTokenSelect }) => {
   const onChange = useCallback((value: string) => {
     console.log("Input changed:", value);
   }, []);
@@ -32,15 +40,15 @@ const ExchangeCoinInput: React.FC<{ className?: string; swap: SwapType }> = ({
           }}
         />
         {/* 选择代币 */}
-        {swap === "buy" ? (
-          <TokenNotSelectButton></TokenNotSelectButton>
-        ) : (
-          <TokenSelectButton></TokenSelectButton>
-        )}
+        <TokenSelectButton token={token} onTokenSelect={onTokenSelect} />
       </div>
-      <Typography.Text className="!block !ml-auto !w-fit !text-lg !text-gray-500 !text-[0.8rem] mr-2">
-        123123 ETH
-      </Typography.Text>
+      <>
+        {token ? (
+          <Typography.Text className="!block !ml-auto !w-fit !text-lg !text-gray-500 !text-[0.8rem] mr-2">
+            {`${parseFloat(token.balance).toFixed(6)} ${token.tokenSymbol}`}
+          </Typography.Text>
+        ) : null}
+      </>
     </div>
   );
 };

@@ -1,10 +1,10 @@
-export type SwapType = "buy" | "sell";
+type SwapType = "buy" | "sell";
 
-export type SwapToken = {
-  tokenSymbol: string;
+type SwapToken = {
+  chainId: number;
+  tokenSymbol: string | undefined;
   tokenAddress: string;
   tokenDecimals: number;
   tokenLogoURI: string;
-  isBuy: boolean;
-  swapType: SwapType;
+  balance: string;
 };

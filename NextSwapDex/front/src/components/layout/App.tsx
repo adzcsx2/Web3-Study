@@ -1,13 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import { Layout, Menu, Typography } from "antd";
 import Image from "next/image";
 import styles from "./App.module.css";
 import ExchangeCoinInput from "../ui/ExchangeCoinInput";
-import { SwapType } from "@/types/";
+import { SwapToken, SwapType } from "@/types/";
 const { Header, Content, Footer } = Layout;
 import { ArrowDownOutlined } from "@ant-design/icons";
-import ChangeSwapButton from "../ui/ExchangeSwapButton";
-import { Colors } from "@/styles/colors";
+import ChangeSwapButton from "../ui/button/ExchangeSwapButton";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { WalletConnectComponent } from "../ui/WalletConnectComponent";
 
 const MainHeader: React.FC = () => {
   const items = [
@@ -43,11 +44,40 @@ const MainHeader: React.FC = () => {
           }}
         />
       </div>
+      <div className="ml-auto">
+        <WalletConnectComponent></WalletConnectComponent>
+      </div>
     </Header>
   );
 };
 
 const MainContent: React.FC = () => {
+  const [defaultSellToken, setDefaultSellToken] = useState<
+    SwapToken | undefined
+  >({
+    tokenSymbol: "ETH",
+    tokenAddress: "",
+    tokenDecimals: 18,
+    tokenLogoURI: "",
+    chainId: 1,
+    balance: "0",
+  });
+  const [defaultBuyToken, setDefaultBuyToken] = useState<SwapToken | undefined>(
+    undefined
+  );
+
+  // 处理卖出代币选择
+  const handleSellTokenSelect = (token: SwapToken) => {
+    console.log("选择的卖出代币:", token);
+    setDefaultSellToken(token);
+  };
+
+  // 处理买入代币选择
+  const handleBuyTokenSelect = (token: SwapToken) => {
+    console.log("选择的买入代币:", token);
+    setDefaultBuyToken(token);
+  };
+
   return (
     <Content
       style={{
@@ -64,11 +94,17 @@ const MainContent: React.FC = () => {
         >
           Swap Any You Want
         </Typography.Title>
-        <ExchangeCoinInput swap={"sell"} />
+        <ExchangeCoinInput
+          swap={"sell"}
+          token={defaultSellToken}
+          onTokenSelect={handleSellTokenSelect}
+        />
         <ChangeSwapButton className="absolute left-[50%] translate-x-[-50%] translate-y-[-40%] z-10 " />
         <ExchangeCoinInput
           className="translate-y-[-25%] !bg-bg-gray"
           swap={"buy"}
+          token={defaultBuyToken}
+          onTokenSelect={handleBuyTokenSelect}
         />
       </div>
     </Content>

@@ -35,6 +35,7 @@ export const RPC_URLS: Record<number, string> = {
   42161: getRpcUrlFromEnv(42161, env.rpcUrls.arbitrum), // arbitrum
   11155111: getRpcUrlFromEnv(11155111, env.rpcUrls.sepolia), // sepolia
   8453: getRpcUrlFromEnv(8453, env.rpcUrls.base), // base
+  1337: getRpcUrlFromEnv(1337, env.rpcUrls.localhost), // localhost
 };
 
 /**
@@ -47,6 +48,7 @@ export const CHAIN_NAMES: Record<number, string> = {
   42161: "arbitrum",
   11155111: "sepolia",
   8453: "base",
+  1337: "localhost",
 };
 
 /**
