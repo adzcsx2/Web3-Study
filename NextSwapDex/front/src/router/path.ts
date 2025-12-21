@@ -6,7 +6,14 @@ export const Path = {
   // 公共路径
   LOGIN: "/login",
   REGISTER: "/login/register",
+
+  //首页-交易
   HOME: "/",
+
+  // 添加流动性
+  ADD_LIQUIDITY: "/liquidity/add",
+  REMOVE_LIQUIDITY: "/liquidity/remove",
+  PLEDGE_LIQUIDITY: "/liquidity/pledge",
 
   // 文章相关路由
   POSTS: "/posts",

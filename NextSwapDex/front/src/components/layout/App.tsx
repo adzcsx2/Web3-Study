@@ -1,22 +1,28 @@
-import React, { useEffect, useState } from "react";
+"use client";
+import React, { useCallback, useEffect, useState } from "react";
 import { Button, Layout, Menu, Typography } from "antd";
 import Image from "next/image";
 import styles from "./App.module.css";
 import ExchangeCoinInput from "../ui/ExchangeCoinInput";
-import { SwapToken, SwapType } from "@/types/";
+import { SwapToken } from "@/types/";
 const { Header, Content, Footer } = Layout;
-import { ArrowDownOutlined } from "@ant-design/icons";
 import ChangeSwapButton from "../ui/button/ExchangeSwapButton";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { WalletConnectComponent } from "../ui/WalletConnectComponent";
 import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
 import { TAG_TOKEN_SELECT } from "@/types/Enum";
-
+import { Path } from "@/router/path";
+import { useRouter } from "next/navigation";
 const MainHeader: React.FC = () => {
+  const router = useRouter();
+
+  const handleMenuClick = useCallback((path: string) => {
+    router.push(path);
+  }, []);
+
   const items = [
-    { key: "1", label: "交易" },
-    { key: "2", label: "添加流动性" },
-    { key: "3", label: "流动性挖矿" },
+    { key: "1", label: "交易", path: Path.HOME },
+    { key: "2", label: "添加流动性", path: Path.ADD_LIQUIDITY },
+    { key: "3", label: "流动性挖矿", path: Path.PLEDGE_LIQUIDITY },
   ];
 
   return (
@@ -44,6 +50,7 @@ const MainHeader: React.FC = () => {
             minWidth: 0,
             marginRight: "20px",
           }}
+          onClick={(key) => handleMenuClick(items[Number(key.key) - 1].path)}
         />
       </div>
       <div className="ml-auto">
