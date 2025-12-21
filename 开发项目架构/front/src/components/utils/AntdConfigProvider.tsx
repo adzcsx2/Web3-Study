@@ -1,8 +1,9 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
-import { ConfigProvider } from "antd";
+import { ConfigProvider, App } from "antd";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
 import { getDefaultLanguage } from "@/i18n/utils";
+import { setGlobalMessage } from "@/utils/messageInstance";
 import enUS from "antd/locale/en_US";
 import zhCN from "antd/locale/zh_CN";
 
@@ -18,6 +19,18 @@ const LOCALE_MAP = {
   zh: zhCN,
   en: enUS,
 } as const;
+
+// 内部组件用于访问 App 的 hooks
+const AppContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { message } = App.useApp();
+
+  // 初始化全局 message 实例
+  useEffect(() => {
+    setGlobalMessage(message);
+  }, [message]);
+
+  return <>{children}</>;
+};
 
 const AntdConfigProvider: React.FC<AntdConfigProviderProps> = ({
   children,
@@ -76,7 +89,7 @@ const AntdConfigProvider: React.FC<AntdConfigProviderProps> = ({
   const theme = useMemo(
     () => ({
       token: {
-        fontSize: 22, // 基准字体大小，实际大小由CSS变量控制
+        fontSize: 16, // 基准字体大小，实际大小由CSS变量控制
         fontFamily:
           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
         colorBgBase: "#ffffff",
@@ -89,6 +102,11 @@ const AntdConfigProvider: React.FC<AntdConfigProviderProps> = ({
           headerHeight: 64, // 基准高度，实际大小由CSS变量控制
           bodyBg: "#ffffff",
         },
+        Message: {
+          contentBg: "#ffffff",
+          contentPadding: "10px 16px", // 内边距
+          fontSize: 14, // Message 字体大小（可根据需要调整：12、14、16、18等）
+        },
       },
     }),
     []
@@ -97,7 +115,9 @@ const AntdConfigProvider: React.FC<AntdConfigProviderProps> = ({
   return (
     <AntdRegistry>
       <ConfigProvider locale={locale} theme={theme}>
-        {children}
+        <App>
+          <AppContent>{children}</AppContent>
+        </App>
       </ConfigProvider>
     </AntdRegistry>
   );

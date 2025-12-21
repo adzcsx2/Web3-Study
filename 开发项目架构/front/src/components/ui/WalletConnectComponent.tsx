@@ -3,7 +3,12 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import React from "react";
 import { Button, Space } from "antd";
 
-export const WalletConnectComponent = () => {
+/**
+ * 自定义钱包连接组件
+ * @returns
+ */
+
+export const WalletConnectComponent: React.FC = () => {
   return (
     <ConnectButton.Custom>
       {({

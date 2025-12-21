@@ -13,7 +13,7 @@ export const env = {
 
   // ==================== 应用配置 ====================
   // 应用标题
-  appTitle: process.env.NEXT_PUBLIC_APP_TITLE || "My Blog",
+  appTitle: process.env.NEXT_PUBLIC_APP_TITLE || "",
 
   // 应用版本
   appVersion: process.env.NEXT_PUBLIC_APP_VERSION || "dev",
@@ -27,8 +27,7 @@ export const env = {
     process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "",
 
   // 钱包应用名称
-  walletAppName:
-    process.env.NEXT_PUBLIC_WALLET_APP_NAME || "Web3 Stake Platform",
+  walletAppName: process.env.NEXT_PUBLIC_WALLET_APP_NAME || "",
 
   // 是否启用测试网
   enableTestnets: process.env.NEXT_PUBLIC_ENABLE_TESTNETS === "true",
@@ -42,6 +41,7 @@ export const env = {
     arbitrum: process.env.NEXT_PUBLIC_RPC_URL_42161_ARBITRUM,
     sepolia: process.env.NEXT_PUBLIC_RPC_URL_11155111_SEPOLIA,
     base: process.env.NEXT_PUBLIC_RPC_URL_8453_BASE,
+    localhost: process.env.NEXT_PUBLIC_RPC_URL_1337_LOCALHOST,
   },
 
   // ==================== 国际化配置 ====================
