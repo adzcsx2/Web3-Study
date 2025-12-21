@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { SwapToken } from "@/types/";
+import { TAG_TOKEN_SELECT } from "@/types/Enum";
 
 interface TokenState {
   // 选中的代币 - 使用 Map 存储多个 tag 对应的代币
@@ -16,6 +17,8 @@ interface TokenState {
   // 是否显示代币选择弹窗
   showTokenSelect: boolean;
   setShowTokenSelect: (show: boolean) => void;
+  // 交换上下两个代币
+  swapTokens: (tag1: string, tag2: string) => void;
 }
 
 export const useSwapTokenSelect = create<TokenState>((set, get) => ({
@@ -76,5 +79,13 @@ export const useSwapTokenSelect = create<TokenState>((set, get) => ({
 
     // 关闭弹窗
     set({ showTokenSelect: false });
+  },
+
+  swapTokens: (tag1, tag2) => {
+    const { getToken, setSelectedToken } = get();
+    const topToken = getToken(tag1);
+    const bottomToken = getToken(tag2);
+    setSelectedToken(tag1, bottomToken);
+    setSelectedToken(tag2, topToken);
   },
 }));

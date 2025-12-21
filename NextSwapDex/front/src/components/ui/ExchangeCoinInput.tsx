@@ -25,7 +25,7 @@ const ExchangeCoinInput: React.FC<{
     <div
       className={`m-auto border border-gray-200 rounded-2xl w-120 h-36 p-4 ${className}`}
     >
-      <Typography.Text className="!text-lg !block" style={{ color: "#666666" }}>
+      <Typography.Text className="!flex !text-lg " style={{ color: "#666666" }}>
         {swap === "buy" ? "购买" : "出售"}
       </Typography.Text>
       <div className="flex items-center">

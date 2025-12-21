@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Layout, Menu, Typography } from "antd";
+import { Button, Layout, Menu, Typography } from "antd";
 import Image from "next/image";
 import styles from "./App.module.css";
 import ExchangeCoinInput from "../ui/ExchangeCoinInput";
@@ -10,7 +10,7 @@ import ChangeSwapButton from "../ui/button/ExchangeSwapButton";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { WalletConnectComponent } from "../ui/WalletConnectComponent";
 import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
-import { TAG_TOKEN_SELECT } from "@/constants/constants";
+import { TAG_TOKEN_SELECT } from "@/types/Enum";
 
 const MainHeader: React.FC = () => {
   const items = [
@@ -88,20 +88,18 @@ const MainContent: React.FC = () => {
         minHeight: "80vh",
       }}
     >
-      <div>
-        <Typography.Title
-          className="mt-5 !text-6xl"
-          style={{ marginBottom: "2rem" }}
-        >
+      <div className="text-center">
+        <Typography.Title className="mt-5 !text-6xl !mb-[2rem] ">
           Swap Any You Want
         </Typography.Title>
         <ExchangeCoinInput swap={"sell"} tag={TAG_TOKEN_SELECT.TOP} />
-        <ChangeSwapButton className="absolute left-[50%] translate-x-[-50%] translate-y-[-40%] z-10 " />
+        <ChangeSwapButton className="   translate-y-[-40%] z-10 " />
         <ExchangeCoinInput
-          className="translate-y-[-25%] !bg-bg-gray"
+          className=" !bg-bg-gray translate-y-[-25%] "
           swap={"buy"}
           tag={TAG_TOKEN_SELECT.BOTTOM}
         />
+        <Button className="btn w-120 translate-y-[-2rem] ">审查</Button>
       </div>
     </Content>
   );
