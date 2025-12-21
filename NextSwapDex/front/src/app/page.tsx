@@ -15,8 +15,11 @@ const { Header, Content, Footer } = Layout;
 const { Title, Paragraph } = Typography;
 import { MainHeader, MainContent, MainFooter } from "@/components/layout/App";
 import ScaleController from "@/components/ui/ScaleController";
+import { use } from "chai";
 
 export default function App() {
+
+
   return (
     <div>
       <Layout>

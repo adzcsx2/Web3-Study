@@ -13,8 +13,9 @@ import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
 const ExchangeCoinInput: React.FC<{
   swap: SwapType;
   tag?: string;
+  hasDefault?: boolean;
   className?: string;
-}> = ({ swap, tag, className }) => {
+}> = ({ swap, tag, hasDefault, className }) => {
   const token = useSwapTokenSelect((state) => state.getToken(tag));
 
   const onChange = useCallback((value: string) => {
@@ -41,7 +42,7 @@ const ExchangeCoinInput: React.FC<{
           }}
         />
         {/* 选择代币 */}
-        <TokenSelectButton tag={tag} />
+        <TokenSelectButton tag={tag}  />
       </div>
       <>
         {token ? (

@@ -6,9 +6,9 @@ interface TokenState {
   // 选中的代币 - 使用 Map 存储多个 tag 对应的代币
   token: Map<string, SwapToken | null> | null;
   // 设置选中的代币 - 需要指定 tag 和 token
-  setSelectedToken: (tag: string, token: SwapToken | null) => void;
+  setSelectedToken: (tag?: string, token?: SwapToken | null) => void;
   // 处理代币选择（包含保存到缓存等逻辑）
-  handleTokenSelect: (tag: string, token: SwapToken) => void;
+  handleTokenSelect: (tag?: string, token?: SwapToken) => void;
   // 获取指定 tag 的代币
   getToken: (tag?: string) => SwapToken | null;
   // 当前操作的 tag
@@ -19,7 +19,17 @@ interface TokenState {
   setShowTokenSelect: (show: boolean) => void;
   // 交换上下两个代币
   swapTokens: (tag1: string, tag2: string) => void;
+  resetTokenSelect: () => void;
 }
+
+const defaultEthToken = {
+  tokenSymbol: "ETH",
+  tokenAddress: "",
+  tokenDecimals: 18,
+  tokenLogoURI: "",
+  chainId: 1,
+  balance: "0",
+};
 
 export const useSwapTokenSelect = create<TokenState>((set, get) => ({
   token: new Map(),
@@ -28,6 +38,10 @@ export const useSwapTokenSelect = create<TokenState>((set, get) => ({
   setCurrentTag: (tag) => set({ currentTag: tag ? tag : "default" }),
   setSelectedToken: (tag, token) => {
     set((state) => {
+      if (tag === undefined || tag === null) {
+        tag = "default";
+      }
+
       const newMap = new Map(state.token);
       if (token) {
         newMap.set(tag, token);
@@ -47,6 +61,10 @@ export const useSwapTokenSelect = create<TokenState>((set, get) => ({
   },
 
   handleTokenSelect: (tag, token) => {
+    if (tag === undefined || tag === null) {
+      tag = "default";
+    }
+
     // 保存代币到缓存
     const saveTokenToCache = (token: SwapToken) => {
       if (typeof window !== "undefined") {
@@ -87,5 +105,11 @@ export const useSwapTokenSelect = create<TokenState>((set, get) => ({
     const bottomToken = getToken(tag2);
     setSelectedToken(tag1, bottomToken);
     setSelectedToken(tag2, topToken);
+  },
+  resetTokenSelect: () => {
+    const token = new Map();
+    token.set(TAG_TOKEN_SELECT.TOP, defaultEthToken);
+    token.set(TAG_TOKEN_SELECT.BOTTOM, null);
+    set({ token });
   },
 }));

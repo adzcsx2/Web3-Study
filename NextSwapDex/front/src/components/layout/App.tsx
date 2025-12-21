@@ -12,11 +12,22 @@ import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
 import { TAG_TOKEN_SELECT } from "@/types/Enum";
 import { Path } from "@/router/path";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 const MainHeader: React.FC = () => {
   const router = useRouter();
+  const [currentPath, setCurrentPath] = useState("/");
+  const [mounted, setMounted] = useState(false);
 
-  const handleMenuClick = useCallback((path: string) => {
-    router.push(path);
+  const handleMenuClick = useCallback(
+    (path: string) => {
+      router.push(path);
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    setMounted(true);
+    setCurrentPath(window.location.pathname);
   }, []);
 
   const items = [
@@ -25,6 +36,13 @@ const MainHeader: React.FC = () => {
     { key: "3", label: "流动性挖矿", path: Path.PLEDGE_LIQUIDITY },
   ];
 
+  // 根据当前路径计算选中的菜单项
+  const getSelectedKey = () => {
+    if (!mounted) return "1"; // 服务端渲染时使用默认值
+    const currentItem = items.find((item) => item.path === currentPath);
+    return currentItem ? currentItem.key : "1";
+  };
+
   return (
     <Header
       style={{
@@ -32,18 +50,22 @@ const MainHeader: React.FC = () => {
         alignItems: "center",
       }}
     >
-      <Image
-        src="logo.svg"
-        alt="Logo"
-        width={120}
-        height={31}
-        style={{ marginRight: "20px" }}
-      />
+      <Link href={Path.HOME}>
+        <Image
+          src="/logo.svg"
+          alt="Logo"
+          width={120}
+          height={31}
+          style={{ marginRight: "20px" }}
+          priority
+          unoptimized
+        />
+      </Link>
       <div className={styles.menuNoUnderline}>
         <Menu
           theme="light"
           mode="horizontal"
-          defaultSelectedKeys={["1"]}
+          selectedKeys={[getSelectedKey()]}
           items={items}
           style={{
             flex: 1,
@@ -61,30 +83,20 @@ const MainHeader: React.FC = () => {
 };
 
 const MainContent: React.FC = () => {
-  const [defaultSellToken, setDefaultSellToken] = useState<
-    SwapToken | undefined
-  >({
-    tokenSymbol: "ETH",
-    tokenAddress: "",
-    tokenDecimals: 18,
-    tokenLogoURI: "",
-    chainId: 1,
-    balance: "0",
-  });
-  const [defaultBuyToken, setDefaultBuyToken] = useState<SwapToken | undefined>(
-    undefined
-  );
-  const setSelectedToken = useSwapTokenSelect(
-    (state) => state.setSelectedToken
+  const resetTokenSelect = useSwapTokenSelect(
+    (state) => state.resetTokenSelect
   );
 
   useEffect(() => {
-    setSelectedToken(TAG_TOKEN_SELECT.TOP, defaultSellToken);
-  }, [defaultSellToken, setSelectedToken]);
+    // 初始化默认代币
+    resetTokenSelect();
+  }, []);
 
   useEffect(() => {
-    setSelectedToken(TAG_TOKEN_SELECT.BOTTOM, defaultBuyToken);
-  }, [defaultBuyToken, setSelectedToken]);
+    return () => {
+      resetTokenSelect();
+    };
+  }, [resetTokenSelect]);
 
   return (
     <Content
@@ -99,8 +111,12 @@ const MainContent: React.FC = () => {
         <Typography.Title className="mt-5 !text-6xl !mb-[2rem] ">
           Swap Any You Want
         </Typography.Title>
-        <ExchangeCoinInput swap={"sell"} tag={TAG_TOKEN_SELECT.TOP} />
-        <ChangeSwapButton className="   translate-y-[-40%] z-10 " />
+        <ExchangeCoinInput
+          swap={"sell"}
+          tag={TAG_TOKEN_SELECT.TOP}
+          hasDefault={true}
+        />
+        <ChangeSwapButton className="translate-y-[-40%] z-10 " />
         <ExchangeCoinInput
           className=" !bg-bg-gray translate-y-[-25%] "
           swap={"buy"}

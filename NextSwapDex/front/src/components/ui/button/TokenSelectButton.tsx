@@ -41,7 +41,7 @@ const HasTokenButton: React.FC<{
         <Typography.Text className="!text-lg !block mb-1 !text-[#666666] !text-[1rem] !font-bold ml-1">
           {token.tokenSymbol ? token.tokenSymbol : "ETH"}
         </Typography.Text>
-        <DownOutlined className="ml-1 !text-[#666666] !text-[1rem]" />
+        <DownOutlined className="ml-auto !text-[#666666] !text-[1rem]" />
       </Button>
       <>
         <SelectTokenModal
@@ -74,7 +74,7 @@ const NotHasTokenButton: React.FC<{
     <>
       <Button onClick={onClick} className={`inline-flex btn  ${className}`}>
         选择代币
-        <DownOutlined className="!text-white !text-[1rem]" />
+        <DownOutlined className="ml-auto  !text-white !text-[1rem]" />
       </Button>
       <>
         <SelectTokenModal
@@ -91,6 +91,10 @@ const TokenSelectButton: React.FC<{
   className?: string;
 }> = ({ tag, className }) => {
   const token = useSwapTokenSelect((state) => state.getToken(tag));
+  const setSelectedToken = useSwapTokenSelect(
+    (state) => state.setSelectedToken
+  );
+
   useEffect(() => {
     console.log("TokenSelectButton tag:", tag);
   }, [token]);
