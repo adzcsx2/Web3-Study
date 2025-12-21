@@ -8,11 +8,17 @@ import { SwapToken } from "@/types/";
 const { Header, Content, Footer } = Layout;
 import ChangeSwapButton from "../ui/button/ExchangeSwapButton";
 import { WalletConnectComponent } from "../ui/WalletConnectComponent";
-import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
 import { TAG_TOKEN_SELECT } from "@/types/Enum";
 import { Path } from "@/router/path";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Constants } from "@/constants/constants";
+import { TokenService } from "@/services/tokenService";
+import { useWalletClient } from "wagmi";
+import { useInitToken } from "@/hooks/useInitToken";
+import SelectTokenModal from "../ui/modal/SelectTokenModal";
+
 const MainHeader: React.FC = () => {
   const router = useRouter();
   const [currentPath, setCurrentPath] = useState("/");
@@ -83,20 +89,8 @@ const MainHeader: React.FC = () => {
 };
 
 const MainContent: React.FC = () => {
-  const resetTokenSelect = useSwapTokenSelect(
-    (state) => state.resetTokenSelect
-  );
-
-  useEffect(() => {
-    // 初始化默认代币
-    resetTokenSelect();
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      resetTokenSelect();
-    };
-  }, [resetTokenSelect]);
+  useInitToken();
+  const { showTokenSelect, setShowTokenSelect } = useSwapTokenSelect();
 
   return (
     <Content
@@ -111,19 +105,20 @@ const MainContent: React.FC = () => {
         <Typography.Title className="mt-5 !text-6xl !mb-[2rem] ">
           Swap Any You Want
         </Typography.Title>
-        <ExchangeCoinInput
-          swap={"sell"}
-          tag={TAG_TOKEN_SELECT.TOP}
-          hasDefault={true}
-        />
+        <ExchangeCoinInput swap={"sell"} position={0} hasDefault={true} />
         <ChangeSwapButton className="translate-y-[-40%] z-10 " />
         <ExchangeCoinInput
           className=" !bg-bg-gray translate-y-[-25%] "
           swap={"buy"}
-          tag={TAG_TOKEN_SELECT.BOTTOM}
+          position={1}
         />
         <Button className="btn w-120 translate-y-[-2rem] ">审查</Button>
       </div>
+      {/* 全局代币选择弹窗 - 只创建一个实例 */}
+      <SelectTokenModal
+        open={showTokenSelect}
+        onClose={() => setShowTokenSelect(false)}
+      />
     </Content>
   );
 };

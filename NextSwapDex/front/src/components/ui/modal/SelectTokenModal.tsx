@@ -5,7 +5,7 @@ import { SearchOutlined } from "@ant-design/icons";
 import { TokenService } from "@/services/tokenService";
 import { useAccount } from "wagmi";
 import TokenList from "../list/TokenList";
-import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
 
 interface SelectTokenModalProps {
   open: boolean;
@@ -76,6 +76,13 @@ const SelectTokenModal: React.FC<SelectTokenModalProps> = ({
         }
 
         const tokenInfo = await TokenService.searchToken(value, chain.id);
+        if (
+          tokenInfo.tokenAddress ===
+          "0x0000000000000000000000000000000000000000"
+        ) {
+          tokenInfo.tokenSymbol = "ETH";
+        }
+        console.log("搜索到的代币信息:", tokenInfo);
         if (tokenInfo) {
           setSearchResults([tokenInfo]);
           message.success("代币信息获取成功");
@@ -117,7 +124,7 @@ const SelectTokenModal: React.FC<SelectTokenModalProps> = ({
     if (open) {
       loadCachedTokens();
     }
-  }, [open, loadCachedTokens]);
+  }, [open]);
 
   // 监听链切换，清空搜索结果
   useEffect(() => {

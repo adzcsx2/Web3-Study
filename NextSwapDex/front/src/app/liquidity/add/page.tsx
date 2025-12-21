@@ -14,9 +14,10 @@ import FeeTierSelector from "@/components/ui/FeeTierSelector";
 import PriceRangeSelector from "@/components/ui/PriceRangeSelector";
 import CreatePoolWarning from "@/components/ui/CreatePoolWarning";
 import { TokenPairDisplay } from "@/components/ui/LockedTokenDisplay";
-import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
 import { TAG_TOKEN_SELECT } from "@/types/Enum";
 import { LiquidityPoolInfo, AddLiquidityParams } from "@/types/";
+import { useInitToken } from "@/hooks/useInitToken";
 
 const { Title, Text } = Typography;
 
@@ -34,19 +35,20 @@ const LiquidityAddPage: React.FC = () => {
   const [initialPrice, setInitialPrice] = useState<string>("");
   const [tokensLocked, setTokensLocked] = useState(false); // 新增代币锁定状态
 
-  const token0 = useSwapTokenSelect((state) => state.getToken("1"));
-  const token1 = useSwapTokenSelect((state) => state.getToken("2"));
+  const tokens = useSwapTokenSelect((state) => state.tokens);
+  const token0 = tokens[0];
+  const token1 = tokens[1];
 
-  const resetTokenSelect = useSwapTokenSelect(
-    (state) => state.resetTokenSelect
+  console.log(
+    "LiquidityAddPage - tokens:",
+    tokens,
+    "token0:",
+    token0,
+    "token1:",
+    token1
   );
 
-  useEffect(() => {
-    resetTokenSelect();
-    return () => {
-      resetTokenSelect();
-    };
-  }, []);
+  const initToken = useInitToken();
 
   // 步骤管理
   useEffect(() => {
@@ -56,6 +58,8 @@ const LiquidityAddPage: React.FC = () => {
         setCurrentStep(1);
         setTokensLocked(true); // 锁定代币选择
       }
+      // 初始化默认初始价格,实际项目需要获取价格
+      setInitialPrice("1");
 
       // 模拟检查是否存在流动性池
       // 这里可以调用API检查是否存在对应的池子
@@ -194,28 +198,24 @@ const LiquidityAddPage: React.FC = () => {
     setIsCreatingNewPool(false);
     setInitialPrice("");
     setTokensLocked(false);
-
-    // 重置代币选择
-    resetTokenSelect();
-  }, [resetTokenSelect]);
+    initToken();
+  }, []);
 
   // 交换代币位置
   const handleSwapTokens = useCallback(() => {
     const swapTokenSelect = useSwapTokenSelect.getState();
-    const token0 = swapTokenSelect.getToken("1");
-    const token1 = swapTokenSelect.getToken("2");
 
     if (token0 && token1) {
       // 交换代币
-      swapTokenSelect.setSelectedToken("1", token1);
-      swapTokenSelect.setSelectedToken("2", token0);
+      swapTokenSelect.setSelectedToken(0, token1);
+      swapTokenSelect.setSelectedToken(1, token0);
 
       // 交换输入数量
       const tempAmount = token0Amount;
       setToken0Amount(token1Amount);
       setToken1Amount(tempAmount);
     }
-  }, [token0Amount, token1Amount]);
+  }, [token0, token1, token0Amount, token1Amount]);
 
   // 渲染步骤内容
   const renderStepContent = () => {
@@ -249,7 +249,7 @@ const LiquidityAddPage: React.FC = () => {
           <PriceRangeSelector
             minPrice={minPrice}
             maxPrice={maxPrice}
-            currentPrice={initialPrice || "2000.00"}
+            currentPrice={initialPrice}
             onRangeChange={handleRangeChange}
             onToggleFullRange={handleToggleFullRange}
             onNextStep={() => setCurrentStep(4)}
@@ -262,7 +262,7 @@ const LiquidityAddPage: React.FC = () => {
           <PriceRangeSelector
             minPrice={minPrice}
             maxPrice={maxPrice}
-            currentPrice={initialPrice || "2000.00"}
+            currentPrice={initialPrice}
             onRangeChange={handleRangeChange}
             onToggleFullRange={handleToggleFullRange}
             onNextStep={() => setCurrentStep(4)}
@@ -451,15 +451,9 @@ const LiquidityAddPage: React.FC = () => {
 
           {!tokensLocked ? (
             <div className="flex items-center gap-4">
-              <TokenSelectButton
-                className="flex-1"
-                tag={TAG_TOKEN_SELECT.TOP}
-              />
+              <TokenSelectButton className="flex-1" position={0} />
               <div className="text-gray-400 text-2xl">+</div>
-              <TokenSelectButton
-                className="flex-1"
-                tag={TAG_TOKEN_SELECT.BOTTOM}
-              />
+              <TokenSelectButton className="flex-1" position={1} />
             </div>
           ) : (
             <div className="space-y-3">

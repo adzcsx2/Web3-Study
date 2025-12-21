@@ -2,7 +2,7 @@ type SwapType = "buy" | "sell";
 
 type SwapToken = {
   chainId: number;
-  tokenSymbol: string | undefined;
+  tokenSymbol: string;
   tokenAddress: string;
   tokenDecimals: number;
   tokenLogoURI: string;

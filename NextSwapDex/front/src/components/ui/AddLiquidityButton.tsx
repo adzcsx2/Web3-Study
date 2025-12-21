@@ -2,8 +2,12 @@ import React, { useState, useCallback } from "react";
 import { Button, Typography, message, Modal } from "antd";
 import { LoadingOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { SwapToken, AddLiquidityParams, LiquidityPoolInfo } from "@/types/";
-import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
+import {
+  useAccount,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
 
 const { Text } = Typography;
 
@@ -33,19 +37,22 @@ const AddLiquidityButton: React.FC<AddLiquidityButtonProps> = ({
   className = "",
 }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [transactionStatus, setTransactionStatus] = useState<TransactionStatus>({
-    isPending: false,
-    isConfirming: false,
-    isConfirmed: false,
-    error: null,
-    txHash: null,
-  });
+  const [transactionStatus, setTransactionStatus] = useState<TransactionStatus>(
+    {
+      isPending: false,
+      isConfirming: false,
+      isConfirmed: false,
+      error: null,
+      txHash: null,
+    }
+  );
 
   const { address, isConnected } = useAccount();
   const { writeContract } = useWriteContract();
 
-  const token0 = useSwapTokenSelect((state) => state.getToken("1"));
-  const token1 = useSwapTokenSelect((state) => state.getToken("2"));
+  const tokens = useSwapTokenSelect((state) => state.tokens);
+  const token0 = tokens[0];
+  const token1 = tokens[1];
 
   // 检查是否可以添加流动性
   const canAddLiquidity = React.useMemo(() => {
@@ -60,13 +67,7 @@ const AddLiquidityButton: React.FC<AddLiquidityButtonProps> = ({
       parseFloat(token0Amount) <= parseFloat(token0.balance || "0") &&
       parseFloat(token1Amount) <= parseFloat(token1.balance || "0")
     );
-  }, [
-    isConnected,
-    token0,
-    token1,
-    token0Amount,
-    token1Amount,
-  ]);
+  }, [isConnected, token0, token1, token0Amount, token1Amount]);
 
   // 检查余额不足
   const hasInsufficientBalance = React.useMemo(() => {
@@ -84,7 +85,11 @@ const AddLiquidityButton: React.FC<AddLiquidityButtonProps> = ({
     }
 
     try {
-      setTransactionStatus(prev => ({ ...prev, isPending: true, error: null }));
+      setTransactionStatus((prev) => ({
+        ...prev,
+        isPending: true,
+        error: null,
+      }));
 
       const params: AddLiquidityParams = {
         token0,
@@ -97,7 +102,7 @@ const AddLiquidityButton: React.FC<AddLiquidityButtonProps> = ({
 
       if (onAddLiquidity) {
         const txHash = await onAddLiquidity(params);
-        setTransactionStatus(prev => ({
+        setTransactionStatus((prev) => ({
           ...prev,
           isPending: false,
           isConfirming: true,
@@ -109,10 +114,11 @@ const AddLiquidityButton: React.FC<AddLiquidityButtonProps> = ({
         }
       } else {
         // 模拟交易过程
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        const mockTxHash = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const mockTxHash =
+          "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
 
-        setTransactionStatus(prev => ({
+        setTransactionStatus((prev) => ({
           ...prev,
           isPending: false,
           isConfirming: false,
@@ -128,7 +134,7 @@ const AddLiquidityButton: React.FC<AddLiquidityButtonProps> = ({
         }
       }
     } catch (error) {
-      setTransactionStatus(prev => ({
+      setTransactionStatus((prev) => ({
         ...prev,
         isPending: false,
         isConfirming: false,
@@ -188,7 +194,12 @@ const AddLiquidityButton: React.FC<AddLiquidityButtonProps> = ({
       );
     }
 
-    if (!token0Amount || !token1Amount || parseFloat(token0Amount) === 0 || parseFloat(token1Amount) === 0) {
+    if (
+      !token0Amount ||
+      !token1Amount ||
+      parseFloat(token0Amount) === 0 ||
+      parseFloat(token1Amount) === 0
+    ) {
       return (
         <Button
           type="primary"
@@ -296,7 +307,8 @@ const AddLiquidityButton: React.FC<AddLiquidityButtonProps> = ({
       {transactionStatus.txHash && (
         <div className="mt-4 p-3 bg-green-50 rounded-xl">
           <Text className="text-green-700 text-sm">
-            交易已提交！Hash: {transactionStatus.txHash.slice(0, 10)}...{transactionStatus.txHash.slice(-8)}
+            交易已提交！Hash: {transactionStatus.txHash.slice(0, 10)}...
+            {transactionStatus.txHash.slice(-8)}
           </Text>
         </div>
       )}

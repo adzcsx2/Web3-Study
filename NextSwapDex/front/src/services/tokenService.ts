@@ -1,7 +1,7 @@
 import { SwapToken } from "@/types/";
 import { config } from "@/config/wagmi";
 import { formatUnits } from "viem";
-import { readContract } from "@wagmi/core";
+import { readContract, getBalance } from "@wagmi/core";
 import { getContractInfo } from "./localhostContracts";
 
 /**
@@ -85,15 +85,27 @@ export class TokenService {
           );
 
           // 检查ABI中是否包含我们需要的ERC20方法
-          const hasSymbol = contractInfo.abi.some((item: any) => item.name === 'symbol');
-          const hasName = contractInfo.abi.some((item: any) => item.name === 'name');
-          const hasDecimals = contractInfo.abi.some((item: any) => item.name === 'decimals');
-          console.log(`ABI方法检查 - symbol: ${hasSymbol}, name: ${hasName}, decimals: ${hasDecimals}`);
+          const hasSymbol = contractInfo.abi.some(
+            (item: any) => item.name === "symbol"
+          );
+          const hasName = contractInfo.abi.some(
+            (item: any) => item.name === "name"
+          );
+          const hasDecimals = contractInfo.abi.some(
+            (item: any) => item.name === "decimals"
+          );
+          console.log(
+            `ABI方法检查 - symbol: ${hasSymbol}, name: ${hasName}, decimals: ${hasDecimals}`
+          );
         } else {
-          console.log(`❌ 未找到已部署合约, chainId: ${chainId}, address: ${tokenAddress}`);
+          console.log(
+            `❌ 未找到已部署合约, chainId: ${chainId}, address: ${tokenAddress}`
+          );
         }
       } else {
-        console.log(`⚠️ 不是localhost链, chainId: ${chainId}, 跳过部署合约检查`);
+        console.log(
+          `⚠️ 不是localhost链, chainId: ${chainId}, 跳过部署合约检查`
+        );
       }
 
       // 使用部署的合约ABI或默认ERC20 ABI
@@ -238,15 +250,28 @@ export class TokenService {
     chainId: number
   ): Promise<string> {
     try {
-      if (!this.isValidEthereumAddress(tokenAddress)) {
-        throw new Error("无效的代币地址");
-      }
-
       if (!this.isValidEthereumAddress(userAddress)) {
         throw new Error("无效的用户地址");
       }
 
-      // 使用 wagmi 的 readContract 方法
+      // 处理ETH（原生币）余额查询
+      if (
+        !tokenAddress ||
+        tokenAddress === "0x0000000000000000000000000000000000000000" ||
+        tokenAddress === "0x"
+      ) {
+        const balance = await getBalance(config, {
+          address: userAddress as `0x${string}`,
+          chainId: chainId as any,
+        });
+        return formatUnits(balance.value, balance.decimals);
+      }
+
+      if (!this.isValidEthereumAddress(tokenAddress)) {
+        throw new Error("无效的代币地址");
+      }
+
+      // 使用 wagmi 的 readContract 方法查询ERC20代币余额
       const [balance, decimals] = await Promise.all([
         readContract(config, {
           address: tokenAddress as `0x${string}`,

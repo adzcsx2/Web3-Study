@@ -1,113 +1,76 @@
-import React, { useCallback, useEffect } from "react";
-import { Typography, Image, Button, Avatar } from "antd";
+import React, { useCallback, useMemo } from "react";
+import { Typography, Button, Avatar } from "antd";
 import { DownOutlined } from "@ant-design/icons";
 import { SwapToken } from "@/types/";
-import { useState } from "react";
-import SelectTokenModal from "../modal/SelectTokenModal";
-import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
 
-// 选择代币按钮(已选择代币状态)
-
-const HasTokenButton: React.FC<{
-  tag?: string;
+// 内部按钮组件，使用 React.memo 优化
+const TokenButtonContent = React.memo<{
+  token: SwapToken | null;
   className?: string;
-}> = ({ tag, className }) => {
-  const token = useSwapTokenSelect((state) => state.getToken(tag));
-  const setCurrentTag = useSwapTokenSelect((state) => state.setCurrentTag);
-  const showTokenSelect = useSwapTokenSelect((state) => state.showTokenSelect);
-
-  const setShowTokenSelect = useSwapTokenSelect(
-    (state) => state.setShowTokenSelect
-  );
-  const onClick = useCallback(() => {
-    if (!showTokenSelect) {
-      setShowTokenSelect(true);
-    }
-    setCurrentTag(tag);
-  }, [showTokenSelect, setShowTokenSelect, setCurrentTag, tag, token]);
+  onClick: () => void;
+  isHasToken: boolean;
+}>(({ token, className, onClick, isHasToken }) => {
   return (
-    <>
-      <Button
-        onClick={onClick}
-        className={`!inline-flex !bg-white hover:!bg-white-hover !shadow-gray-200 !shadow-xs !justify-center !items-center !border-gray-100 !border-1 !rounded-4xl !h-10 pl-4 !pr-4 !pt-2 ${className}`}
-      >
-        <Avatar
-          className="!mb-1"
-          src={token.tokenLogoURI ? token.tokenLogoURI : undefined}
-          size="small"
-        >
-          {token.tokenSymbol?.[0]}
-        </Avatar>
-        <Typography.Text className="!text-lg !block mb-1 !text-[#666666] !text-[1rem] !font-bold ml-1">
-          {token.tokenSymbol ? token.tokenSymbol : "ETH"}
-        </Typography.Text>
-        <DownOutlined className="ml-auto !text-[#666666] !text-[1rem]" />
-      </Button>
-      <>
-        <SelectTokenModal
-          open={showTokenSelect}
-          onClose={() => setShowTokenSelect(false)}
-        ></SelectTokenModal>
-      </>
-    </>
+    <Button
+      onClick={onClick}
+      className={`!inline-flex w-[7rem] ${
+        isHasToken
+          ? "!bg-white hover:!bg-white-hover !shadow-gray-200 !shadow-xs !items-center !border-gray-100 !border-1 !rounded-4xl !h-10 pl-4 !pr-4 !pt-2"
+          : "btn"
+      } ${className}`}
+    >
+      {isHasToken && token && (
+        <div className="!inline-flex !items-center">
+          <Avatar
+            className=" !mb-1"
+            src={token.tokenLogoURI ? token.tokenLogoURI : undefined}
+            size="small"
+          >
+            {token.tokenSymbol?.[0]}
+          </Avatar>
+          <Typography.Text className=" !text-lg !block mb-1 !text-[#666666] !text-[1rem] !font-bold ml-1">
+            {token.tokenSymbol}
+          </Typography.Text>
+        </div>
+      )}
+      {!isHasToken && <span>选择代币</span>}
+      <DownOutlined
+        className={`ml-auto ${isHasToken ? "!text-[#666666]" : "!text-white"} !text-[1rem]`}
+      />
+    </Button>
   );
-};
+});
 
-const NotHasTokenButton: React.FC<{
-  tag?: string;
-  className?: string;
-}> = ({ className, tag }) => {
-  const showTokenSelect = useSwapTokenSelect((state) => state.showTokenSelect);
-
-  const setCurrentTag = useSwapTokenSelect((state) => state.setCurrentTag);
-
-  const setShowTokenSelect = useSwapTokenSelect(
-    (state) => state.setShowTokenSelect
-  );
-  const onClick = useCallback(() => {
-    if (!showTokenSelect) {
-      setShowTokenSelect(true);
-    }
-    setCurrentTag(tag);
-  }, [showTokenSelect, setShowTokenSelect, setCurrentTag, tag]);
-  return (
-    <>
-      <Button onClick={onClick} className={`inline-flex btn  ${className}`}>
-        选择代币
-        <DownOutlined className="ml-auto  !text-white !text-[1rem]" />
-      </Button>
-      <>
-        <SelectTokenModal
-          open={showTokenSelect}
-          onClose={() => setShowTokenSelect(false)}
-        ></SelectTokenModal>
-      </>
-    </>
-  );
-};
+TokenButtonContent.displayName = "TokenButtonContent";
 
 const TokenSelectButton: React.FC<{
-  tag?: string;
+  position: 0 | 1;
   className?: string;
-}> = ({ tag, className }) => {
-  const token = useSwapTokenSelect((state) => state.getToken(tag));
-  const setSelectedToken = useSwapTokenSelect(
-    (state) => state.setSelectedToken
+}> = ({ position, className }) => {
+  // 使用选择器只订阅对应位置的 token，避免不必要的重新渲染
+  const token = useSwapTokenSelect((state) => state.tokens[position]);
+  const setCurrentPosition = useSwapTokenSelect((state) => state.setCurrentPosition);
+  const setShowTokenSelect = useSwapTokenSelect((state) => state.setShowTokenSelect);
+
+  const handleClick = useCallback(() => {
+    setCurrentPosition(position);
+    setShowTokenSelect(true);
+  }, [setCurrentPosition, setShowTokenSelect, position]);
+
+  const buttonContent = useMemo(
+    () => (
+      <TokenButtonContent
+        token={token}
+        className={className}
+        onClick={handleClick}
+        isHasToken={!!token}
+      />
+    ),
+    [token, className, handleClick]
   );
 
-  useEffect(() => {
-    console.log("TokenSelectButton tag:", tag);
-  }, [token]);
-
-  return (
-    <>
-      {token ? (
-        <HasTokenButton tag={tag} className={className} />
-      ) : (
-        <NotHasTokenButton tag={tag} className={className} />
-      )}
-    </>
-  );
+  return buttonContent;
 };
 
-export default TokenSelectButton;
+export default React.memo(TokenSelectButton);

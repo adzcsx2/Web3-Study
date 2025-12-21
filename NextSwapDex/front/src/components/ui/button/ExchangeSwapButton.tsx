@@ -1,8 +1,7 @@
 import React, { useCallback } from "react";
 import { Button } from "antd";
 import { ArrowDownOutlined } from "@ant-design/icons";
-import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
-import { TAG_TOKEN_SELECT } from "@/types/Enum";
+import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
 /**
  * 交换按钮组件 将买卖交换
  */
@@ -14,7 +13,7 @@ const ExchangeSwapButton: React.FC<{ className?: string }> = ({
 
   const onClick = useCallback(() => {
     console.log("Swap button clicked");
-    swapTokens(TAG_TOKEN_SELECT.TOP, TAG_TOKEN_SELECT.BOTTOM);
+    swapTokens();
   }, [swapTokens]);
   return (
     <Button

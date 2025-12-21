@@ -1,8 +1,11 @@
 import React, { useState, useCallback } from "react";
 import { Typography, Card, Input, Button, Alert } from "antd";
-import { ExclamationCircleOutlined, InfoCircleOutlined } from "@ant-design/icons";
+import {
+  ExclamationCircleOutlined,
+  InfoCircleOutlined,
+} from "@ant-design/icons";
 import { SwapToken } from "@/types/";
-import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
 
 const { Title, Text } = Typography;
 
@@ -17,17 +20,21 @@ const CreatePoolWarning: React.FC<CreatePoolWarningProps> = ({
   initialPrice,
   className = "",
 }) => {
-  const [price, setPrice] = useState(initialPrice || "2000.00");
+  const [price, setPrice] = useState(initialPrice);
 
-  const token0 = useSwapTokenSelect((state) => state.getToken("1"));
-  const token1 = useSwapTokenSelect((state) => state.getToken("2"));
+  const tokens = useSwapTokenSelect((state) => state.tokens);
+  const token0 = tokens[0];
+  const token1 = tokens[1];
 
-  const handlePriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (value === "" || /^\d*\.?\d*$/.test(value)) {
-      setPrice(value);
-    }
-  }, []);
+  const handlePriceChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      if (value === "" || /^\d*\.?\d*$/.test(value)) {
+        setPrice(value);
+      }
+    },
+    []
+  );
 
   const handleSetPrice = useCallback(() => {
     if (price && parseFloat(price) > 0) {
@@ -99,19 +106,17 @@ const CreatePoolWarning: React.FC<CreatePoolWarningProps> = ({
 
           {/* 市场参考价格 */}
           <div className="border border-gray-200 rounded-xl p-4">
-            <Text className="text-gray-500 text-sm block mb-2">市场参考价格</Text>
+            <Text className="text-gray-500 text-sm block mb-2">
+              市场参考价格
+            </Text>
             <div className="flex items-center justify-between">
-              <Text className="font-semibold">
-                $2,000.00
-              </Text>
-              <Text className="text-gray-500 text-sm">
-                来自CoinGecko
-              </Text>
+              <Text className="font-semibold">$2000.00</Text>
+              <Text className="text-gray-500 text-sm">来自CoinGecko</Text>
             </div>
             <Button
               type="link"
               size="small"
-              onClick={() => setPrice("2000.00")}
+              onClick={() => setPrice("2001.00")}
               className="!text-blue-500 !p-0 mt-2"
             >
               使用参考价格

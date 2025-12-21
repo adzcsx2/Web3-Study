@@ -3,10 +3,10 @@ import { Typography, Input, Button, Space } from "antd";
 import { PlusOutlined, SwapOutlined } from "@ant-design/icons";
 import TokenSelectButton from "./button/TokenSelectButton";
 import { SwapToken, LiquidityState } from "@/types/";
-import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
 
 interface LiquidityTokenInputProps {
-  tag: string;
+  position: 0 | 1;
   title: string;
   value: string;
   onChange: (value: string) => void;
@@ -16,7 +16,7 @@ interface LiquidityTokenInputProps {
 }
 
 const LiquidityTokenInput: React.FC<LiquidityTokenInputProps> = ({
-  tag,
+  position,
   title,
   value,
   onChange,
@@ -24,7 +24,8 @@ const LiquidityTokenInput: React.FC<LiquidityTokenInputProps> = ({
   showMax = false,
   className = "",
 }) => {
-  const token = useSwapTokenSelect((state) => state.getToken(tag));
+  const tokens = useSwapTokenSelect((state) => state.tokens);
+  const token = tokens[position];
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,7 +66,7 @@ const LiquidityTokenInput: React.FC<LiquidityTokenInputProps> = ({
           className="!text-2xl !font-semibold !border-none !shadow-none !bg-transparent !p-0 flex-1"
           style={{ fontSize: "24px", fontWeight: 600 }}
         />
-        <TokenSelectButton tag={tag} className="!ml-4" />
+        <TokenSelectButton position={position} className="!ml-4" />
       </div>
 
       {token && (
@@ -93,23 +94,30 @@ const LiquidityInput: React.FC<LiquidityInputProps> = ({
   const [token0Amount, setToken0Amount] = useState("");
   const [token1Amount, setToken1Amount] = useState("");
 
-  const token0 = useSwapTokenSelect((state) => state.getToken("1"));
-  const token1 = useSwapTokenSelect((state) => state.getToken("2"));
+  const tokens = useSwapTokenSelect((state) => state.tokens);
+  const token0 = tokens[0];
+  const token1 = tokens[1];
 
-  const handleToken0Change = useCallback((value: string) => {
-    setToken0Amount(value);
-    // 这里可以添加价格计算逻辑，自动计算另一个代币的数量
-    if (onAmountChange) {
-      onAmountChange(value, token1Amount);
-    }
-  }, [onAmountChange, token1Amount]);
+  const handleToken0Change = useCallback(
+    (value: string) => {
+      setToken0Amount(value);
+      // 这里可以添加价格计算逻辑，自动计算另一个代币的数量
+      if (onAmountChange) {
+        onAmountChange(value, token1Amount);
+      }
+    },
+    [onAmountChange, token1Amount]
+  );
 
-  const handleToken1Change = useCallback((value: string) => {
-    setToken1Amount(value);
-    if (onAmountChange) {
-      onAmountChange(token0Amount, value);
-    }
-  }, [onAmountChange, token0Amount]);
+  const handleToken1Change = useCallback(
+    (value: string) => {
+      setToken1Amount(value);
+      if (onAmountChange) {
+        onAmountChange(token0Amount, value);
+      }
+    },
+    [onAmountChange, token0Amount]
+  );
 
   const handleMax0 = useCallback(() => {
     if (token0 && token0.balance) {
@@ -132,7 +140,7 @@ const LiquidityInput: React.FC<LiquidityInputProps> = ({
   return (
     <div className={`space-y-4 ${className}`}>
       <LiquidityTokenInput
-        tag="1"
+        position={0}
         title="输入"
         value={token0Amount}
         onChange={handleToken0Change}
@@ -160,7 +168,7 @@ const LiquidityInput: React.FC<LiquidityInputProps> = ({
       </div>
 
       <LiquidityTokenInput
-        tag="2"
+        position={1}
         title="输入 (预估)"
         value={token1Amount}
         onChange={handleToken1Change}

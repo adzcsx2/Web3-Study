@@ -2,7 +2,7 @@ import React from "react";
 import { Typography, Card, Space, Divider, Switch } from "antd";
 import { InfoCircleOutlined, SettingOutlined } from "@ant-design/icons";
 import { SwapToken, LiquidityPoolInfo } from "@/types/";
-import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
 
 const { Text, Title } = Typography;
 
@@ -35,8 +35,9 @@ const LiquidityDetails: React.FC<LiquidityDetailsProps> = ({
     multiHop: false,
   });
 
-  const token0 = useSwapTokenSelect((state) => state.getToken("1"));
-  const token1 = useSwapTokenSelect((state) => state.getToken("2"));
+  const tokens = useSwapTokenSelect((state) => state.tokens);
+  const token0 = tokens[0];
+  const token1 = tokens[1];
 
   const handleSettingsChange = (newSettings: Partial<LiquiditySettings>) => {
     const updatedSettings = { ...settings, ...newSettings };
@@ -52,9 +53,11 @@ const LiquidityDetails: React.FC<LiquidityDetailsProps> = ({
     return value.toFixed(decimals);
   };
 
-  const hasValidAmounts = token0Amount && token1Amount &&
-                         parseFloat(token0Amount) > 0 &&
-                         parseFloat(token1Amount) > 0;
+  const hasValidAmounts =
+    token0Amount &&
+    token1Amount &&
+    parseFloat(token0Amount) > 0 &&
+    parseFloat(token1Amount) > 0;
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -127,13 +130,17 @@ const LiquidityDetails: React.FC<LiquidityDetailsProps> = ({
             <div>
               <div className="flex justify-between items-center mb-2">
                 <Text className="text-gray-600 text-sm">滑点容忍度</Text>
-                <Text className="text-sm font-medium">{settings.slippageTolerance}%</Text>
+                <Text className="text-sm font-medium">
+                  {settings.slippageTolerance}%
+                </Text>
               </div>
               <div className="flex gap-2">
                 {[0.1, 0.5, 1.0].map((value) => (
                   <button
                     key={value}
-                    onClick={() => handleSettingsChange({ slippageTolerance: value })}
+                    onClick={() =>
+                      handleSettingsChange({ slippageTolerance: value })
+                    }
                     className={`px-3 py-1 text-sm rounded-lg border transition-colors ${
                       settings.slippageTolerance === value
                         ? "border-blue-500 bg-blue-50 text-blue-600"
@@ -173,7 +180,9 @@ const LiquidityDetails: React.FC<LiquidityDetailsProps> = ({
               <Switch
                 size="small"
                 checked={settings.multiHop}
-                onChange={(checked) => handleSettingsChange({ multiHop: checked })}
+                onChange={(checked) =>
+                  handleSettingsChange({ multiHop: checked })
+                }
               />
             </div>
           </div>

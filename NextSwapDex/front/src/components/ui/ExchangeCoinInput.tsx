@@ -3,7 +3,7 @@ import { Layout, Menu, Typography, InputNumber, Input } from "antd";
 import TokenSelectButton from "./button/TokenSelectButton";
 import { SwapToken, SwapType } from "@/types/";
 import { useState } from "react";
-import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
 /**
  * 交易的币种输入组件
  * @param param0
@@ -12,11 +12,12 @@ import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
 
 const ExchangeCoinInput: React.FC<{
   swap: SwapType;
-  tag?: string;
+  position: 0 | 1;
   hasDefault?: boolean;
   className?: string;
-}> = ({ swap, tag, hasDefault, className }) => {
-  const token = useSwapTokenSelect((state) => state.getToken(tag));
+}> = ({ swap, position, hasDefault, className }) => {
+  // 使用选择器只订阅对应位置的 token，避免不必要的重新渲染
+  const token = useSwapTokenSelect((state) => state.tokens[position]);
 
   const onChange = useCallback((value: string) => {
     console.log("Input changed:", value);
@@ -42,7 +43,7 @@ const ExchangeCoinInput: React.FC<{
           }}
         />
         {/* 选择代币 */}
-        <TokenSelectButton tag={tag}  />
+        <TokenSelectButton position={position} />
       </div>
       <>
         {token ? (
@@ -55,4 +56,4 @@ const ExchangeCoinInput: React.FC<{
   );
 };
 
-export default ExchangeCoinInput;
+export default React.memo(ExchangeCoinInput);

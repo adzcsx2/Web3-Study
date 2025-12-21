@@ -2,7 +2,7 @@ import React from "react";
 import { Typography, Avatar, Button } from "antd";
 import { SwapOutlined } from "@ant-design/icons";
 import { SwapToken } from "@/types/";
-import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
 
 const { Text } = Typography;
 
@@ -17,14 +17,17 @@ const LockedTokenDisplay: React.FC<LockedTokenDisplayProps> = ({
   label,
   className = "",
 }) => {
-  const token = useSwapTokenSelect((state) => state.getToken(tag));
+  const tokens = useSwapTokenSelect((state) => state.tokens);
+  const token = tag === "1" ? tokens[0] : tokens[1];
 
   return (
-    <div className={`border border-gray-200 rounded-xl p-3 bg-gray-50 ${className}`}>
+    <div
+      className={`border border-gray-200 rounded-xl p-3 bg-gray-50 ${className}`}
+    >
       <Text className="text-gray-500 text-xs block mb-2">{label}</Text>
       <div className="flex items-center gap-2">
         <Avatar
-          src={token?.tokenLogoURI}
+          src={token?.tokenLogoURI ? token.tokenLogoURI : undefined}
           size="small"
           className="!flex-shrink-0"
         >

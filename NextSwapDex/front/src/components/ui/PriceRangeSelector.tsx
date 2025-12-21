@@ -2,7 +2,7 @@ import React, { useState, useCallback } from "react";
 import { Typography, Card, Switch, Input, Button, Slider } from "antd";
 import { SwapOutlined, SettingOutlined } from "@ant-design/icons";
 import { SwapToken } from "@/types/";
-import { useSwapTokenSelect } from "@/hooks/swaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
 
 const { Title, Text } = Typography;
 
@@ -26,7 +26,7 @@ interface PriceRange {
 const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
   minPrice,
   maxPrice,
-  currentPrice = "2000.00",
+  currentPrice = "2000",
   onRangeChange,
   onToggleFullRange,
   onNextStep,
@@ -40,38 +40,48 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
     isFullRange: true,
   });
 
-  const token0 = useSwapTokenSelect((state) => state.getToken("1"));
-  const token1 = useSwapTokenSelect((state) => state.getToken("2"));
+  const tokens = useSwapTokenSelect((state) => state.tokens);
+  const token0 = tokens[0];
+  const token1 = tokens[1];
 
-  const handleToggleFullRange = useCallback((checked: boolean) => {
-    setIsFullRange(checked);
-    setRange(prev => ({ ...prev, isFullRange: checked }));
-    onToggleFullRange(checked);
+  const handleToggleFullRange = useCallback(
+    (checked: boolean) => {
+      setIsFullRange(checked);
+      setRange((prev) => ({ ...prev, isFullRange: checked }));
+      onToggleFullRange(checked);
 
-    if (checked) {
-      // 全范围
-      onRangeChange("0.00", "1000000.00");
-    }
-  }, [onToggleFullRange]);
+      if (checked) {
+        // 全范围
+        onRangeChange("0.00", "1000000.00");
+      }
+    },
+    [onToggleFullRange]
+  );
 
-  const handleMinPriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (value === "" || /^\d*\.?\d*$/.test(value)) {
-      setRange(prev => ({ ...prev, minPrice: value }));
-      onRangeChange(value, range.maxPrice);
-    }
-  }, [onRangeChange, range.maxPrice]);
+  const handleMinPriceChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      if (value === "" || /^\d*\.?\d*$/.test(value)) {
+        setRange((prev) => ({ ...prev, minPrice: value }));
+        onRangeChange(value, range.maxPrice);
+      }
+    },
+    [onRangeChange, range.maxPrice]
+  );
 
-  const handleMaxPriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (value === "" || /^\d*\.?\d*$/.test(value)) {
-      setRange(prev => ({ ...prev, maxPrice: value }));
-      onRangeChange(range.minPrice, value);
-    }
-  }, [onRangeChange, range.minPrice]);
+  const handleMaxPriceChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      if (value === "" || /^\d*\.?\d*$/.test(value)) {
+        setRange((prev) => ({ ...prev, maxPrice: value }));
+        onRangeChange(range.minPrice, value);
+      }
+    },
+    [onRangeChange, range.minPrice]
+  );
 
   const handleSetCurrentPrice = useCallback(() => {
-    setRange(prev => ({
+    setRange((prev) => ({
       ...prev,
       minPrice: currentPrice,
       maxPrice: currentPrice,
@@ -82,7 +92,7 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
   const formatPrice = (price: string) => {
     const num = parseFloat(price);
     if (isNaN(num)) return "0.00";
-    return num.toLocaleString('en-US', {
+    return num.toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 6,
     });
@@ -93,7 +103,9 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
       <div className="space-y-6">
         {/* 标题 */}
         <div className="flex justify-between items-center">
-          <Title level={4} className="!mb-0">设定价格区间</Title>
+          <Title level={4} className="!mb-0">
+            设定价格区间
+          </Title>
           <div className="flex items-center gap-2">
             <Text className="text-gray-500 text-sm">全范围</Text>
             <Switch
@@ -134,7 +146,9 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
             {/* 价格范围输入 */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Text className="text-gray-500 text-sm block mb-2">最低价格</Text>
+                <Text className="text-gray-500 text-sm block mb-2">
+                  最低价格
+                </Text>
                 <Input
                   value={range.minPrice}
                   onChange={handleMinPriceChange}
@@ -148,7 +162,9 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
                 />
               </div>
               <div>
-                <Text className="text-gray-500 text-sm block mb-2">最高价格</Text>
+                <Text className="text-gray-500 text-sm block mb-2">
+                  最高价格
+                </Text>
                 <Input
                   value={range.maxPrice}
                   onChange={handleMaxPriceChange}
