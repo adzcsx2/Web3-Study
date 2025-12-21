@@ -2,7 +2,7 @@ import React, { useCallback, useMemo } from "react";
 import { Typography, Button, Avatar } from "antd";
 import { DownOutlined } from "@ant-design/icons";
 import { SwapToken } from "@/types/";
-import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwapTokenSelect";
 
 // 内部按钮组件，使用 React.memo 优化
 const TokenButtonContent = React.memo<{

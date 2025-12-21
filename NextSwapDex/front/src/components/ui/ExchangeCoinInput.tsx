@@ -3,7 +3,7 @@ import { Layout, Menu, Typography, InputNumber, Input } from "antd";
 import TokenSelectButton from "./button/TokenSelectButton";
 import { SwapToken, SwapType } from "@/types/";
 import { useState } from "react";
-import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwapTokenSelect";
 /**
  * 交易的币种输入组件
  * @param param0

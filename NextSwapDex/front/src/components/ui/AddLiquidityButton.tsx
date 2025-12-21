@@ -2,7 +2,7 @@ import React, { useState, useCallback } from "react";
 import { Button, Typography, message, Modal } from "antd";
 import { LoadingOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { SwapToken, AddLiquidityParams, LiquidityPoolInfo } from "@/types/";
-import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwapTokenSelect";
 import {
   useAccount,
   useWriteContract,
@@ -50,9 +50,9 @@ const AddLiquidityButton: React.FC<AddLiquidityButtonProps> = ({
   const { address, isConnected } = useAccount();
   const { writeContract } = useWriteContract();
 
-  const tokens = useSwapTokenSelect((state) => state.tokens);
-  const token0 = tokens[0];
-  const token1 = tokens[1];
+  // 分别订阅两个 token，避免不必要的重新渲染
+  const token0 = useSwapTokenSelect((state) => state.tokens[0]);
+  const token1 = useSwapTokenSelect((state) => state.tokens[1]);
 
   // 检查是否可以添加流动性
   const canAddLiquidity = React.useMemo(() => {

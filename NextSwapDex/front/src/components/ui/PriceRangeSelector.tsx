@@ -2,7 +2,7 @@ import React, { useState, useCallback } from "react";
 import { Typography, Card, Switch, Input, Button, Slider } from "antd";
 import { SwapOutlined, SettingOutlined } from "@ant-design/icons";
 import { SwapToken } from "@/types/";
-import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwapTokenSelect";
 
 const { Title, Text } = Typography;
 
@@ -40,9 +40,9 @@ const PriceRangeSelector: React.FC<PriceRangeSelectorProps> = ({
     isFullRange: true,
   });
 
-  const tokens = useSwapTokenSelect((state) => state.tokens);
-  const token0 = tokens[0];
-  const token1 = tokens[1];
+  // 分别订阅两个 token，避免不必要的重新渲染
+  const token0 = useSwapTokenSelect((state) => state.tokens[0]);
+  const token1 = useSwapTokenSelect((state) => state.tokens[1]);
 
   const handleToggleFullRange = useCallback(
     (checked: boolean) => {

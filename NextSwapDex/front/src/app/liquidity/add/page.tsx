@@ -14,10 +14,11 @@ import FeeTierSelector from "@/components/ui/FeeTierSelector";
 import PriceRangeSelector from "@/components/ui/PriceRangeSelector";
 import CreatePoolWarning from "@/components/ui/CreatePoolWarning";
 import { TokenPairDisplay } from "@/components/ui/LockedTokenDisplay";
-import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwapTokenSelect";
 import { TAG_TOKEN_SELECT } from "@/types/Enum";
 import { LiquidityPoolInfo, AddLiquidityParams } from "@/types/";
 import { useInitToken } from "@/hooks/useInitToken";
+import SelectTokenModal from "@/components/ui/modal/SelectTokenModal";
 
 const { Title, Text } = Typography;
 
@@ -35,18 +36,10 @@ const LiquidityAddPage: React.FC = () => {
   const [initialPrice, setInitialPrice] = useState<string>("");
   const [tokensLocked, setTokensLocked] = useState(false); // 新增代币锁定状态
 
-  const tokens = useSwapTokenSelect((state) => state.tokens);
-  const token0 = tokens[0];
-  const token1 = tokens[1];
-
-  console.log(
-    "LiquidityAddPage - tokens:",
-    tokens,
-    "token0:",
-    token0,
-    "token1:",
-    token1
-  );
+  // 分别订阅两个 token，避免不必要的重新渲染
+  const token0 = useSwapTokenSelect((state) => state.tokens[0]);
+  const token1 = useSwapTokenSelect((state) => state.tokens[1]);
+  const { showTokenSelect, setShowTokenSelect } = useSwapTokenSelect();
 
   const initToken = useInitToken();
 
@@ -476,6 +469,12 @@ const LiquidityAddPage: React.FC = () => {
         {/* 主要内容区域 */}
         <Tabs defaultActiveKey="input" items={tabItems} className="!mb-6" />
       </div>
+
+      {/* 全局代币选择弹窗 - 只创建一个实例 */}
+      <SelectTokenModal
+        open={showTokenSelect}
+        onClose={() => setShowTokenSelect(false)}
+      />
     </main>
   );
 };

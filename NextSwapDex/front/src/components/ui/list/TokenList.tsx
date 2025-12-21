@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from "react";
 import { List, Avatar } from "antd";
 import { SwapToken } from "@/types/";
-import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwapTokenSelect";
 import { TokenService } from "@/services/tokenService";
 import { useWalletClient } from "wagmi";
 

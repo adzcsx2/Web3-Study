@@ -5,7 +5,7 @@ import { SearchOutlined } from "@ant-design/icons";
 import { TokenService } from "@/services/tokenService";
 import { useAccount } from "wagmi";
 import TokenList from "../list/TokenList";
-import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwapTokenSelect";
 
 interface SelectTokenModalProps {
   open: boolean;

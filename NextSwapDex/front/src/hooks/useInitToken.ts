@@ -1,5 +1,5 @@
 import { useWalletClient } from "wagmi";
-import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwapTokenSelect";
 import { useEffect, useCallback, useMemo } from "react";
 import { SwapToken } from "@/types/";
 import { TokenService } from "@/services/tokenService";

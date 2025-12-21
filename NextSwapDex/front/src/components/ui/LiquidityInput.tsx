@@ -3,7 +3,7 @@ import { Typography, Input, Button, Space } from "antd";
 import { PlusOutlined, SwapOutlined } from "@ant-design/icons";
 import TokenSelectButton from "./button/TokenSelectButton";
 import { SwapToken, LiquidityState } from "@/types/";
-import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwapTokenSelect";
 
 interface LiquidityTokenInputProps {
   position: 0 | 1;
@@ -24,8 +24,8 @@ const LiquidityTokenInput: React.FC<LiquidityTokenInputProps> = ({
   showMax = false,
   className = "",
 }) => {
-  const tokens = useSwapTokenSelect((state) => state.tokens);
-  const token = tokens[position];
+  // 只订阅对应位置的 token，避免不必要的重新渲染
+  const token = useSwapTokenSelect((state) => state.tokens[position]);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,98 +85,102 @@ interface LiquidityInputProps {
   className?: string;
 }
 
-const LiquidityInput: React.FC<LiquidityInputProps> = ({
-  onAmountChange,
-  onSwapTokens,
-  allowTokenSwap = false,
-  className = "",
-}) => {
-  const [token0Amount, setToken0Amount] = useState("");
-  const [token1Amount, setToken1Amount] = useState("");
+const LiquidityInput: React.FC<LiquidityInputProps> = React.memo(
+  ({
+    onAmountChange,
+    onSwapTokens,
+    allowTokenSwap = false,
+    className = "",
+  }) => {
+    const [token0Amount, setToken0Amount] = useState("");
+    const [token1Amount, setToken1Amount] = useState("");
 
-  const tokens = useSwapTokenSelect((state) => state.tokens);
-  const token0 = tokens[0];
-  const token1 = tokens[1];
+    // 分别订阅两个 token，避免不必要的重新渲染
+    const token0 = useSwapTokenSelect((state) => state.tokens[0]);
+    const token1 = useSwapTokenSelect((state) => state.tokens[1]);
 
-  const handleToken0Change = useCallback(
-    (value: string) => {
-      setToken0Amount(value);
-      // 这里可以添加价格计算逻辑，自动计算另一个代币的数量
-      if (onAmountChange) {
-        onAmountChange(value, token1Amount);
+    const handleToken0Change = useCallback(
+      (value: string) => {
+        setToken0Amount(value);
+        // 这里可以添加价格计算逻辑，自动计算另一个代币的数量
+        if (onAmountChange) {
+          onAmountChange(value, token1Amount);
+        }
+      },
+      [onAmountChange, token1Amount]
+    );
+
+    const handleToken1Change = useCallback(
+      (value: string) => {
+        setToken1Amount(value);
+        if (onAmountChange) {
+          onAmountChange(token0Amount, value);
+        }
+      },
+      [onAmountChange, token0Amount]
+    );
+
+    const handleMax0 = useCallback(() => {
+      if (token0 && token0.balance) {
+        setToken0Amount(token0.balance);
+        if (onAmountChange) {
+          onAmountChange(token0.balance, token1Amount);
+        }
       }
-    },
-    [onAmountChange, token1Amount]
-  );
+    }, [token0, onAmountChange, token1Amount]);
 
-  const handleToken1Change = useCallback(
-    (value: string) => {
-      setToken1Amount(value);
-      if (onAmountChange) {
-        onAmountChange(token0Amount, value);
+    const handleMax1 = useCallback(() => {
+      if (token1 && token1.balance) {
+        setToken1Amount(token1.balance);
+        if (onAmountChange) {
+          onAmountChange(token0Amount, token1.balance);
+        }
       }
-    },
-    [onAmountChange, token0Amount]
-  );
+    }, [token1, onAmountChange, token0Amount]);
 
-  const handleMax0 = useCallback(() => {
-    if (token0 && token0.balance) {
-      setToken0Amount(token0.balance);
-      if (onAmountChange) {
-        onAmountChange(token0.balance, token1Amount);
-      }
-    }
-  }, [token0, onAmountChange, token1Amount]);
+    return (
+      <div className={`space-y-4 ${className}`}>
+        <LiquidityTokenInput
+          position={0}
+          title="输入"
+          value={token0Amount}
+          onChange={handleToken0Change}
+          onMax={handleMax0}
+          showMax={true}
+        />
 
-  const handleMax1 = useCallback(() => {
-    if (token1 && token1.balance) {
-      setToken1Amount(token1.balance);
-      if (onAmountChange) {
-        onAmountChange(token0Amount, token1.balance);
-      }
-    }
-  }, [token1, onAmountChange, token0Amount]);
+        <div className="flex justify-center items-center">
+          {allowTokenSwap ? (
+            <Button
+              type="text"
+              icon={<SwapOutlined />}
+              onClick={onSwapTokens}
+              className="!border-2 !border-gray-200 !rounded-full !w-10 !h-10 !flex !items-center !justify-center hover:!border-blue-300 hover:!text-blue-500"
+              title="交换代币位置"
+            />
+          ) : (
+            <Button
+              type="text"
+              icon={<SwapOutlined />}
+              className="!border-2 !border-gray-200 !rounded-full !w-10 !h-10 !flex !items-center !justify-center"
+              disabled
+            />
+          )}
+        </div>
 
-  return (
-    <div className={`space-y-4 ${className}`}>
-      <LiquidityTokenInput
-        position={0}
-        title="输入"
-        value={token0Amount}
-        onChange={handleToken0Change}
-        onMax={handleMax0}
-        showMax={true}
-      />
-
-      <div className="flex justify-center items-center">
-        {allowTokenSwap ? (
-          <Button
-            type="text"
-            icon={<SwapOutlined />}
-            onClick={onSwapTokens}
-            className="!border-2 !border-gray-200 !rounded-full !w-10 !h-10 !flex !items-center !justify-center hover:!border-blue-300 hover:!text-blue-500"
-            title="交换代币位置"
-          />
-        ) : (
-          <Button
-            type="text"
-            icon={<SwapOutlined />}
-            className="!border-2 !border-gray-200 !rounded-full !w-10 !h-10 !flex !items-center !justify-center"
-            disabled
-          />
-        )}
+        <LiquidityTokenInput
+          position={1}
+          title="输入 (预估)"
+          value={token1Amount}
+          onChange={handleToken1Change}
+          onMax={handleMax1}
+          showMax={true}
+        />
       </div>
+    );
+  }
+);
 
-      <LiquidityTokenInput
-        position={1}
-        title="输入 (预估)"
-        value={token1Amount}
-        onChange={handleToken1Change}
-        onMax={handleMax1}
-        showMax={true}
-      />
-    </div>
-  );
-};
+LiquidityInput.displayName = "LiquidityInput";
 
 export default LiquidityInput;

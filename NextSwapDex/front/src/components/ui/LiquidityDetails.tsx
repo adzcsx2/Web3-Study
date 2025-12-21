@@ -2,7 +2,7 @@ import React from "react";
 import { Typography, Card, Space, Divider, Switch } from "antd";
 import { InfoCircleOutlined, SettingOutlined } from "@ant-design/icons";
 import { SwapToken, LiquidityPoolInfo } from "@/types/";
-import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwapTokenSelect";
 
 const { Text, Title } = Typography;
 
@@ -35,9 +35,9 @@ const LiquidityDetails: React.FC<LiquidityDetailsProps> = ({
     multiHop: false,
   });
 
-  const tokens = useSwapTokenSelect((state) => state.tokens);
-  const token0 = tokens[0];
-  const token1 = tokens[1];
+  // 分别订阅两个 token，避免不必要的重新渲染
+  const token0 = useSwapTokenSelect((state) => state.tokens[0]);
+  const token1 = useSwapTokenSelect((state) => state.tokens[1]);
 
   const handleSettingsChange = (newSettings: Partial<LiquiditySettings>) => {
     const updatedSettings = { ...settings, ...newSettings };

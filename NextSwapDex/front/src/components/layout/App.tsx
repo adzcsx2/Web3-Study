@@ -8,7 +8,7 @@ import { SwapToken } from "@/types/";
 const { Header, Content, Footer } = Layout;
 import ChangeSwapButton from "../ui/button/ExchangeSwapButton";
 import { WalletConnectComponent } from "../ui/WalletConnectComponent";
-import { useSwapTokenSelect } from "@/hooks/useSwaptokenSelect";
+import { useSwapTokenSelect } from "@/hooks/useSwapTokenSelect";
 import { TAG_TOKEN_SELECT } from "@/types/Enum";
 import { Path } from "@/router/path";
 import { useRouter } from "next/navigation";
