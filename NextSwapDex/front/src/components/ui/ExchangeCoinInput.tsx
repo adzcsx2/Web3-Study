@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect } from "react";
-import { Layout, Menu, Typography, InputNumber, Input } from "antd";
+import React, { useCallback } from "react";
+import { Typography, Input } from "antd";
 import TokenSelectButton from "./button/TokenSelectButton";
-import { SwapToken, SwapType } from "@/types/";
-import { useState } from "react";
+import TokenBalanceDisplay from "./TokenBalanceDisplay";
+import { SwapType } from "@/types/";
 import { useSwapTokenSelect } from "@/hooks/useSwapTokenSelect";
 /**
  * 交易的币种输入组件
@@ -45,13 +45,11 @@ const ExchangeCoinInput: React.FC<{
         {/* 选择代币 */}
         <TokenSelectButton position={position} />
       </div>
-      <>
-        {token ? (
-          <Typography.Text className="!block !ml-auto !w-fit !text-lg !text-gray-500 !text-[0.8rem] mr-2">
-            {`${parseFloat(token.balance).toFixed(6)} ${token.tokenSymbol}`}
-          </Typography.Text>
-        ) : null}
-      </>
+      <TokenBalanceDisplay
+        token={token}
+        className="!block !ml-auto !w-fit !text-lg !text-gray-500 !text-[0.8rem] mr-2"
+        prefix=""
+      />
     </div>
   );
 };

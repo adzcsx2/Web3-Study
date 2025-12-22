@@ -4,7 +4,6 @@ import { Button, Layout, Menu, Typography } from "antd";
 import Image from "next/image";
 import styles from "./App.module.css";
 import ExchangeCoinInput from "../ui/ExchangeCoinInput";
-import { SwapToken } from "@/types/";
 const { Header, Content, Footer } = Layout;
 import ChangeSwapButton from "../ui/button/ExchangeSwapButton";
 import { WalletConnectComponent } from "../ui/WalletConnectComponent";

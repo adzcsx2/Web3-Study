@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Typography, Input, Button, Space } from "antd";
-import { PlusOutlined, SwapOutlined } from "@ant-design/icons";
+import React, { useCallback, useState } from "react";
+import { Typography, Input, Button } from "antd";
+import { SwapOutlined } from "@ant-design/icons";
 import TokenSelectButton from "./button/TokenSelectButton";
-import { SwapToken, LiquidityState } from "@/types/";
+import TokenBalanceDisplay from "./TokenBalanceDisplay";
+import { SwapToken } from "@/types/";
 import { useSwapTokenSelect } from "@/hooks/useSwapTokenSelect";
 
 interface LiquidityTokenInputProps {
@@ -69,11 +70,10 @@ const LiquidityTokenInput: React.FC<LiquidityTokenInputProps> = ({
         <TokenSelectButton position={position} className="!ml-4" />
       </div>
 
-      {token && (
-        <Typography.Text className="!block !text-right !text-gray-400 !text-sm mt-2">
-          余额: {parseFloat(token.balance).toFixed(6)} {token.tokenSymbol}
-        </Typography.Text>
-      )}
+      <TokenBalanceDisplay
+        token={token}
+        className="!block !text-right mt-2"
+      />
     </div>
   );
 };
